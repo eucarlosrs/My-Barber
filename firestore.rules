@@ -1,0 +1,262 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ----------------------------------------------------
+    // HELPER FUNCTIONS & AUTHENTICATION
+    // ----------------------------------------------------
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == 'carlosrs.email@gmail.com' ||
+        request.auth.token.role == 'SUPER_ADMIN' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'SUPER_ADMIN'
+      );
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isOwnerOfTenant(tenantId) {
+      return isAuthenticated() && (
+        isSuperAdmin() ||
+        (getUserData().tenantId == tenantId && getUserData().role == 'PROPRIETARIO')
+      );
+    }
+
+    function isManagerOrOwnerOfTenant(tenantId) {
+      return isAuthenticated() && (
+        isSuperAdmin() ||
+        (getUserData().tenantId == tenantId && (getUserData().role == 'PROPRIETARIO' || getUserData().role == 'GERENTE'))
+      );
+    }
+
+    function isProfessionalOfTenant(tenantId) {
+      return isAuthenticated() && (
+        isSuperAdmin() ||
+        (getUserData().tenantId == tenantId && getUserData().role == 'PROFISSIONAL')
+      );
+    }
+
+    function isMemberOfTenant(tenantId) {
+      return isAuthenticated() && (
+        isSuperAdmin() ||
+        getUserData().tenantId == tenantId
+      );
+    }
+
+    // ----------------------------------------------------
+    // 1. BARBERSHOPS (TENANTS)
+    // ----------------------------------------------------
+    match /barbershops/{barbershopId} {
+      // Leitura pública (necessária para catálogo, agendamento de clientes e visualização do link)
+      allow read: if true;
+      // Criação, atualização e exclusão restritas ao Super Admin ou Proprietário do estabelecimento
+      allow create: if isSuperAdmin();
+      allow update: if isSuperAdmin() || isOwnerOfTenant(barbershopId);
+      allow delete: if isSuperAdmin();
+    }
+
+    // ----------------------------------------------------
+    // 2. USERS (USUÁRIOS E PERMISSÕES BLINDADAS)
+    // ----------------------------------------------------
+    match /users/{userId} {
+      // Usuário pode ler seu próprio documento, ou membros do mesmo estabelecimento/Super Admin
+      allow read: if isAuthenticated() && (
+        request.auth.uid == userId ||
+        isSuperAdmin() ||
+        resource.data.tenantId == getUserData().tenantId
+      );
+
+      // CRIAÇÃO SEGURA:
+      // 1. Super Admin (Dono da plataforma) pode criar qualquer tipo de usuário
+      // 2. Proprietário/Gerente do estabelecimento só pode criar PROFISSIONAL no seu próprio tenant
+      // 3. Auto-cadastro público (cliente se cadastrando via Google ou formulário) só pode criar role == 'CLIENTE'
+      // NENHUM usuário comum consegue criar contas com role 'SUPER_ADMIN', 'PROPRIETARIO' ou 'GERENTE'
+      allow create: if isSuperAdmin() || (
+        isAuthenticated() && (
+          (
+            isManagerOrOwnerOfTenant(request.resource.data.tenantId) &&
+            request.resource.data.role == 'PROFISSIONAL'
+          ) ||
+          (
+            request.auth.uid == userId &&
+            request.resource.data.role == 'CLIENTE'
+          )
+        )
+      );
+
+      // ATUALIZAÇÃO BLINDADA:
+      // 1. Super Admin pode atualizar tudo
+      // 2. Usuário comum atualizando seu próprio perfil NÃO pode alterar seu 'role' nem seu 'tenantId'
+      // 3. Gestores (Proprietário/Gerente) só podem atualizar membros do seu tenant e NUNCA elevar para SUPER_ADMIN ou PROPRIETARIO
+      allow update: if isSuperAdmin() || (
+        isAuthenticated() && (
+          (
+            request.auth.uid == userId &&
+            request.resource.data.role == resource.data.role &&
+            request.resource.data.tenantId == resource.data.tenantId
+          ) ||
+          (
+            isManagerOrOwnerOfTenant(resource.data.tenantId) &&
+            resource.data.role != 'SUPER_ADMIN' &&
+            resource.data.role != 'PROPRIETARIO' &&
+            request.resource.data.role != 'SUPER_ADMIN' &&
+            request.resource.data.role != 'PROPRIETARIO'
+          )
+        )
+      );
+
+      // EXCLUSÃO:
+      // Somente Super Admin ou Proprietário do estabelecimento excluindo profissional da sua equipe
+      allow delete: if isSuperAdmin() || (
+        isAuthenticated() &&
+        isOwnerOfTenant(resource.data.tenantId) &&
+        resource.data.role == 'PROFISSIONAL' &&
+        request.auth.uid != userId
+      );
+    }
+
+    // ----------------------------------------------------
+    // 3. SERVICES (SERVIÇOS)
+    // ----------------------------------------------------
+    match /services/{serviceId} {
+      allow read: if true; // Leitura pública para agendamento
+      allow create, update, delete: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId || resource.data.tenantId);
+    }
+
+    // ----------------------------------------------------
+    // 4. SCHEDULES (HORÁRIOS DOS PROFISSIONAIS)
+    // ----------------------------------------------------
+    match /schedules/{scheduleId} {
+      allow read: if true; // Leitura pública dos horários disponíveis
+      allow create, update: if isSuperAdmin() || (
+        isAuthenticated() && (
+          isManagerOrOwnerOfTenant(request.resource.data.tenantId || resource.data.tenantId) ||
+          request.auth.uid == request.resource.data.professionalId ||
+          request.auth.uid == resource.data.professionalId
+        )
+      );
+      allow delete: if isSuperAdmin() || isManagerOrOwnerOfTenant(resource.data.tenantId);
+    }
+
+    // ----------------------------------------------------
+    // 5. APPOINTMENTS (AGENDAMENTOS)
+    // ----------------------------------------------------
+    match /appointments/{appointmentId} {
+      // Leitura:
+      // - Super Admin: tudo
+      // - Proprietário / Gerente: todos do seu tenant
+      // - Profissional com canViewAllProfessionals: todos do seu tenant
+      // - Profissional individual: apenas seus agendamentos
+      // - Cliente: apenas seus próprios agendamentos
+      allow read: if isSuperAdmin() || (
+        isAuthenticated() && (
+          (isManagerOrOwnerOfTenant(resource.data.tenantId)) ||
+          (resource.data.tenantId == getUserData().tenantId && getUserData().canViewAllProfessionals == true) ||
+          (resource.data.professionalId == request.auth.uid) ||
+          (resource.data.customerId == request.auth.uid || resource.data.customerWhatsapp == getUserData().whatsapp)
+        )
+      );
+
+      // Criação:
+      // - Qualquer cliente autenticado para seu próprio agendamento
+      // - Profissional criando encaixe no seu tenant
+      // - Proprietário/Gerente/Super Admin
+      allow create: if isSuperAdmin() || (
+        isAuthenticated() && (
+          isMemberOfTenant(request.resource.data.tenantId) ||
+          request.resource.data.customerId == request.auth.uid
+        )
+      );
+
+      // Atualização (cancelar, concluir, reagendar):
+      allow update: if isSuperAdmin() || (
+        isAuthenticated() && (
+          isManagerOrOwnerOfTenant(resource.data.tenantId) ||
+          resource.data.professionalId == request.auth.uid ||
+          resource.data.customerId == request.auth.uid
+        )
+      );
+
+      // Exclusão restrita à gestão da barbearia ou Super Admin
+      allow delete: if isSuperAdmin() || isManagerOrOwnerOfTenant(resource.data.tenantId);
+    }
+
+    // ----------------------------------------------------
+    // 6. PACKAGES & CUSTOMER PACKAGES
+    // ----------------------------------------------------
+    match /packages/{packageId} {
+      allow read: if true;
+      allow write: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId || resource.data.tenantId);
+    }
+
+    match /customerPackages/{cpId} {
+      allow read: if isAuthenticated() && (
+        isSuperAdmin() ||
+        isManagerOrOwnerOfTenant(resource.data.tenantId) ||
+        resource.data.customerId == request.auth.uid
+      );
+      allow write: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId || resource.data.tenantId);
+    }
+
+    // ----------------------------------------------------
+    // 7. WAITLIST (FILA DE ESPERA)
+    // ----------------------------------------------------
+    match /waitlist/{entryId} {
+      allow read, write: if isSuperAdmin() || isMemberOfTenant(request.resource.data.tenantId || resource.data.tenantId);
+    }
+
+    // ----------------------------------------------------
+    // 8. RAFFLES, PROMOTIONS & COMMUNICATIONS
+    // ----------------------------------------------------
+    match /raffles/{raffleId} {
+      allow read: if true;
+      allow write: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId || resource.data.tenantId);
+    }
+
+    match /promotions/{promoId} {
+      allow read: if true;
+      allow write: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId || resource.data.tenantId);
+    }
+
+    match /communications/{commId} {
+      allow read, write: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId || resource.data.tenantId);
+    }
+
+    match /returnMessages/{msgId} {
+      allow read, write: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId || resource.data.tenantId);
+    }
+
+    match /stock/{stockId} {
+      allow read, write: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId || resource.data.tenantId);
+    }
+
+    // ----------------------------------------------------
+    // 9. GALLERY & STORIES
+    // ----------------------------------------------------
+    match /gallery/{workId} {
+      allow read: if true;
+      allow write: if isSuperAdmin() || isMemberOfTenant(request.resource.data.tenantId || resource.data.tenantId);
+    }
+
+    match /stories/{storyId} {
+      allow read: if true;
+      allow write: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId || resource.data.tenantId);
+    }
+
+    // ----------------------------------------------------
+    // 10. AUDIT LOGS (EXCLUSIVO MASTER / SUPER ADMIN)
+    // ----------------------------------------------------
+    match /audit_logs/{logId} {
+      // Leitura e gerenciamento estritamente restritos ao Master Admin da plataforma
+      allow read: if isSuperAdmin();
+      allow create: if isSuperAdmin();
+      allow update, delete: if false; // Logs de auditoria são imutáveis
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "entities": {
+    "barbershops": {
+      "title": "Barbearias Cadastradas",
+      "description": "Dados das barbearias parceiras, planos contratados, identidade visual, redes e horários de funcionamento",
+      "type": "object"
+    },
+    "users": {
+      "title": "Usuários e Acessos",
+      "description": "Proprietários, gerentes, barbeiros e clientes com WhatsApp, Google Auth e Aniversários",
+      "type": "object"
+    },
+    "services": {
+      "title": "Catálogo de Serviços",
+      "description": "Serviços, categorias, duração e preços por barbearia",
+      "type": "object"
+    },
+    "appointments": {
+      "title": "Agendamentos",
+      "description": "Agendamentos de clientes, profissionais, status, valores e horários",
+      "type": "object"
+    },
+    "products": {
+      "title": "Estoque e Produtos",
+      "description": "Produtos à venda, controle de estoque e custos",
+      "type": "object"
+    },
+    "packages": {
+      "title": "Planos e Pacotes de Cortes",
+      "description": "Pacotes mensais/recorrentes para clientes da barbearia",
+      "type": "object"
+    },
+    "raffles": {
+      "title": "Sorteios dos 60 Dias",
+      "description": "Sorteios automáticos de fidelização para clientes que cortaram cabelo nos últimos 60 dias",
+      "type": "object"
+    },
+    "promotions": {
+      "title": "Promoções e Cupons",
+      "description": "Cupons de desconto, banners de novidades e campanhas",
+      "type": "object"
+    },
+    "gallery": {
+      "title": "Galeria de Cortes e Trabalhos",
+      "description": "Portfólio de cortes, degradês, barboterapia, químicas e fotos reais de clientes",
+      "type": "object"
+    },
+    "stories": {
+      "title": "Stories e Novidades",
+      "description": "Stories visuais e novidades postadas pelas barbearias",
+      "type": "object"
+    },
+    "audit_logs": {
+      "title": "Auditoria de Ações Administrativas",
+      "description": "Histórico seguro e imutável de ações executadas pelo Super/Master Admin e gestores",
+      "type": "object"
+    }
+  }
+}
