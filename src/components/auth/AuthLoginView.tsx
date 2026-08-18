@@ -142,10 +142,24 @@ export const AuthLoginView: React.FC = () => {
       <div className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12 flex-1 flex flex-col justify-center">
         
         {/* Top Header - Clean and Direct */}
-        <div className="text-center max-w-2xl mx-auto mb-8">
+        <div className="text-center max-w-2xl mx-auto mb-8 flex flex-col items-center">
           <h1 className="text-3xl sm:text-4xl font-extrabold text-neutral-100 tracking-tight font-heading">
             MY <span className="text-orange-500">BARBER</span>
           </h1>
+
+          {/* White Mustache Badge (Identical to reference image) */}
+          <div className="mt-2.5 flex items-center justify-center">
+            <svg
+              className="w-20 h-9 sm:w-24 sm:h-11 text-white drop-shadow-[0_2px_10px_rgba(255,255,255,0.2)]"
+              viewBox="0 0 200 80"
+              fill="currentColor"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M 100 32 C 86 16, 66 16, 52 24 C 38 32, 28 42, 21 44 C 17 35, 20 25, 30 25 C 35 25, 39 31, 39 36 C 33 19, 20 17, 10 28 C 4 37, 5 54, 15 64 C 25 74, 40 76, 58 74 C 74 72, 90 62, 100 48 C 110 62, 126 72, 142 74 C 160 76, 175 74, 185 64 C 195 54, 196 37, 190 28 C 180 17, 167 19, 161 36 C 161 31, 165 25, 170 25 C 180 25, 183 35, 179 44 C 172 42, 162 32, 148 24 C 134 16, 114 16, 100 32 Z"
+              />
+            </svg>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start max-w-4xl mx-auto w-full">
