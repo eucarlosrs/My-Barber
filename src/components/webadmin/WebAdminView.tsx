@@ -27,15 +27,17 @@ import {
   Tag,
   Camera,
   Upload,
+  Pencil,
   Image as ImageIcon
 } from 'lucide-react';
-import { MY_BARBER_PLANS, UserRole } from '../../types';
+import { MY_BARBER_PLANS, UserRole, Service } from '../../types';
 import { ProfessionalsTab } from './ProfessionalsTab';
 import { AppointmentsTab } from './AppointmentsTab';
 import { RafflesTab } from './RafflesTab';
 import { PromotionsTab } from './PromotionsTab';
 import { GalleryTab } from './GalleryTab';
 import { AppImage } from '../common/AppImage';
+import { ImageEditModal, ImagePreset } from '../common/ImageEditModal';
 
 export const WebAdminView: React.FC = () => {
   const {
@@ -64,6 +66,13 @@ export const WebAdminView: React.FC = () => {
   >('DASHBOARD');
 
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+  // Quick Image Edit Modal States
+  const [showLogoEditModal, setShowLogoEditModal] = useState(false);
+  const [showBannerEditModal, setShowBannerEditModal] = useState(false);
+  const [editingSalonImageIdx, setEditingSalonImageIdx] = useState<number | null>(null);
+  const [isAddingSalonImage, setIsAddingSalonImage] = useState(false);
+  const [editingServiceForImage, setEditingServiceForImage] = useState<Service | null>(null);
 
   // Form states
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
@@ -375,27 +384,16 @@ export const WebAdminView: React.FC = () => {
                     </span>
                   </div>
 
-                  {/* Upload/Change Photo Button */}
-                  <label className="absolute bottom-2 right-2 bg-neutral-900/90 hover:bg-neutral-800 text-neutral-200 border border-neutral-700 p-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer shadow-md backdrop-blur-sm opacity-90 group-hover:opacity-100 transition-opacity">
-                    <Upload className="w-3 h-3 text-amber-400" />
-                    <span>Trocar Foto</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          try {
-                            const url = await uploadMedia(file, 'services');
-                            updateService(srv.id, { imageUrl: url });
-                          } catch (err) {
-                            console.error(err);
-                          }
-                        }
-                      }}
-                      className="hidden"
-                    />
-                  </label>
+                  {/* Edit Photo Button with Pencil */}
+                  <button
+                    type="button"
+                    onClick={() => setEditingServiceForImage(srv)}
+                    className="absolute bottom-2 right-2 bg-neutral-900/90 hover:bg-orange-500 hover:text-neutral-950 text-neutral-200 border border-neutral-700 hover:border-orange-500 p-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer shadow-md backdrop-blur-sm opacity-90 group-hover:opacity-100 transition-all"
+                    title="Editar foto do serviço (upload ou link)"
+                  >
+                    <Pencil className="w-3 h-3 text-orange-400 group-hover:text-neutral-950" />
+                    <span>Alterar Foto</span>
+                  </button>
                 </div>
 
                 <div className="p-4 flex-1 flex flex-col justify-between">
@@ -774,40 +772,36 @@ export const WebAdminView: React.FC = () => {
               <div>
                 <label className="block text-xs font-semibold text-neutral-300 mb-1">Logo da Barbearia</label>
                 <div className="flex items-center gap-3">
-                  <AppImage
-                    src={currentBarbershop.logoUrl}
-                    alt="Logo"
-                    fallbackType="logo"
-                    className="w-12 h-12 rounded-xl object-cover border border-neutral-700 bg-neutral-950"
-                  />
-                  <div className="flex-1 space-y-1">
-                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg text-xs font-bold cursor-pointer border border-neutral-700">
-                      <Upload className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Upload Logo (Firebase)</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            try {
-                              const url = await uploadMedia(file, 'logos');
-                              updateBarbershop({ logoUrl: url });
-                            } catch (err) {
-                              console.error(err);
-                            }
-                          }
-                        }}
-                        className="hidden"
-                      />
-                    </label>
-                    <input
-                      type="text"
-                      value={currentBarbershop.logoUrl}
-                      onChange={e => updateBarbershop({ logoUrl: e.target.value })}
-                      placeholder="Ou cole a URL do Logo"
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1 text-[11px] text-neutral-300"
+                  <div
+                    onClick={() => setShowLogoEditModal(true)}
+                    className="relative group cursor-pointer w-14 h-14 rounded-2xl overflow-hidden border-2 border-neutral-700 hover:border-orange-500 bg-neutral-950 shrink-0 transition-colors shadow-md"
+                  >
+                    <AppImage
+                      src={currentBarbershop.logoUrl}
+                      alt="Logo"
+                      fallbackType="logo"
+                      className="w-full h-full object-cover"
                     />
+                    <div
+                      className="absolute inset-0 bg-neutral-950/70 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                      title="Editar Logo"
+                    >
+                      <Pencil className="w-4 h-4 text-orange-400" />
+                    </div>
+                  </div>
+
+                  <div className="flex-1 space-y-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowLogoEditModal(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-orange-500 hover:text-neutral-950 text-neutral-200 rounded-xl text-xs font-bold transition-all border border-neutral-700 hover:border-orange-500 shadow-sm"
+                    >
+                      <Pencil className="w-3.5 h-3.5 text-orange-400" />
+                      <span>Alterar Logo (Upload ou Link)</span>
+                    </button>
+                    <p className="text-[10px] text-neutral-500">
+                      Recomendado formato quadrado (PNG com fundo transparente ou JPG).
+                    </p>
                   </div>
                 </div>
               </div>
@@ -815,40 +809,36 @@ export const WebAdminView: React.FC = () => {
               <div>
                 <label className="block text-xs font-semibold text-neutral-300 mb-1">Banner de Capa</label>
                 <div className="flex items-center gap-3">
-                  <AppImage
-                    src={currentBarbershop.bannerUrl}
-                    alt="Banner"
-                    fallbackType="banner"
-                    className="w-20 h-10 rounded-lg object-cover border border-neutral-700 bg-neutral-950"
-                  />
-                  <div className="flex-1 space-y-1">
-                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg text-xs font-bold cursor-pointer border border-neutral-700">
-                      <Upload className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Upload Capa (Firebase)</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            try {
-                              const url = await uploadMedia(file, 'banners');
-                              updateBarbershop({ bannerUrl: url });
-                            } catch (err) {
-                              console.error(err);
-                            }
-                          }
-                        }}
-                        className="hidden"
-                      />
-                    </label>
-                    <input
-                      type="text"
-                      value={currentBarbershop.bannerUrl}
-                      onChange={e => updateBarbershop({ bannerUrl: e.target.value })}
-                      placeholder="Ou cole a URL da Capa"
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1 text-[11px] text-neutral-300"
+                  <div
+                    onClick={() => setShowBannerEditModal(true)}
+                    className="relative group cursor-pointer w-24 h-14 rounded-2xl overflow-hidden border-2 border-neutral-700 hover:border-orange-500 bg-neutral-950 shrink-0 transition-colors shadow-md"
+                  >
+                    <AppImage
+                      src={currentBarbershop.bannerUrl}
+                      alt="Banner"
+                      fallbackType="banner"
+                      className="w-full h-full object-cover"
                     />
+                    <div
+                      className="absolute inset-0 bg-neutral-950/70 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                      title="Editar Capa"
+                    >
+                      <Pencil className="w-4 h-4 text-orange-400" />
+                    </div>
+                  </div>
+
+                  <div className="flex-1 space-y-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowBannerEditModal(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-orange-500 hover:text-neutral-950 text-neutral-200 rounded-xl text-xs font-bold transition-all border border-neutral-700 hover:border-orange-500 shadow-sm"
+                    >
+                      <Pencil className="w-3.5 h-3.5 text-orange-400" />
+                      <span>Alterar Capa (Upload ou Link)</span>
+                    </button>
+                    <p className="text-[10px] text-neutral-500">
+                      Exibido no topo do aplicativo e página de agendamentos.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -866,40 +856,40 @@ export const WebAdminView: React.FC = () => {
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-semibold text-neutral-300">Fotos do Salão & Fachada ({currentBarbershop.salonImages.length})</label>
-                  <label className="inline-flex items-center gap-1 text-[10px] text-amber-400 font-bold bg-neutral-950 px-2 py-1 rounded border border-neutral-800 hover:border-amber-500 cursor-pointer">
-                    <Upload className="w-3 h-3" />
-                    <span>Adicionar Foto</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          try {
-                            const url = await uploadMedia(file, 'salon_photos');
-                            updateBarbershop({
-                              salonImages: [...currentBarbershop.salonImages, url]
-                            });
-                          } catch (err) {
-                            console.error(err);
-                          }
-                        }
-                      }}
-                      className="hidden"
-                    />
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-semibold text-neutral-300">
+                    Fotos do Salão & Fachada ({currentBarbershop.salonImages.length})
                   </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingSalonImage(true)}
+                    className="inline-flex items-center gap-1.5 text-xs text-orange-400 font-bold bg-orange-500/10 hover:bg-orange-500 hover:text-neutral-950 px-3 py-1.5 rounded-xl border border-orange-500/30 transition-all cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Adicionar Foto do Salão</span>
+                  </button>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {currentBarbershop.salonImages.map((img, i) => (
-                    <div key={i} className="relative group rounded-lg overflow-hidden border border-neutral-800 bg-neutral-950">
+                    <div key={i} className="relative group rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-950 shadow-md">
                       <AppImage
                         src={img}
                         alt={`Salão ${i + 1}`}
                         fallbackType="gallery"
-                        className="w-full h-24 object-cover"
+                        className="w-full h-28 object-cover group-hover:scale-105 transition-transform duration-300"
                       />
+                      
+                      {/* Pencil Edit Overlay Button */}
+                      <button
+                        type="button"
+                        onClick={() => setEditingSalonImageIdx(i)}
+                        className="absolute bottom-2 left-2 bg-neutral-950/85 hover:bg-orange-500 hover:text-neutral-950 text-neutral-200 p-1.5 rounded-lg text-xs font-bold opacity-0 group-hover:opacity-100 transition-all border border-neutral-700 hover:border-orange-500 flex items-center gap-1"
+                        title="Trocar esta foto"
+                      >
+                        <Pencil className="w-3 h-3 text-orange-400 group-hover:text-neutral-950" />
+                        <span>Editar</span>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => {
@@ -909,7 +899,7 @@ export const WebAdminView: React.FC = () => {
                             });
                           }
                         }}
-                        className="absolute top-1 right-1 bg-red-600/80 hover:bg-red-600 text-white p-1 rounded-md text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-2 right-2 bg-red-600/90 hover:bg-red-600 text-white p-1.5 rounded-lg text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
                         title="Remover foto"
                       >
                         ✕
@@ -932,6 +922,104 @@ export const WebAdminView: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Global Image Edit Modals */}
+      {showLogoEditModal && (
+        <ImageEditModal
+          isOpen={showLogoEditModal}
+          onClose={() => setShowLogoEditModal(false)}
+          title="Editar Logo da Barbearia"
+          subtitle="Faça upload de uma foto da sua logomarca ou cole uma URL direta."
+          currentImageUrl={currentBarbershop.logoUrl}
+          fallbackType="logo"
+          presets={[
+            { label: 'Logo Barber Vintage', url: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=400' },
+            { label: 'Logo Premium Gold', url: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=400' }
+          ]}
+          onSave={(newUrl) => updateBarbershop({ logoUrl: newUrl })}
+        />
+      )}
+
+      {showBannerEditModal && (
+        <ImageEditModal
+          isOpen={showBannerEditModal}
+          onClose={() => setShowBannerEditModal(false)}
+          title="Editar Capa / Banner da Barbearia"
+          subtitle="Faça upload do banner de capa ou cole uma URL de alta resolução."
+          currentImageUrl={currentBarbershop.bannerUrl}
+          fallbackType="banner"
+          presets={[
+            { label: 'Salão Rústico Madeira', url: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=1200' },
+            { label: 'Cadeiras Clássicas de Barbeiro', url: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=1200' },
+            { label: 'Bancada Moderna com Espelhos', url: 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=1200' }
+          ]}
+          onSave={(newUrl) => updateBarbershop({ bannerUrl: newUrl })}
+        />
+      )}
+
+      {isAddingSalonImage && (
+        <ImageEditModal
+          isOpen={isAddingSalonImage}
+          onClose={() => setIsAddingSalonImage(false)}
+          title="Adicionar Foto do Salão"
+          subtitle="Faça upload de foto do interior ou fachada da barbearia."
+          currentImageUrl="https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=800"
+          fallbackType="gallery"
+          presets={[
+            { label: 'Cadeiras de Couro & Espelhos', url: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=800' },
+            { label: 'Bancada de Ferramentas & Navalhas', url: 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=800' },
+            { label: 'Fachada & Recepção VIP', url: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=800' }
+          ]}
+          onSave={(newUrl) => {
+            updateBarbershop({
+              salonImages: [...currentBarbershop.salonImages, newUrl]
+            });
+            setIsAddingSalonImage(false);
+          }}
+        />
+      )}
+
+      {editingSalonImageIdx !== null && (
+        <ImageEditModal
+          isOpen={editingSalonImageIdx !== null}
+          onClose={() => setEditingSalonImageIdx(null)}
+          title={`Alterar Foto do Salão #${editingSalonImageIdx + 1}`}
+          subtitle="Substitua esta foto por um novo arquivo ou link."
+          currentImageUrl={currentBarbershop.salonImages[editingSalonImageIdx] || ''}
+          fallbackType="gallery"
+          presets={[
+            { label: 'Cadeiras de Couro & Espelhos', url: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=800' },
+            { label: 'Bancada de Ferramentas', url: 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=800' }
+          ]}
+          onSave={(newUrl) => {
+            const updated = [...currentBarbershop.salonImages];
+            updated[editingSalonImageIdx] = newUrl;
+            updateBarbershop({ salonImages: updated });
+            setEditingSalonImageIdx(null);
+          }}
+        />
+      )}
+
+      {editingServiceForImage && (
+        <ImageEditModal
+          isOpen={!!editingServiceForImage}
+          onClose={() => setEditingServiceForImage(null)}
+          title={`Alterar Foto de "${editingServiceForImage.name}"`}
+          subtitle="Faça upload ou cole o link da imagem ilustrativa deste serviço."
+          currentImageUrl={editingServiceForImage.imageUrl || 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=600'}
+          fallbackType="service"
+          presets={[
+            { label: 'Corte Degradê na Máquina', url: 'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=600' },
+            { label: 'Barba Terapia com Toalha Quente', url: 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=600' },
+            { label: 'Combo Cabelo + Barba', url: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=600' },
+            { label: 'Corte na Tesoura', url: 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=600' }
+          ]}
+          onSave={(newUrl) => {
+            updateService(editingServiceForImage.id, { imageUrl: newUrl });
+            setEditingServiceForImage(null);
+          }}
+        />
       )}
     </div>
   );

@@ -13,10 +13,14 @@ import {
   Shield,
   Sparkles,
   Camera,
+  Pencil,
+  Upload,
+  X,
   Image as ImageIcon
 } from 'lucide-react';
 import { MY_BARBER_PLANS, User } from '../../types';
 import { AppImage } from '../common/AppImage';
+import { ImageEditModal, ImagePreset } from '../common/ImageEditModal';
 
 // Curated high quality barber avatar presets
 const PRESET_AVATARS = [
@@ -37,7 +41,8 @@ export const ProfessionalsTab: React.FC = () => {
     updateProfessional,
     deleteProfessional,
     currentUser,
-    createProfessionalAccess
+    createProfessionalAccess,
+    uploadMedia
   } = useApp();
 
   const plan = MY_BARBER_PLANS[currentBarbershop.planId] || Object.values(MY_BARBER_PLANS)[0];
@@ -52,9 +57,39 @@ export const ProfessionalsTab: React.FC = () => {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [commissionPercentage, setCommissionPercentage] = useState(45);
   const [canViewAllProfessionals, setCanViewAllProfessionals] = useState(false);
-  const [specialtiesText, setSpecialtiesText] = useState('Degradê Navalhado, Barba Terapia');
+  const [specialties, setSpecialties] = useState<string[]>(['Degradê Navalhado', 'Barboterapia']);
+  const [newSpecialtyInput, setNewSpecialtyInput] = useState('');
   const [birthDate, setBirthDate] = useState('1992-06-15');
   const [error, setError] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
+  const [showAvatarEditModal, setShowAvatarEditModal] = useState(false);
+  const [avatarEditProf, setAvatarEditProf] = useState<User | null>(null);
+
+  const openAvatarEdit = (prof: User) => {
+    setAvatarEditProf(prof);
+    setShowAvatarEditModal(true);
+  };
+
+  const handleSaveAvatar = (newUrl: string) => {
+    if (avatarEditProf) {
+      updateProfessional(avatarEditProf.id, { avatarUrl: newUrl });
+    }
+    setShowAvatarEditModal(false);
+  };
+
+  const handleAddSpecialty = () => {
+    const trimmed = newSpecialtyInput.trim();
+    if (!trimmed) return;
+    if (!specialties.some(s => s.toLowerCase() === trimmed.toLowerCase())) {
+      setSpecialties(prev => [...prev, trimmed]);
+    }
+    setNewSpecialtyInput('');
+  };
+
+  const handleRemoveSpecialty = (indexToRemove: number) => {
+    setSpecialties(prev => prev.filter((_, idx) => idx !== indexToRemove));
+  };
 
   const openAddModal = () => {
     setEditingProfId(null);
@@ -63,9 +98,11 @@ export const ProfessionalsTab: React.FC = () => {
     setAvatarUrl(PRESET_AVATARS[0]);
     setCommissionPercentage(45);
     setCanViewAllProfessionals(false);
-    setSpecialtiesText('Degradê Navalhado, Barboterapia');
+    setSpecialties(['Degradê Navalhado', 'Barboterapia']);
+    setNewSpecialtyInput('');
     setBirthDate('1992-06-15');
     setError(null);
+    setIsUploadingPhoto(false);
     setShowModal(true);
   };
 
@@ -76,9 +113,11 @@ export const ProfessionalsTab: React.FC = () => {
     setAvatarUrl(prof.avatarUrl || PRESET_AVATARS[0]);
     setCommissionPercentage(prof.commissionPercentage || 40);
     setCanViewAllProfessionals(!!prof.canViewAllProfessionals);
-    setSpecialtiesText(prof.specialties ? prof.specialties.join(', ') : 'Cortes em Geral');
+    setSpecialties(prof.specialties && prof.specialties.length > 0 ? [...prof.specialties] : ['Cortes em Geral']);
+    setNewSpecialtyInput('');
     setBirthDate(prof.birthDate || '1992-06-15');
     setError(null);
+    setIsUploadingPhoto(false);
     setShowModal(true);
   };
 
@@ -86,10 +125,15 @@ export const ProfessionalsTab: React.FC = () => {
     e.preventDefault();
     setError(null);
 
-    const specialties = specialtiesText
-      .split(',')
-      .map(s => s.trim())
-      .filter(Boolean);
+    // If user typed something in specialty input and forgot to click +, include it
+    let finalSpecialties = [...specialties];
+    if (newSpecialtyInput.trim() && !finalSpecialties.some(s => s.toLowerCase() === newSpecialtyInput.trim().toLowerCase())) {
+      finalSpecialties.push(newSpecialtyInput.trim());
+    }
+
+    if (finalSpecialties.length === 0) {
+      finalSpecialties = ['Cortes em Geral'];
+    }
 
     if (editingProfId) {
       updateProfessional(editingProfId, {
@@ -98,7 +142,7 @@ export const ProfessionalsTab: React.FC = () => {
         avatarUrl: avatarUrl.trim() || undefined,
         commissionPercentage,
         canViewAllProfessionals,
-        specialties,
+        specialties: finalSpecialties,
         birthDate
       });
       setShowModal(false);
@@ -111,7 +155,7 @@ export const ProfessionalsTab: React.FC = () => {
         avatarUrl: avatarUrl.trim() || undefined,
         commissionPercentage,
         canViewAllProfessionals,
-        specialties,
+        specialties: finalSpecialties,
         birthDate
       });
 
@@ -206,13 +250,19 @@ export const ProfessionalsTab: React.FC = () => {
 
             <div>
               <div className="flex items-center gap-3.5 mb-4">
-                <div className="relative">
+                <div className="relative group/avatar cursor-pointer" onClick={() => openAvatarEdit(prof)}>
                   <AppImage
                     src={prof.avatarUrl}
                     alt={prof.name}
                     fallbackType="avatar"
-                    className="w-14 h-14 rounded-2xl object-cover border-2 border-neutral-700 ring-2 ring-orange-500/20"
+                    className="w-14 h-14 rounded-2xl object-cover border-2 border-neutral-700 ring-2 ring-orange-500/20 group-hover/avatar:border-orange-500 transition-colors"
                   />
+                  <div
+                    className="absolute inset-0 bg-neutral-950/70 rounded-2xl opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center transition-opacity"
+                    title="Editar foto do profissional"
+                  >
+                    <Pencil className="w-4 h-4 text-orange-400" />
+                  </div>
                   <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-2 border-neutral-900 flex items-center justify-center text-[10px] text-neutral-950 font-bold">
                     ✓
                   </div>
@@ -298,45 +348,55 @@ export const ProfessionalsTab: React.FC = () => {
               <div>
                 <label className="block text-xs font-bold text-neutral-300 mb-1.5 flex items-center gap-1.5">
                   <Camera className="w-3.5 h-3.5 text-orange-400" />
-                  Foto do Profissional
+                  <span>Foto do Profissional</span>
                 </label>
 
-                <div className="flex items-center gap-3 mb-3">
+                <div className="flex items-center gap-3">
                   <AppImage
                     src={avatarUrl || PRESET_AVATARS[0]}
                     alt="Preview"
                     fallbackType="avatar"
-                    className="w-14 h-14 rounded-2xl object-cover border-2 border-orange-500"
+                    className="w-14 h-14 rounded-2xl object-cover border-2 border-orange-500 shrink-0 shadow-md"
                   />
-                  <div className="flex-1">
+                  <div className="flex-1 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 hover:bg-orange-400 text-neutral-950 rounded-xl text-xs font-bold cursor-pointer transition-all shadow-md active:scale-95">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>{isUploadingPhoto ? 'Enviando Foto...' : 'Upload de Foto'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={isUploadingPhoto}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              try {
+                                setIsUploadingPhoto(true);
+                                const url = await uploadMedia(file, 'professionals');
+                                setAvatarUrl(url);
+                              } catch (err) {
+                                console.error('Erro ao enviar foto do profissional:', err);
+                              } finally {
+                                setIsUploadingPhoto(false);
+                              }
+                            }
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                      {avatarUrl && (
+                        <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Foto Carregada
+                        </span>
+                      )}
+                    </div>
                     <input
                       type="url"
                       value={avatarUrl}
                       onChange={e => setAvatarUrl(e.target.value)}
-                      placeholder="Cole a URL da foto ou selecione abaixo"
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
+                      placeholder="Ou cole a URL direta da imagem"
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-1.5 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
                     />
-                  </div>
-                </div>
-
-                {/* Preset Avatars Fast Selection */}
-                <div className="space-y-1">
-                  <span className="text-[10px] text-neutral-400 font-semibold uppercase">
-                    Sugestões de Fotos em Alta Resolução:
-                  </span>
-                  <div className="flex items-center gap-2 overflow-x-auto py-1">
-                    {PRESET_AVATARS.map((url, i) => (
-                      <button
-                        type="button"
-                        key={i}
-                        onClick={() => setAvatarUrl(url)}
-                        className={`w-10 h-10 rounded-xl overflow-hidden border-2 shrink-0 transition-all ${
-                          avatarUrl === url ? 'border-orange-500 scale-105 ring-2 ring-orange-500/40' : 'border-neutral-800 opacity-60 hover:opacity-100'
-                        }`}
-                      >
-                        <AppImage src={url} alt="Preset" fallbackType="avatar" className="w-full h-full object-cover" />
-                      </button>
-                    ))}
                   </div>
                 </div>
               </div>
@@ -377,33 +437,76 @@ export const ProfessionalsTab: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-neutral-300 mb-1">Comissão (%)</label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      required
-                      value={commissionPercentage}
-                      onChange={e => setCommissionPercentage(Number(e.target.value))}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 pr-8"
-                    />
-                    <Percent className="w-3.5 h-3.5 text-neutral-500 absolute right-3 top-2.5" />
-                  </div>
+              <div>
+                <label className="block text-xs font-bold text-neutral-300 mb-1">Comissão (%)</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    required
+                    value={commissionPercentage}
+                    onChange={e => setCommissionPercentage(Number(e.target.value))}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 pr-8"
+                  />
+                  <Percent className="w-3.5 h-3.5 text-neutral-500 absolute right-3 top-2.5" />
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-neutral-300 mb-1">Especialidades</label>
+              {/* Especialidades com botão + */}
+              <div>
+                <label className="block text-xs font-bold text-neutral-300 mb-1.5">
+                  Especialidades do Profissional
+                </label>
+                <div className="flex items-center gap-2 mb-2">
                   <input
                     type="text"
-                    value={specialtiesText}
-                    onChange={e => setSpecialtiesText(e.target.value)}
-                    placeholder="Separe por vírgulas"
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
+                    value={newSpecialtyInput}
+                    onChange={e => setNewSpecialtyInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddSpecialty();
+                      }
+                    }}
+                    placeholder="Ex: Barba, Degradê, Nevou, Pigmentação..."
+                    className="flex-1 bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
                   />
+                  <button
+                    type="button"
+                    onClick={handleAddSpecialty}
+                    className="px-3.5 py-2 bg-orange-500 hover:bg-orange-400 text-neutral-950 rounded-xl text-xs font-black flex items-center justify-center gap-1 shadow-md active:scale-95 transition-all shrink-0"
+                    title="Adicionar especialidade"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Adicionar</span>
+                  </button>
                 </div>
+
+                {specialties.length === 0 ? (
+                  <p className="text-[11px] text-neutral-500 italic">
+                    Nenhuma especialidade adicionada. Digite acima e clique em "+ Adicionar".
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5 p-2 bg-neutral-950/60 rounded-xl border border-neutral-800/80">
+                    {specialties.map((spec, index) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center gap-1.5 bg-neutral-900 border border-neutral-700 text-neutral-200 px-2.5 py-1 rounded-xl text-xs font-medium shadow-sm"
+                      >
+                        <span>{spec}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSpecialty(index)}
+                          className="text-neutral-400 hover:text-red-400 p-0.5 rounded transition-colors"
+                          title={`Remover ${spec}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* General View Permission Toggle */}
@@ -444,6 +547,23 @@ export const ProfessionalsTab: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Quick Avatar Edit Modal */}
+      {showAvatarEditModal && avatarEditProf && (
+        <ImageEditModal
+          isOpen={showAvatarEditModal}
+          onClose={() => setShowAvatarEditModal(false)}
+          title={`Alterar Foto de ${avatarEditProf.name}`}
+          subtitle="Faça upload de uma foto do profissional, cole um link direto ou escolha um avatar estilizado."
+          currentImageUrl={avatarEditProf.avatarUrl || PRESET_AVATARS[0]}
+          fallbackType="avatar"
+          presets={PRESET_AVATARS.map((url, i) => ({
+            label: `Barbeiro Modelo ${i + 1}`,
+            url
+          }))}
+          onSave={handleSaveAvatar}
+        />
       )}
     </div>
   );

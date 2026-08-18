@@ -100,6 +100,7 @@ interface AppContextType {
   
   // Gallery & Storage Media
   addGalleryWork: (work: Omit<GalleryWork, 'id' | 'tenantId' | 'likesCount' | 'createdAt'>) => void;
+  updateGalleryWork: (workId: string, updates: Partial<GalleryWork>) => void;
   deleteGalleryWork: (workId: string) => void;
   likeGalleryWork: (workId: string) => void;
   uploadMedia: (file: File, folder?: string) => Promise<string>;
@@ -1039,6 +1040,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setGalleryWorks(prev => [newWork, ...prev]);
   };
 
+  const updateGalleryWork = (workId: string, updates: Partial<GalleryWork>) => {
+    const target = galleryWorks.find(w => w.id === workId);
+    if (target) {
+      const updated = { ...target, ...updates };
+      syncDoc('gallery', workId, updated);
+      setGalleryWorks(prev => prev.map(w => w.id === workId ? updated : w));
+    }
+  };
+
   const deleteGalleryWork = (workId: string) => {
     deleteDocFromDb('gallery', workId);
     setGalleryWorks(prev => prev.filter(w => w.id !== workId));
@@ -1186,6 +1196,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         returnMessages: tenantReturnMessages,
         galleryWorks: tenantGalleryWorks,
         addGalleryWork,
+        updateGalleryWork,
         deleteGalleryWork,
         likeGalleryWork,
         uploadMedia,

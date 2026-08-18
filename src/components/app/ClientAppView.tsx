@@ -83,14 +83,6 @@ const APP_STORIES: StoryItem[] = [
     imageUrl: APP_ASSETS.banner,
     caption: 'Cerveja artesanal trincando e café expresso cortesia para todos os clientes.',
     icon: '🍺'
-  },
-  {
-    id: 'story-5',
-    title: 'Produtos VIP',
-    category: 'Loja',
-    imageUrl: APP_ASSETS.products,
-    caption: 'Pomadas matte de alta fixação e óleos para barba com desconto especial.',
-    icon: '⭐'
   }
 ];
 
@@ -1372,7 +1364,7 @@ export const ClientAppView: React.FC = () => {
                     <Camera className="w-4 h-4 text-orange-400" />
                     <span>Galeria & Inspirações</span>
                   </h3>
-                  <span className="text-[11px] text-neutral-400 font-semibold">{galleryWorks.length} fotos</span>
+                  <span className="text-[11px] text-neutral-400 font-semibold">{galleryWorks.slice(0, 4).length} fotos</span>
                 </div>
                 <p className="text-xs text-neutral-400 mt-0.5">
                   Veja cortes e barboterapias reais executadas pelos nossos barbeiros.
@@ -1407,6 +1399,7 @@ export const ClientAppView: React.FC = () => {
               {/* Gallery Grid */}
               <div className="grid grid-cols-2 gap-2.5">
                 {galleryWorks
+                  .slice(0, 4)
                   .filter(w => selectedGalleryCategory === 'TODOS' || w.category === selectedGalleryCategory)
                   .map(work => (
                     <div

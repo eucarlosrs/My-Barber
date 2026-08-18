@@ -849,36 +849,6 @@ export const INITIAL_GALLERY_WORKS: GalleryWork[] = [
     likesCount: 29,
     description: 'Texturização feita inteiramente na tesoura com caimento natural e elegância.',
     createdAt: '2026-08-07T11:00:00Z'
-  },
-  {
-    id: 'work-005',
-    tenantId: 'tenant-barbearia-do-joao',
-    title: 'Platinado Nevou com Matização Fria',
-    category: 'PLATINADO',
-    imageUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=800&auto=format&fit=crop&q=80',
-    professionalId: 'user-lucas-barber',
-    professionalName: 'Lucas Souza',
-    serviceId: 'srv-platinado',
-    serviceName: 'Platinado / Nevou Global',
-    servicePrice: 180.00,
-    likesCount: 84,
-    description: 'Tom branco pérola sem amarelados, com proteção e tratamento pós-química.',
-    createdAt: '2026-08-08T15:00:00Z'
-  },
-  {
-    id: 'work-006',
-    tenantId: 'tenant-barbearia-do-joao',
-    title: 'Design de Sobrancelha Masculina',
-    category: 'DEGRADE',
-    imageUrl: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=800&auto=format&fit=crop&q=80',
-    professionalId: 'user-marcos-barber-leader',
-    professionalName: 'Marcos Oliveira',
-    serviceId: 'srv-sobrancelha',
-    serviceName: 'Design de Sobrancelha na Navalha',
-    servicePrice: 20.00,
-    likesCount: 21,
-    description: 'Limpeza e alinhamento anatômico discreto e limpo na navalha.',
-    createdAt: '2026-08-09T10:00:00Z'
   }
 ];
 
