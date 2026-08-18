@@ -49,9 +49,9 @@ export const AuthLoginView: React.FC = () => {
     {
       role: 'PROPRIETARIO' as UserRole,
       title: 'Proprietário da Barbearia',
-      name: 'João Carlos Silva',
-      identifier: 'joao@barbeariadojoao.com.br',
-      badge: '🏢 Barbearia do João',
+      name: 'Barbearia Rodrigues',
+      identifier: 'contato@barbeariarodrigues.com.br',
+      badge: '🏢 Barbearia Rodrigues',
       badgeColor: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
       description: 'Gerenciamento operacional: agendamentos, serviços, barbeiros, clientes e fotos.',
       targetView: 'WebAdmin da Barbearia'
@@ -61,7 +61,7 @@ export const AuthLoginView: React.FC = () => {
       title: 'Profissional / Barbeiro',
       name: 'Marcos Oliveira (Mestre)',
       identifier: 'marcos@barbeariadojoao.com.br',
-      badge: '✂️ Equipe Barbearia do João',
+      badge: '✂️ Equipe Barbearia Rodrigues',
       badgeColor: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
       description: 'Rotina de atendimentos, agenda de horários, comissões e encaixes.',
       targetView: 'App Profissional'
@@ -166,19 +166,6 @@ export const AuthLoginView: React.FC = () => {
           
           {/* Main Column: Google + WhatsApp Login Form */}
           <div className="lg:col-span-7 bg-neutral-900/90 border border-neutral-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
-            <div className="flex items-center justify-between pb-4 border-b border-neutral-800/80 mb-6">
-              <div>
-                <h2 className="text-lg font-bold text-neutral-100 flex items-center gap-2">
-                  <KeyRound className="w-5 h-5 text-orange-500" />
-                  <span>Acesso ao Sistema</span>
-                </h2>
-                <p className="text-xs text-neutral-400 mt-0.5">
-                  Informe suas credenciais para agendamento
-                </p>
-              </div>
-              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
-            </div>
-
             {/* Error Message Banner */}
             {errorMsg && (
               <div className="mb-5 p-3.5 bg-red-500/10 border border-red-500/30 rounded-2xl text-red-400 text-xs flex items-start gap-2.5">

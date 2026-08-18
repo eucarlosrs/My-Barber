@@ -19,10 +19,16 @@ import {
   AlertCircle,
   ToggleLeft,
   ToggleRight,
-  Power
+  Power,
+  Camera,
+  Upload,
+  SlidersHorizontal,
+  Image as ImageIcon,
+  Sparkles
 } from 'lucide-react';
 import { PlanId, MY_BARBER_PLANS, RegisterBarbershopInput, Barbershop } from '../../types';
 import { AppImage } from '../common/AppImage';
+import { ImageEditModal } from '../common/ImageEditModal';
 
 // Curated high quality presets for quick logo & banner selection
 const LOGO_PRESETS = [
@@ -66,6 +72,8 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
 
   const [searchTerm, setSearchTerm] = useState('');
   const [editingShop, setEditingShop] = useState<Barbershop | null>(null);
+  const [showLogoEditModal, setShowLogoEditModal] = useState(false);
+  const [showBannerEditModal, setShowBannerEditModal] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [errorToast, setErrorToast] = useState<string | null>(null);
 

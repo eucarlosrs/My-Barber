@@ -294,6 +294,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
+  // Auto-normalize demo tenant and user names to Barbearia Rodrigues
+  useEffect(() => {
+    const legacyTenant = barbershops.find(b => b.id === 'tenant-barbearia-do-joao' && b.name === 'Barbearia do João');
+    if (legacyTenant) {
+      const updated = { ...legacyTenant, name: 'Barbearia Rodrigues', slug: 'barbearia-rodrigues', customDomain: 'www.barbeariarodrigues.com.br' };
+      syncDoc('barbershops', legacyTenant.id, updated);
+    }
+
+    const legacyOwner = users.find(u => u.id === 'user-joao-owner' && (u.name === 'João Carlos Silva' || u.name === 'João Rodrigues (Proprietário)'));
+    if (legacyOwner) {
+      const updated = { ...legacyOwner, name: 'Barbearia Rodrigues', email: 'contato@barbeariarodrigues.com.br' };
+      syncDoc('users', legacyOwner.id, updated);
+    }
+  }, [barbershops, users]);
+
   // When changing tenant, reset current user if outside tenant (unless user is SUPER_ADMIN)
   useEffect(() => {
     const activeUser = users.find(u => u.id === currentUserId);

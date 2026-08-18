@@ -21,9 +21,9 @@ import { REALISTIC_BARBERSHOP_ASSETS } from '../lib/storage';
 export const INITIAL_BARBERSHOPS: Barbershop[] = [
   {
     id: 'tenant-barbearia-do-joao',
-    name: 'Barbearia do João',
-    slug: 'barbearia-do-joao',
-    customDomain: 'www.barbeariadojoao.com.br',
+    name: 'Barbearia Rodrigues',
+    slug: 'barbearia-rodrigues',
+    customDomain: 'www.barbeariarodrigues.com.br',
     logoUrl: APP_ASSETS.logo,
     bannerUrl: APP_ASSETS.banner,
     salonImages: [
@@ -44,9 +44,9 @@ export const INITIAL_BARBERSHOPS: Barbershop[] = [
       zipCode: '01304-001'
     },
     socialMedia: {
-      instagram: '@barbeariadojoao.oficial',
-      facebook: 'fb.com/barbeariadojoao',
-      tiktok: '@barbeariadojoao'
+      instagram: '@barbeariarodrigues.oficial',
+      facebook: 'fb.com/barbeariarodrigues',
+      tiktok: '@barbeariarodrigues'
     },
     planId: 'PLANO_UNICO', // Plano Único & Fixo — R$ 49,90/mês (até 10 profissionais)
     reminderConfig: {
@@ -106,13 +106,13 @@ export const INITIAL_USERS: User[] = [
     birthDate: '1988-01-01',
     createdAt: '2026-01-01T00:00:00Z'
   },
-  // Barbearia do João - Proprietário
+  // Barbearia Rodrigues - Proprietário
   {
     id: 'user-joao-owner',
     tenantId: 'tenant-barbearia-do-joao',
     role: 'PROPRIETARIO',
-    name: 'João Carlos Silva',
-    email: 'joao@barbeariadojoao.com.br',
+    name: 'Barbearia Rodrigues',
+    email: 'contato@barbeariarodrigues.com.br',
     whatsapp: '(11) 98765-4321',
     avatarUrl: APP_ASSETS.barberDiego,
     birthDate: '1985-04-12',
