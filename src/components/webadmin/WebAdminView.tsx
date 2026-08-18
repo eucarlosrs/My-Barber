@@ -171,6 +171,7 @@ export const WebAdminView: React.FC = () => {
       <div className="flex items-center gap-1.5 sm:gap-2 my-6 overflow-x-auto border-b border-neutral-800 pb-2">
         {[
           { id: 'DASHBOARD', label: 'Visão Geral', icon: Building2 },
+          { id: 'SETTINGS', label: 'Identidade & Fotos', icon: Settings },
           { id: 'APPOINTMENTS', label: `Agendamentos (${appointments.length})`, icon: CalendarCheck },
           { id: 'GALLERY', label: `Galeria & Portfólio (${galleryWorks.length})`, icon: Camera },
           { id: 'PROFESSIONALS', label: `Profissionais (${professionals.length})`, icon: Users },
@@ -178,8 +179,7 @@ export const WebAdminView: React.FC = () => {
           { id: 'PROMOTIONS', label: `Promoções (${promotions.filter(p => p.active).length})`, icon: Tag },
           { id: 'SERVICES', label: `Serviços (${services.length})`, icon: Scissors },
           { id: 'CLIENTS', label: `Clientes (${clients.length})`, icon: Calendar },
-          { id: 'FINANCIAL', label: 'Relatórios & Comissões', icon: DollarSign },
-          { id: 'SETTINGS', label: 'Identidade & Fotos', icon: Settings }
+          { id: 'FINANCIAL', label: 'Relatórios & Comissões', icon: DollarSign }
         ].map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -857,20 +857,29 @@ export const WebAdminView: React.FC = () => {
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-semibold text-neutral-300">
-                    Fotos do Salão & Fachada ({currentBarbershop.salonImages.length})
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingSalonImage(true)}
-                    className="inline-flex items-center gap-1.5 text-xs text-orange-400 font-bold bg-orange-500/10 hover:bg-orange-500 hover:text-neutral-950 px-3 py-1.5 rounded-xl border border-orange-500/30 transition-all cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Adicionar Foto do Salão</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <label className="block text-xs font-semibold text-neutral-300">
+                      Fotos do Salão & Fachada ({Math.min(3, currentBarbershop.salonImages.length)}/3)
+                    </label>
+                    {currentBarbershop.salonImages.length >= 3 && (
+                      <span className="text-[10px] bg-neutral-800 text-amber-400 font-bold px-2 py-0.5 rounded-full border border-neutral-700">
+                        Máximo de 3 fotos atingido
+                      </span>
+                    )}
+                  </div>
+                  {currentBarbershop.salonImages.length < 3 && (
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingSalonImage(true)}
+                      className="inline-flex items-center gap-1.5 text-xs text-orange-400 font-bold bg-orange-500/10 hover:bg-orange-500 hover:text-neutral-950 px-3 py-1.5 rounded-xl border border-orange-500/30 transition-all cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Adicionar Foto do Salão</span>
+                    </button>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {currentBarbershop.salonImages.map((img, i) => (
+                  {currentBarbershop.salonImages.slice(0, 3).map((img, i) => (
                     <div key={i} className="relative group rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-950 shadow-md">
                       <AppImage
                         src={img}
@@ -890,20 +899,20 @@ export const WebAdminView: React.FC = () => {
                         <span>Editar</span>
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (currentBarbershop.salonImages.length > 1) {
+                      {currentBarbershop.salonImages.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
                             updateBarbershop({
                               salonImages: currentBarbershop.salonImages.filter((_, idx) => idx !== i)
                             });
-                          }
-                        }}
-                        className="absolute top-2 right-2 bg-red-600/90 hover:bg-red-600 text-white p-1.5 rounded-lg text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
-                        title="Remover foto"
-                      >
-                        ✕
-                      </button>
+                          }}
+                          className="absolute top-2 right-2 bg-red-600/90 hover:bg-red-600 text-white p-1.5 rounded-lg text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                          title="Remover foto"
+                        >
+                          ✕
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -972,8 +981,9 @@ export const WebAdminView: React.FC = () => {
             { label: 'Fachada & Recepção VIP', url: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=800' }
           ]}
           onSave={(newUrl) => {
+            const current = currentBarbershop.salonImages.slice(0, 2);
             updateBarbershop({
-              salonImages: [...currentBarbershop.salonImages, newUrl]
+              salonImages: [...current, newUrl]
             });
             setIsAddingSalonImage(false);
           }}

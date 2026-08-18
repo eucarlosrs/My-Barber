@@ -18,7 +18,8 @@ import {
   Award,
   Wallet,
   Zap,
-  Filter
+  Filter,
+  LogOut
 } from 'lucide-react';
 import { Appointment } from '../../types';
 import { AppImage } from '../common/AppImage';
@@ -31,7 +32,9 @@ export const ProfessionalAppView: React.FC = () => {
     setCurrentUserId,
     appointments,
     addAppointment,
-    services
+    services,
+    isImpersonating,
+    logout
   } = useApp();
 
   // Active viewing barber (defaults to logged in user if professional, or first professional)
@@ -101,16 +104,35 @@ export const ProfessionalAppView: React.FC = () => {
     setEncaixeClientPhone('');
   };
 
-  return (
-    <PhoneFrame
-      title="App do Barbeiro Profissional"
-      subtitle="Agenda & Comissões no Celular"
-      barbershopName={currentBarbershop.name}
-    >
-      <div className="flex-1 flex flex-col bg-neutral-950 text-neutral-100 relative p-4 space-y-4 pb-20">
-        {/* ========================================================================= */}
-        {/* 1. PROFESSIONAL APP HEADER */}
-        {/* ========================================================================= */}
+  const profBody = (
+    <div className="flex-1 w-full max-w-4xl mx-auto flex flex-col bg-neutral-950 text-neutral-100 relative p-4 space-y-4 pb-20">
+      {/* Top Navbar with Barbershop Name, Professional greeting and Logout */}
+      {isCurrentProf && !isImpersonating && (
+        <div className="bg-neutral-900/90 backdrop-blur-md border border-neutral-800 rounded-2xl px-4 py-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="text-xs sm:text-sm font-bold text-neutral-200 truncate">{currentBarbershop.name}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-xs text-neutral-300">
+              <Scissors className="w-3.5 h-3.5 text-orange-400" />
+              <span className="font-semibold">{currentUser.name}</span>
+            </div>
+            <button
+              onClick={logout}
+              className="text-xs font-bold text-neutral-300 hover:text-red-400 flex items-center gap-1 bg-neutral-800 hover:bg-neutral-700 px-3 py-1.5 rounded-xl border border-neutral-700 transition-colors cursor-pointer"
+              title="Sair e voltar para a tela de login"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Sair</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 1. PROFESSIONAL APP HEADER */}
+      {/* ========================================================================= */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-4 shadow-xl">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -410,6 +432,23 @@ export const ProfessionalAppView: React.FC = () => {
           </div>
         )}
       </div>
-    </PhoneFrame>
+    );
+
+  if (isImpersonating) {
+    return (
+      <PhoneFrame
+        title="App do Barbeiro Profissional"
+        subtitle="Agenda & Comissões no Celular (Master Admin)"
+        barbershopName={currentBarbershop.name}
+      >
+        {profBody}
+      </PhoneFrame>
+    );
+  }
+
+  return (
+    <div className="w-full min-h-screen bg-neutral-950 text-neutral-100 p-3 sm:p-6 flex flex-col items-center">
+      {profBody}
+    </div>
   );
 };

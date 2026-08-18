@@ -11,11 +11,14 @@ import { MasterAdminView } from './components/masteradmin/MasterAdminView';
 import { WebAdminView } from './components/webadmin/WebAdminView';
 import { ClientAppView } from './components/app/ClientAppView';
 import { ProfessionalAppView } from './components/app/ProfessionalAppView';
+import { AuthLoginView } from './components/auth/AuthLoginView';
 
 const MainContent: React.FC = () => {
   const { viewMode } = useApp();
 
   switch (viewMode) {
+    case 'LOGIN':
+      return <AuthLoginView />;
     case 'MASTER_ADMIN':
       return <MasterAdminView />;
     case 'WEBADMIN':
@@ -25,8 +28,9 @@ const MainContent: React.FC = () => {
     case 'PROFISSIONAL_APP':
       return <ProfessionalAppView />;
     case 'ARCHITECTURE':
-    default:
       return <ArchitectureView />;
+    default:
+      return <AuthLoginView />;
   }
 };
 

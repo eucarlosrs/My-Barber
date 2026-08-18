@@ -27,10 +27,8 @@ export const INITIAL_BARBERSHOPS: Barbershop[] = [
     logoUrl: APP_ASSETS.logo,
     bannerUrl: APP_ASSETS.banner,
     salonImages: [
-      APP_ASSETS.banner,
-      APP_ASSETS.haircutFade,
-      APP_ASSETS.products,
-      'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=1000&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=1000&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=1000&auto=format&fit=crop&q=80',
       'https://images.unsplash.com/photo-1512690459411-b9245aed614b?w=1000&auto=format&fit=crop&q=80'
     ],
     about: 'Ambiente climatizado com poltronas vintage de couro, atendimento de excelência, navalha afiada e cerveja artesanal gelada. Mais que um corte de cabelo, uma experiência de estilo e bem-estar.',

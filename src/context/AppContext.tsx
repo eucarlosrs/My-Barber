@@ -46,12 +46,17 @@ import {
 } from '../lib/firestoreSync';
 import { uploadImageToStorage } from '../lib/storage';
 
-export type AppViewMode = 'ARCHITECTURE' | 'MASTER_ADMIN' | 'WEBADMIN' | 'CLIENT_APP' | 'PROFESSIONAL_APP';
+export type AppViewMode = 'LOGIN' | 'ARCHITECTURE' | 'MASTER_ADMIN' | 'WEBADMIN' | 'CLIENT_APP' | 'PROFESSIONAL_APP';
 
 interface AppContextType {
   // Navigation & View Mode
   viewMode: AppViewMode;
   setViewMode: (mode: AppViewMode) => void;
+
+  // Authentication & Session
+  authenticatedUser: User | null;
+  loginWithCredentials: (identifier: string, password?: string) => { success: boolean; role?: UserRole; error?: string; user?: User };
+  logout: () => void;
 
   // Active Tenant
   activeTenantId: string;
@@ -150,12 +155,62 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [viewMode, setViewMode] = useState<AppViewMode>('ARCHITECTURE');
+  const [authenticatedUser, setAuthenticatedUser] = useState<User | null>(() => {
+    try {
+      const savedId = localStorage.getItem('mybarber_session_user_id');
+      if (savedId) {
+        return INITIAL_USERS.find(u => u.id === savedId) || null;
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  });
+
+  const [viewMode, setViewMode] = useState<AppViewMode>(() => {
+    try {
+      const savedId = localStorage.getItem('mybarber_session_user_id');
+      if (savedId) {
+        const u = INITIAL_USERS.find(user => user.id === savedId);
+        if (u) {
+          if (u.role === 'SUPER_ADMIN') return 'MASTER_ADMIN';
+          if (u.role === 'PROPRIETARIO' || u.role === 'GERENTE') return 'WEBADMIN';
+          if (u.role === 'PROFISSIONAL') return 'PROFISSIONAL_APP';
+          if (u.role === 'CLIENTE') return 'CLIENT_APP';
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return 'LOGIN';
+  });
+
   const [barbershops, setBarbershops] = useState<Barbershop[]>(INITIAL_BARBERSHOPS);
-  const [activeTenantId, setActiveTenantId] = useState<string>(INITIAL_BARBERSHOPS[0].id);
+  const [activeTenantId, setActiveTenantId] = useState<string>(() => {
+    try {
+      const savedId = localStorage.getItem('mybarber_session_user_id');
+      if (savedId) {
+        const u = INITIAL_USERS.find(user => user.id === savedId);
+        if (u && u.tenantId && u.tenantId !== 'platform-global') {
+          return u.tenantId;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return INITIAL_BARBERSHOPS[0].id;
+  });
 
   const [users, setUsers] = useState<User[]>(INITIAL_USERS);
-  const [currentUserId, setCurrentUserId] = useState<string>(INITIAL_USERS[0].id); // João (Owner)
+  const [currentUserId, setCurrentUserId] = useState<string>(() => {
+    try {
+      const savedId = localStorage.getItem('mybarber_session_user_id');
+      if (savedId) return savedId;
+    } catch {
+      // ignore
+    }
+    return INITIAL_USERS[0].id;
+  });
 
   const [services, setServices] = useState<Service[]>(INITIAL_SERVICES);
   const [schedules, setSchedules] = useState<ProfessionalScheduleConfig[]>(INITIAL_SCHEDULES);
@@ -289,6 +344,108 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setActiveTenantId(targetUser.tenantId);
       }
       setViewMode('CLIENT_APP');
+    }
+  };
+
+  // Unified login identifying role automatically
+  const loginWithCredentials = (identifier: string, _password?: string) => {
+    const clean = identifier.trim().toLowerCase();
+    const cleanDigits = identifier.replace(/\D/g, '');
+
+    // Search matching user in users list
+    let matched = users.find(u => 
+      (u.email && u.email.toLowerCase() === clean) ||
+      (u.whatsapp && cleanDigits.length >= 8 && u.whatsapp.replace(/\D/g, '').endsWith(cleanDigits.slice(-8))) ||
+      u.id.toLowerCase() === clean ||
+      u.name.toLowerCase() === clean
+    );
+
+    // If client with phone doesn't exist yet, auto-register as client
+    if (!matched && cleanDigits.length >= 8) {
+      const isEmail = identifier.includes('@');
+      matched = {
+        id: `user-client-${Date.now()}`,
+        tenantId: activeTenantId,
+        role: 'CLIENTE',
+        name: isEmail ? identifier.split('@')[0] : 'Cliente',
+        email: isEmail ? identifier.trim().toLowerCase() : undefined,
+        whatsapp: identifier.trim(),
+        createdAt: new Date().toISOString()
+      };
+      setUsers(prev => [...prev, matched!]);
+      syncDoc('users', matched.id, matched);
+    }
+
+    if (!matched) {
+      return {
+        success: false,
+        error: 'Nenhuma conta encontrada com este e-mail ou WhatsApp. Verifique os dados ou utilize uma das contas de teste rápido.'
+      };
+    }
+
+    setAuthenticatedUser(matched);
+    setCurrentUserId(matched.id);
+    try {
+      localStorage.setItem('mybarber_session_user_id', matched.id);
+    } catch {
+      // ignore
+    }
+
+    // Direct routing according to hierarchy
+    if (matched.role === 'SUPER_ADMIN') {
+      setViewMode('MASTER_ADMIN');
+    } else if (matched.role === 'PROPRIETARIO' || matched.role === 'GERENTE') {
+      if (matched.tenantId && matched.tenantId !== 'platform-global') {
+        setActiveTenantId(matched.tenantId);
+      }
+      setViewMode('WEBADMIN');
+    } else if (matched.role === 'PROFISSIONAL') {
+      if (matched.tenantId && matched.tenantId !== 'platform-global') {
+        setActiveTenantId(matched.tenantId);
+      }
+      setViewMode('PROFISSIONAL_APP');
+    } else if (matched.role === 'CLIENTE') {
+      if (matched.tenantId && matched.tenantId !== 'platform-global') {
+        setActiveTenantId(matched.tenantId);
+      }
+      setViewMode('CLIENT_APP');
+    }
+
+    addAuditLog({
+      actorUserId: matched.id,
+      actorUserName: matched.name,
+      actorRole: matched.role,
+      action: 'LOGIN_SUCESSO',
+      targetTenantId: matched.tenantId,
+      targetTenantName: barbershops.find(b => b.id === matched.tenantId)?.name || 'Plataforma',
+      details: `Login autenticado com sucesso. Hierarquia identificada: ${matched.role}.`,
+      status: 'SUCESSO'
+    });
+
+    return { success: true, role: matched.role, user: matched };
+  };
+
+  const logout = () => {
+    const prev = authenticatedUser;
+    setAuthenticatedUser(null);
+    try {
+      localStorage.removeItem('mybarber_session_user_id');
+    } catch {
+      // ignore
+    }
+    setIsImpersonating(false);
+    setImpersonationOriginUserId(null);
+    setViewMode('LOGIN');
+
+    if (prev) {
+      addAuditLog({
+        actorUserId: prev.id,
+        actorUserName: prev.name,
+        actorRole: prev.role,
+        action: 'LOGOUT',
+        details: `Sessão encerrada pelo usuário. Retornado com segurança à tela de login.`,
+        status: 'SUCESSO'
+      });
     }
   };
 
@@ -775,7 +932,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     setCurrentUserId(client.id);
+    setAuthenticatedUser(client);
     setWhatsappLoginPhone(cleanPhone);
+    try {
+      localStorage.setItem('mybarber_session_user_id', client.id);
+    } catch {
+      // ignore
+    }
+    setViewMode('CLIENT_APP');
     return client;
   };
 
@@ -1164,6 +1328,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       value={{
         viewMode,
         setViewMode,
+        authenticatedUser,
+        loginWithCredentials,
+        logout,
         activeTenantId,
         setActiveTenantId,
         currentBarbershop,
