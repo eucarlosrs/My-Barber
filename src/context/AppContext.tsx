@@ -114,6 +114,7 @@ interface AppContextType {
   
   // Raffles
   createRaffle: (raffle: Omit<Raffle, 'id' | 'status' | 'participants' | 'createdAt'>) => void;
+  updateRaffle: (raffleId: string, data: Partial<Raffle>) => void;
   executeRaffle: (raffleId: string) => { success: boolean; winnerName?: string; winnerId?: string; message: string; eligibleCount: number };
   deleteRaffle: (raffleId: string) => void;
   participateInRaffle: (raffleId: string, clientId: string) => { success: boolean; message: string };
@@ -752,6 +753,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteRaffle = (raffleId: string) => {
     setRaffles(prev => prev.filter(r => r.id !== raffleId));
+  };
+
+  const updateRaffle = (raffleId: string, data: Partial<Raffle>) => {
+    setRaffles(prev => prev.map(r => (r.id === raffleId ? { ...r, ...data } : r)));
   };
 
   const participateInRaffle = (raffleId: string, clientId: string): { success: boolean; message: string } => {
@@ -1479,6 +1484,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateAppointmentStatus,
         addToWaitlist,
         createRaffle,
+        updateRaffle,
         executeRaffle,
         deleteRaffle,
         participateInRaffle,

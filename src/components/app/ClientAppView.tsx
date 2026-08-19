@@ -36,56 +36,12 @@ import {
   Heart,
   Camera,
   Building2,
-  ThumbsUp
+  ThumbsUp,
+  Trophy
 } from 'lucide-react';
-import { Service, User as UserType, GalleryWork } from '../../types';
+import { Service, User as UserType, GalleryWork, Promotion, Raffle } from '../../types';
 import { AppImage } from '../common/AppImage';
 import { APP_ASSETS } from '../../data/assets';
-
-// Stories highlights for authentic app feeling
-interface StoryItem {
-  id: string;
-  title: string;
-  category: string;
-  imageUrl: string;
-  caption: string;
-  icon: string;
-}
-
-const APP_STORIES: StoryItem[] = [
-  {
-    id: 'story-1',
-    title: 'Cortes 2026',
-    category: 'Tendências',
-    imageUrl: APP_ASSETS.haircutFade,
-    caption: 'Degradê americano e navalhado em alta! Agende seu horário com nossos mestres.',
-    icon: '✂️'
-  },
-  {
-    id: 'story-2',
-    title: 'Barba Terapia',
-    category: 'Relaxamento',
-    imageUrl: APP_ASSETS.barberFelipe,
-    caption: 'Toalha quente com essência de eucalipto e hidratação profunda com óleos nobres.',
-    icon: '💈'
-  },
-  {
-    id: 'story-3',
-    title: 'Sorteio VIP',
-    category: 'Prêmio',
-    imageUrl: APP_ASSETS.banner,
-    caption: 'Clientes com corte nos últimos 2 meses concorrem a 1 ano de cortes grátis!',
-    icon: '🎁'
-  },
-  {
-    id: 'story-4',
-    title: 'Nosso Bar',
-    category: 'Experiência',
-    imageUrl: APP_ASSETS.banner,
-    caption: 'Cerveja artesanal trincando e café expresso cortesia para todos os clientes.',
-    icon: '🍺'
-  }
-];
 
 export const ClientAppView: React.FC = () => {
   const {
@@ -140,8 +96,20 @@ export const ClientAppView: React.FC = () => {
   const [useCustomGoogle, setUseCustomGoogle] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  // Story Viewer Modal
-  const [activeStory, setActiveStory] = useState<StoryItem | null>(null);
+  // Dynamic Highlights Modals (Promotions & Raffles)
+  const [selectedHighlightPromo, setSelectedHighlightPromo] = useState<Promotion | null>(null);
+  const [selectedHighlightRaffle, setSelectedHighlightRaffle] = useState<Raffle | null>(null);
+
+  // Dynamic Destaques list (configured by owner/manager)
+  const highlightedPromos = useMemo(() => {
+    return promotions.filter(p => p.active && p.showInHighlights !== false);
+  }, [promotions]);
+
+  const highlightedRaffles = useMemo(() => {
+    return raffles.filter(r => r.showInHighlights !== false);
+  }, [raffles]);
+
+  const hasAnyHighlights = highlightedPromos.length > 0 || highlightedRaffles.length > 0;
 
   // Real-time dynamic date tracking
   const todayStr = useMemo(() => getTodayLocalDateString(), []);
@@ -500,36 +468,87 @@ export const ClientAppView: React.FC = () => {
               </div>
             </div>
 
-            {/* Quick Stories / Destaques Bar (Real App Feeling) */}
-            <div className="mt-3.5 pt-3 border-t border-neutral-800/80">
-              <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-                <span>Destaques & Experiências</span>
-              </div>
-              <div className="flex items-center gap-3 overflow-x-auto pb-1 no-scrollbar">
-                {APP_STORIES.map(story => (
-                  <button
-                    key={story.id}
-                    onClick={() => setActiveStory(story)}
-                    className="flex flex-col items-center gap-1 shrink-0 group focus:outline-none"
-                  >
-                    <div className="w-13 h-13 rounded-full p-[2px] bg-gradient-to-tr from-orange-500 via-amber-500 to-orange-400 group-hover:scale-105 transition-transform shadow-md">
-                      <div className="w-full h-full rounded-full overflow-hidden bg-neutral-950 border border-neutral-900 relative">
-                        <AppImage
-                          src={story.imageUrl}
-                          alt={story.title}
-                          fallbackType="story"
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                        />
-                        <div className="absolute inset-0 bg-neutral-950/20"></div>
+            {/* Dynamic Propaganda & Highlights Bar (Configured by Barbershop Owner/Manager) */}
+            {hasAnyHighlights && (
+              <div className="mt-3.5 pt-3 border-t border-neutral-800/80">
+                <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-neutral-300">
+                    <Sparkles className="w-3 h-3 text-amber-400" />
+                    Destaques & Novidades da Barbearia
+                  </span>
+                  <span className="text-[9px] text-orange-400/90 font-medium">Toque para ver</span>
+                </div>
+                <div className="flex items-center gap-3 overflow-x-auto pb-1 no-scrollbar">
+                  {/* Highlighted Promotions */}
+                  {highlightedPromos.map(promo => (
+                    <button
+                      key={promo.id}
+                      onClick={() => setSelectedHighlightPromo(promo)}
+                      className="flex flex-col items-center gap-1.5 shrink-0 group focus:outline-none"
+                      title={promo.title}
+                    >
+                      <div className="w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-orange-500 via-amber-500 to-orange-400 group-hover:scale-105 transition-transform shadow-md relative">
+                        <div className="w-full h-full rounded-full overflow-hidden bg-neutral-950 border border-neutral-900 relative">
+                          <AppImage
+                            src={promo.imageUrl || 'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=200'}
+                            alt={promo.title}
+                            fallbackType="banner"
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                          />
+                          <div className="absolute inset-0 bg-neutral-950/20" />
+                        </div>
+                        {promo.discountPercentage && (
+                          <div className="absolute -top-1 -right-1 bg-orange-500 text-neutral-950 text-[9px] font-black px-1.5 py-0.2 rounded-full shadow border border-neutral-950">
+                            {promo.discountPercentage}%
+                          </div>
+                        )}
                       </div>
-                    </div>
-                    <span className="text-[10px] font-medium text-neutral-300 text-center w-14 truncate">
-                      {story.title}
-                    </span>
-                  </button>
-                ))}
+                      <div className="text-center w-16">
+                        <span className="text-[10px] font-bold text-neutral-200 block truncate group-hover:text-orange-400 transition-colors">
+                          {promo.title}
+                        </span>
+                        <span className="text-[8px] font-black uppercase text-amber-400/90 block">
+                          {promo.highlightTag || 'PROMO'}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+
+                  {/* Highlighted Raffles */}
+                  {highlightedRaffles.map(raffle => (
+                    <button
+                      key={raffle.id}
+                      onClick={() => setSelectedHighlightRaffle(raffle)}
+                      className="flex flex-col items-center gap-1.5 shrink-0 group focus:outline-none"
+                      title={raffle.title}
+                    >
+                      <div className="w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-amber-400 via-orange-500 to-yellow-300 group-hover:scale-105 transition-transform shadow-md relative">
+                        <div className="w-full h-full rounded-full overflow-hidden bg-neutral-950 border border-neutral-900 relative">
+                          <AppImage
+                            src={raffle.imageUrl || 'https://images.unsplash.com/photo-1512690459411-b9245aed614b?w=200'}
+                            alt={raffle.title}
+                            fallbackType="banner"
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                          />
+                          <div className="absolute inset-0 bg-neutral-950/20" />
+                        </div>
+                        <div className="absolute -top-1 -right-1 bg-amber-400 text-neutral-950 text-[9px] font-black px-1 py-0.2 rounded-full shadow border border-neutral-950 flex items-center">
+                          <Trophy className="w-2.5 h-2.5" />
+                        </div>
+                      </div>
+                      <div className="text-center w-16">
+                        <span className="text-[10px] font-bold text-neutral-200 block truncate group-hover:text-amber-400 transition-colors">
+                          {raffle.title}
+                        </span>
+                        <span className="text-[8px] font-black uppercase text-amber-400/90 block">
+                          {raffle.status === 'REALIZADO' ? 'GANHADOR' : (raffle.highlightTag || 'SORTEIO')}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -594,7 +613,7 @@ export const ClientAppView: React.FC = () => {
                   </div>
                 )}
 
-                {/* Services Cards Grid with photos */}
+                {/* Services Cards List matching reference image */}
                 {services.length === 0 ? (
                   <div className="bg-neutral-900/80 border border-neutral-800/80 rounded-2xl p-6 text-center space-y-2">
                     <Scissors className="w-8 h-8 text-neutral-600 mx-auto" />
@@ -619,45 +638,46 @@ export const ClientAppView: React.FC = () => {
                         <button
                           key={srv.id}
                           onClick={() => setSelectedService(srv)}
-                          className={`w-full text-left p-3 rounded-2xl border transition-all flex items-center gap-3 active:scale-[0.99] ${
+                          className={`w-full text-left p-3 rounded-2xl border transition-all flex items-center gap-3.5 active:scale-[0.99] group ${
                             isSelected
-                              ? 'bg-orange-500/10 border-orange-500 ring-1 ring-orange-500/50 shadow-lg shadow-orange-500/5'
-                              : 'bg-neutral-900/90 border-neutral-800/80 hover:border-neutral-700 text-neutral-300'
+                              ? 'bg-neutral-900/95 border-2 border-orange-500 shadow-lg shadow-orange-500/10'
+                              : 'bg-neutral-900/90 border border-neutral-800/90 hover:border-neutral-700 text-neutral-300'
                           }`}
                         >
                           {/* Service Thumbnail */}
-                          <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-950 shrink-0 border border-neutral-800 relative">
+                          <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl overflow-hidden bg-neutral-950 shrink-0 border border-neutral-800 relative">
                             <AppImage
                               src={srv.imageUrl || 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=200'}
                               alt={srv.name}
                               fallbackType="service"
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             />
-                            {isSelected && (
-                              <div className="absolute inset-0 bg-orange-500/30 flex items-center justify-center">
-                                <Check className="w-5 h-5 text-orange-300 font-bold" />
-                              </div>
-                            )}
                           </div>
 
                           {/* Service Details */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-1">
-                              <span className="font-semibold text-sm text-neutral-100 truncate">{srv.name}</span>
-                              <span className="font-bold text-emerald-400 text-xs shrink-0 font-mono">
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-bold text-sm text-neutral-100 truncate group-hover:text-orange-400 transition-colors">
+                                {srv.name}
+                              </span>
+                              <span className="font-bold text-emerald-400 text-sm shrink-0 font-mono tracking-tight">
                                 R$ {srv.price.toFixed(2).replace('.', ',')}
                               </span>
                             </div>
+
                             {srv.description && (
-                              <p className="text-xs text-neutral-400 line-clamp-1 mt-0.5">{srv.description}</p>
+                              <p className="text-xs text-neutral-400 truncate leading-snug">
+                                {srv.description}
+                              </p>
                             )}
-                            <div className="flex items-center gap-2 mt-1.5">
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-md">
-                                <Clock className="w-3 h-3" />
+
+                            <div className="flex items-center gap-2 pt-0.5">
+                              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-500 bg-amber-500/15 px-2.5 py-1 rounded-lg border border-amber-500/20">
+                                <Clock className="w-3.5 h-3.5" />
                                 {srv.durationMinutes} min
                               </span>
                               {srv.category && (
-                                <span className="text-[11px] text-neutral-400 bg-neutral-950 px-2 py-0.5 rounded-md border border-neutral-800/60 font-medium">
+                                <span className="text-xs text-neutral-300 bg-neutral-950 px-2.5 py-1 rounded-lg border border-neutral-800 font-medium">
                                   {srv.category}
                                 </span>
                               )}
@@ -1847,55 +1867,168 @@ export const ClientAppView: React.FC = () => {
         )}
 
         {/* ========================================================================= */}
-        {/* 4. MODALS (STORY VIEWER & WHATSAPP LOGIN) */}
+        {/* ========================================================================= */}
+        {/* 4. MODALS (HIGHLIGHT PROMOTION & RAFFLE VIEWER, GOOGLE LOGIN) */}
         {/* ========================================================================= */}
         
-        {/* Story Viewer Modal */}
-        {activeStory && (
+        {/* Promotion Highlight Viewer Modal */}
+        {selectedHighlightPromo && (
           <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
             <div className="relative w-full max-w-sm bg-neutral-950 rounded-3xl overflow-hidden border border-neutral-800 shadow-2xl">
-              {/* Story top progress line */}
-              <div className="absolute top-3 inset-x-4 h-1 bg-neutral-800 rounded-full overflow-hidden z-20">
-                <div className="bg-orange-400 h-full w-full animate-pulse"></div>
-              </div>
-
               {/* Close button */}
               <button
-                onClick={() => setActiveStory(null)}
-                className="absolute top-6 right-4 z-20 bg-neutral-900/80 text-neutral-300 hover:text-white p-1.5 rounded-full"
+                onClick={() => setSelectedHighlightPromo(null)}
+                className="absolute top-4 right-4 z-20 bg-neutral-900/80 text-neutral-300 hover:text-white p-2 rounded-full border border-neutral-800 backdrop-blur-sm"
               >
                 <X className="w-4 h-4" />
               </button>
 
-              <div className="h-96 w-full relative">
+              <div className="h-64 w-full relative">
                 <AppImage
-                  src={activeStory.imageUrl}
-                  alt={activeStory.title}
-                  fallbackType="story"
+                  src={selectedHighlightPromo.imageUrl || 'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=600'}
+                  alt={selectedHighlightPromo.title}
+                  fallbackType="banner"
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/30 to-transparent"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/40 to-transparent" />
+                <div className="absolute top-4 left-4 bg-orange-500 text-neutral-950 text-[10px] font-black uppercase px-2.5 py-1 rounded-lg shadow-md">
+                  {selectedHighlightPromo.highlightTag || 'PROMOÇÃO EM DESTAQUE'}
+                </div>
               </div>
 
-              <div className="p-5 relative -mt-12 bg-neutral-950 rounded-t-3xl">
-                <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest">
-                  {activeStory.category}
-                </span>
-                <h3 className="text-lg font-black text-neutral-100 font-heading mt-0.5">
-                  {activeStory.title}
-                </h3>
-                <p className="text-xs text-neutral-300 mt-2 leading-relaxed">
-                  {activeStory.caption}
-                </p>
+              <div className="p-5 relative -mt-6 bg-neutral-950 rounded-t-3xl space-y-4">
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-base font-black text-white font-heading">
+                      {selectedHighlightPromo.title}
+                    </h3>
+                    {selectedHighlightPromo.discountPercentage && (
+                      <span className="text-xs font-black bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-lg shrink-0">
+                        {selectedHighlightPromo.discountPercentage}% OFF
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-neutral-300 mt-2 leading-relaxed">
+                    {selectedHighlightPromo.description}
+                  </p>
+                </div>
+
+                {selectedHighlightPromo.code && (
+                  <div className="bg-neutral-900 p-3 rounded-2xl border border-dashed border-orange-500/50 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-neutral-400 font-bold block uppercase">Cupom da Promoção:</span>
+                      <span className="text-xs font-mono font-black text-orange-400 tracking-wider">
+                        {selectedHighlightPromo.code}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard?.writeText(selectedHighlightPromo.code || '');
+                        setCopiedCoupon(selectedHighlightPromo.code || null);
+                        setTimeout(() => setCopiedCoupon(null), 2500);
+                      }}
+                      className="px-3 py-1.5 bg-orange-500/20 hover:bg-orange-500 text-orange-400 hover:text-neutral-950 rounded-xl text-xs font-bold transition-all flex items-center gap-1"
+                    >
+                      {copiedCoupon === selectedHighlightPromo.code ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Copiado!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copiar</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
 
                 <button
                   onClick={() => {
-                    setActiveStory(null);
+                    setSelectedHighlightPromo(null);
                     setActiveTab('BOOKING');
                   }}
-                  className="w-full mt-4 py-3 bg-orange-500 hover:bg-orange-400 text-neutral-950 font-black rounded-xl text-xs transition-colors shadow-lg"
+                  className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-neutral-950 font-black rounded-xl text-xs transition-all shadow-lg flex items-center justify-center gap-2"
                 >
-                  Agendar Agora
+                  <Scissors className="w-4 h-4" />
+                  <span>Aproveitar e Agendar Agora</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Raffle Highlight Viewer Modal */}
+        {selectedHighlightRaffle && (
+          <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="relative w-full max-w-sm bg-neutral-950 rounded-3xl overflow-hidden border border-neutral-800 shadow-2xl">
+              {/* Close button */}
+              <button
+                onClick={() => setSelectedHighlightRaffle(null)}
+                className="absolute top-4 right-4 z-20 bg-neutral-900/80 text-neutral-300 hover:text-white p-2 rounded-full border border-neutral-800 backdrop-blur-sm"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="h-60 w-full relative">
+                <AppImage
+                  src={selectedHighlightRaffle.imageUrl || 'https://images.unsplash.com/photo-1512690459411-b9245aed614b?w=600'}
+                  alt={selectedHighlightRaffle.title}
+                  fallbackType="banner"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/40 to-transparent" />
+                <div className="absolute top-4 left-4 bg-amber-400 text-neutral-950 text-[10px] font-black uppercase px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1">
+                  <Trophy className="w-3 h-3" />
+                  <span>{selectedHighlightRaffle.status === 'REALIZADO' ? 'SORTEIO REALIZADO' : (selectedHighlightRaffle.highlightTag || 'SORTEIO EM DESTAQUE')}</span>
+                </div>
+              </div>
+
+              <div className="p-5 relative -mt-6 bg-neutral-950 rounded-t-3xl space-y-3.5">
+                <div>
+                  <h3 className="text-base font-black text-white font-heading">
+                    {selectedHighlightRaffle.title}
+                  </h3>
+                  <p className="text-xs text-neutral-300 mt-1 leading-relaxed">
+                    {selectedHighlightRaffle.description}
+                  </p>
+                </div>
+
+                <div className="bg-neutral-900 p-3 rounded-2xl border border-neutral-800">
+                  <span className="text-[10px] uppercase font-bold text-neutral-400 block">Prêmio:</span>
+                  <strong className="text-xs text-amber-400 font-bold mt-0.5 block">{selectedHighlightRaffle.prize}</strong>
+                </div>
+
+                {selectedHighlightRaffle.status === 'REALIZADO' && selectedHighlightRaffle.winnerClientName ? (
+                  <div className="bg-emerald-950/60 border border-emerald-500/40 p-3.5 rounded-2xl flex items-center gap-3 animate-fade-in">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+                      <Trophy className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase font-bold text-emerald-300">Ganhador(a) Oficial:</div>
+                      <div className="text-sm font-black text-white">{selectedHighlightRaffle.winnerClientName}</div>
+                      <div className="text-[10px] text-neutral-400 mt-0.5">Sorteio realizado pela barbearia!</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between text-xs text-neutral-400 bg-neutral-900/60 px-3 py-2 rounded-xl border border-neutral-800/80">
+                    <span>Data do Sorteio:</span>
+                    <strong className="text-neutral-200 font-mono">
+                      {selectedHighlightRaffle.drawDate.split('-').reverse().join('/')}
+                    </strong>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => {
+                    setSelectedHighlightRaffle(null);
+                    setActiveTab('RAFFLES');
+                  }}
+                  className="w-full py-3 bg-gradient-to-r from-amber-400 via-orange-500 to-amber-500 hover:from-amber-300 hover:to-orange-400 text-neutral-950 font-black rounded-xl text-xs transition-all shadow-lg flex items-center justify-center gap-2"
+                >
+                  <Gift className="w-4 h-4" />
+                  <span>Ver Todos os Sorteios & Detalhes</span>
                 </button>
               </div>
             </div>

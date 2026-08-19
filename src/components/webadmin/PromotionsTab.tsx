@@ -47,6 +47,8 @@ export const PromotionsTab: React.FC = () => {
   const [code, setCode] = useState('');
   const [validUntil, setValidUntil] = useState('');
   const [imageUrl, setImageUrl] = useState(PRESET_PROMO_IMAGES[0]);
+  const [showInHighlights, setShowInHighlights] = useState(true);
+  const [highlightTag, setHighlightTag] = useState('PROMOÇÃO');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   const openAddModal = () => {
@@ -60,6 +62,8 @@ export const PromotionsTab: React.FC = () => {
     nextMonth.setDate(nextMonth.getDate() + 30);
     setValidUntil(nextMonth.toISOString().split('T')[0]);
     setImageUrl(PRESET_PROMO_IMAGES[0]);
+    setShowInHighlights(true);
+    setHighlightTag('PROMOÇÃO');
     setShowModal(true);
   };
 
@@ -72,6 +76,8 @@ export const PromotionsTab: React.FC = () => {
     setCode(promo.code || '');
     setValidUntil(promo.validUntil || '');
     setImageUrl(promo.imageUrl || PRESET_PROMO_IMAGES[0]);
+    setShowInHighlights(promo.showInHighlights !== false);
+    setHighlightTag(promo.highlightTag || 'PROMOÇÃO');
     setShowModal(true);
   };
 
@@ -89,6 +95,8 @@ export const PromotionsTab: React.FC = () => {
         serviceName: matchedService ? matchedService.name : undefined,
         code: code.trim().toUpperCase() || undefined,
         validUntil: validUntil || undefined,
+        showInHighlights,
+        highlightTag: highlightTag.trim() || undefined,
         imageUrl: imageUrl.trim() || undefined
       });
     } else {
@@ -102,6 +110,8 @@ export const PromotionsTab: React.FC = () => {
         code: code.trim().toUpperCase() || undefined,
         validUntil: validUntil || undefined,
         active: true,
+        showInHighlights,
+        highlightTag: highlightTag.trim() || undefined,
         imageUrl: imageUrl.trim() || undefined
       });
     }
@@ -171,8 +181,8 @@ export const PromotionsTab: React.FC = () => {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/30 to-transparent" />
 
-                  {/* Status Badge */}
-                  <div className="absolute top-3 left-3 flex items-center gap-1.5">
+                  {/* Status Badge & Highlight Tag */}
+                  <div className="absolute top-3 left-3 flex flex-wrap items-center gap-1.5">
                     {promo.active && !isExpired ? (
                       <span className="bg-emerald-500 text-neutral-950 font-black text-[9px] px-2.5 py-0.5 rounded-lg uppercase tracking-wider shadow">
                         ATIVA NO APP
@@ -184,6 +194,13 @@ export const PromotionsTab: React.FC = () => {
                     ) : (
                       <span className="bg-neutral-800 text-neutral-400 font-black text-[9px] px-2.5 py-0.5 rounded-lg uppercase tracking-wider shadow">
                         PAUSADA
+                      </span>
+                    )}
+
+                    {promo.showInHighlights && (
+                      <span className="bg-amber-400 text-neutral-950 font-black text-[9px] px-2 py-0.5 rounded-lg flex items-center gap-0.5 shadow">
+                        <Sparkles className="w-2.5 h-2.5" />
+                        NO DESTAQUE
                       </span>
                     )}
                   </div>
@@ -253,16 +270,31 @@ export const PromotionsTab: React.FC = () => {
 
                   {/* Actions & Switch */}
                   <div className="pt-3 border-t border-neutral-800 flex items-center justify-between gap-2">
-                    <button
-                      onClick={() => togglePromotionActive(promo.id)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
-                        promo.active
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                          : 'bg-neutral-800 text-neutral-400 border border-neutral-700'
-                      }`}
-                    >
-                      {promo.active ? 'Ativa no App' : 'Pausada'}
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => togglePromotionActive(promo.id)}
+                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+                          promo.active
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                            : 'bg-neutral-800 text-neutral-400 border border-neutral-700'
+                        }`}
+                      >
+                        {promo.active ? 'Ativa' : 'Pausada'}
+                      </button>
+
+                      <button
+                        onClick={() => updatePromotion(promo.id, { showInHighlights: !promo.showInHighlights })}
+                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+                          promo.showInHighlights
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                            : 'bg-neutral-950 text-neutral-500 border border-neutral-800 hover:text-neutral-300'
+                        }`}
+                        title="Alternar se esta promoção aparece na vitrine de destaques no topo do app do cliente"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        <span>{promo.showInHighlights ? 'No Destaque' : '+ Destaque'}</span>
+                      </button>
+                    </div>
 
                     <div className="flex items-center gap-1">
                       <button
@@ -411,6 +443,40 @@ export const PromotionsTab: React.FC = () => {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Destaque no App do Cliente */}
+              <div className="bg-neutral-950 p-3.5 rounded-2xl border border-neutral-800/90 space-y-3">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    <div>
+                      <div className="text-xs font-bold text-neutral-200">Exibir nos Destaques do App</div>
+                      <div className="text-[11px] text-neutral-400">Aparecer na vitrine superior para todos os clientes</div>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={showInHighlights}
+                    onChange={e => setShowInHighlights(e.target.checked)}
+                    className="w-4 h-4 accent-orange-500 rounded cursor-pointer"
+                  />
+                </label>
+
+                {showInHighlights && (
+                  <div>
+                    <label className="block text-[11px] font-bold text-neutral-400 mb-1">
+                      Etiqueta do Destaque
+                    </label>
+                    <input
+                      type="text"
+                      value={highlightTag}
+                      onChange={e => setHighlightTag(e.target.value.toUpperCase())}
+                      placeholder="Ex: PROMOÇÃO, OFERTA VIP, NOVIDADE"
+                      className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-1.5 text-xs text-neutral-200 focus:outline-none focus:border-amber-400 uppercase font-bold"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end gap-2.5 pt-4 border-t border-neutral-800">

@@ -635,6 +635,7 @@ export const INITIAL_RAFFLES: Raffle[] = [
     winnerClientId: 'user-cliente-bruno',
     winnerClientName: 'Bruno Henrique',
     winnerDrawnAt: '2026-07-31T18:00:00Z',
+    showInHighlights: true,
     createdAt: '2026-07-01T08:00:00Z'
   }
 ];
@@ -651,6 +652,8 @@ export const INITIAL_PROMOTIONS: Promotion[] = [
     code: 'TERCA20',
     validUntil: '2026-08-31',
     active: true,
+    showInHighlights: true,
+    highlightTag: 'PROMOÇÃO',
     imageUrl: 'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=800&auto=format&fit=crop&q=80',
     createdAt: '2026-08-01T09:00:00Z'
   },
@@ -665,6 +668,8 @@ export const INITIAL_PROMOTIONS: Promotion[] = [
     code: 'BEERBARBER',
     validUntil: '2026-08-25',
     active: true,
+    showInHighlights: true,
+    highlightTag: 'EXPERIÊNCIA VIP',
     imageUrl: 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=800&auto=format&fit=crop&q=80',
     createdAt: '2026-08-02T10:00:00Z'
   },

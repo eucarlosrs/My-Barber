@@ -290,6 +290,7 @@ export interface Raffle {
   winnerClientId?: string;
   winnerClientName?: string;
   winnerDrawnAt?: string;
+  showInHighlights?: boolean;
   createdAt: string;
 }
 
@@ -309,6 +310,8 @@ export interface Promotion {
   validUntil: string; // YYYY-MM-DD
   active: boolean;
   imageUrl?: string;
+  showInHighlights?: boolean;
+  highlightTag?: string; // Ex: "PROMOÇÃO", "GANHADOR", "NOVIDADE"
   createdAt: string;
 }
 
