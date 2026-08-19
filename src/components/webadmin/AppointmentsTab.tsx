@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { Appointment, AppointmentStatus } from '../../types';
 import { AppImage } from '../common/AppImage';
+import { getTodayLocalDateString } from '../../utils/scheduleEngine';
 
 export const AppointmentsTab: React.FC = () => {
   const {
@@ -38,9 +39,10 @@ export const AppointmentsTab: React.FC = () => {
     currentBarbershop
   } = useApp();
 
+  const todayStr = getTodayLocalDateString();
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [viewMode, setViewMode] = useState<'AGENDA' | 'LIST'>('AGENDA');
   
   // Modals
@@ -53,7 +55,7 @@ export const AppointmentsTab: React.FC = () => {
   const [newClientWhatsApp, setNewClientWhatsApp] = useState<string>('');
   const [newProfId, setNewProfId] = useState<string>(professionals[0]?.id || '');
   const [newServiceId, setNewServiceId] = useState<string>(services[0]?.id || '');
-  const [newDate, setNewDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [newDate, setNewDate] = useState<string>(todayStr);
   const [newStartTime, setNewStartTime] = useState<string>('14:00');
   const [isEncaixe, setIsEncaixe] = useState<boolean>(false);
   const [formError, setFormError] = useState<string | null>(null);

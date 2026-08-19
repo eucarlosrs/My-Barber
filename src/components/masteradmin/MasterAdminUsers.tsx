@@ -46,7 +46,7 @@ export const MasterAdminUsers: React.FC<MasterAdminUsersProps> = ({ onOpenCreate
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-orange-500/10 text-orange-400 border border-orange-500/40 uppercase">
             <Crown className="w-3 h-3" />
-            Master Admin
+            Painel Carlos Silva
           </span>
         );
       case 'PROPRIETARIO':
@@ -136,7 +136,7 @@ export const MasterAdminUsers: React.FC<MasterAdminUsersProps> = ({ onOpenCreate
             className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 cursor-pointer"
           >
             <option value="ALL">Todos os Cargos</option>
-            <option value="SUPER_ADMIN">Master Admin (Dono da Plataforma)</option>
+            <option value="SUPER_ADMIN">Painel Carlos Silva (Dono da Plataforma)</option>
             <option value="PROPRIETARIO">Proprietários (Donos de Salão)</option>
             <option value="GERENTE">Gerentes</option>
             <option value="PROFISSIONAL">Profissionais / Barbeiros</option>

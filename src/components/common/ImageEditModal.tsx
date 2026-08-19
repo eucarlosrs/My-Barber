@@ -884,28 +884,50 @@ export const ImageEditModal: React.FC<ImageEditModalProps> = ({
         )}
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-3 pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSavingAdjusted}
-            className="px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs font-bold transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={isSavingAdjusted || !imageUrl}
-            className="flex items-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-400 disabled:opacity-50 text-neutral-950 rounded-xl text-xs font-black transition-all shadow-lg active:scale-95"
-          >
-            {isSavingAdjusted ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
-            ) : (
-              <CheckCircle2 className="w-4 h-4" />
-            )}
-            <span>{isSavingAdjusted ? 'Processando e Salvando...' : 'Salvar Alteração'}</span>
-          </button>
+        <div className="flex items-center justify-between gap-3 pt-2">
+          {presets && presets.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                setImageUrl(presets[0].url);
+                setLocalSourceData(null);
+                uploadedFileRef.current = null;
+                handleResetAdjustments();
+                setSuccessMsg('Imagem restaurada para a demonstração padrão.');
+                setTimeout(() => setSuccessMsg(null), 3000);
+              }}
+              disabled={isSavingAdjusted}
+              className="px-3 py-2 bg-neutral-800/80 hover:bg-neutral-800 text-neutral-400 hover:text-orange-400 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 border border-neutral-800 hover:border-neutral-700"
+              title="Restaurar a foto padrão de demonstração"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Restaurar Padrão</span>
+            </button>
+          ) : <div />}
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSavingAdjusted}
+              className="px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs font-bold transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isSavingAdjusted || !imageUrl}
+              className="flex items-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-400 disabled:opacity-50 text-neutral-950 rounded-xl text-xs font-black transition-all shadow-lg active:scale-95"
+            >
+              {isSavingAdjusted ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4" />
+              )}
+              <span>{isSavingAdjusted ? 'Processando e Salvando...' : 'Salvar Alteração'}</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

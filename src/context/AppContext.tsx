@@ -38,6 +38,7 @@ import {
   INITIAL_GALLERY_WORKS,
   INITIAL_AUDIT_LOGS
 } from '../data/initialData';
+import { isTimeSlotAvailable, timeToMinutes, minutesToTime } from '../utils/scheduleEngine';
 import {
   seedFirestoreIfEmpty,
   subscribeCollection,
@@ -99,6 +100,7 @@ interface AppContextType {
 
   // Operations
   addAppointment: (appointment: Omit<Appointment, 'id' | 'createdAt' | 'reminderSent'>) => { success: boolean; error?: string };
+  rescheduleAppointment: (appointmentId: string, newDate: string, newStartTime: string, newEndTime: string) => { success: boolean; error?: string };
   cancelAppointment: (appointmentId: string) => void;
   updateAppointmentStatus: (appointmentId: string, status: AppointmentStatus) => void;
   addToWaitlist: (entry: Omit<WaitlistEntry, 'id' | 'createdAt' | 'status'>) => void;
@@ -494,28 +496,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  const addAppointment = (newApp: Omit<Appointment, 'id' | 'createdAt' | 'reminderSent'>) => {
-    // Check conflicts unless it is an explicit encaixe (Seção 14)
-    if (!newApp.isEncaixe) {
-      const conflict = tenantAppointments.find(
-        a =>
-          a.professionalId === newApp.professionalId &&
-          a.date === newApp.date &&
-          a.status === 'AGENDADO' &&
-          ((newApp.startTime >= a.startTime && newApp.startTime < a.endTime) ||
-            (newApp.endTime > a.startTime && newApp.endTime <= a.endTime))
-      );
+  const addAppointment = (newApp: Omit<Appointment, 'id' | 'createdAt' | 'reminderSent'>): { success: boolean; error?: string } => {
+    // REGRA FUNDAMENTAL DO MY BARBER: O CLIENTE SÓ PODE AGENDAR SERVIÇOS CADASTRADOS PELA BARBEARIA
+    const srv = services.find(s => s.id === newApp.serviceId);
+    if (!srv) {
+      return {
+        success: false,
+        error: 'O serviço selecionado não pertence a este estabelecimento ou não está cadastrado.'
+      };
+    }
 
-      if (conflict) {
+    if (newApp.tenantId && srv.tenantId !== newApp.tenantId) {
+      return {
+        success: false,
+        error: 'Inconsistência de estabelecimento: o serviço não pertence a esta barbearia.'
+      };
+    }
+
+    // A duração utilizada no cálculo e no agendamento é estritamente a duração oficial cadastrada do serviço
+    const officialDuration = srv.durationMinutes;
+
+    // REGRA FUNDAMENTAL DO MY BARBER: Validação estrita de disponibilidade e jornada
+    if (!newApp.isEncaixe) {
+      const sched = schedules.find(s => s.professionalId === newApp.professionalId);
+
+      const validation = isTimeSlotAvailable({
+        date: newApp.date,
+        startTime: newApp.startTime,
+        durationMinutes: officialDuration > 0 ? officialDuration : 30,
+        professionalId: newApp.professionalId,
+        scheduleConfig: sched,
+        existingAppointments: appointments,
+        isEncaixe: false
+      });
+
+      if (!validation.available) {
         return {
           success: false,
-          error: `Horário indisponível. Já existe um agendamento com ${conflict.clientName} (${conflict.startTime} - ${conflict.endTime}).`
+          error: validation.reason || 'Este horário não está mais disponível para o profissional selecionado.'
         };
       }
     }
 
+    const startMins = timeToMinutes(newApp.startTime);
+    const computedEnd = minutesToTime(startMins + officialDuration);
+
     const created: Appointment = {
       ...newApp,
+      serviceName: srv.name,
+      servicePrice: srv.price,
+      serviceDuration: officialDuration,
+      endTime: newApp.endTime || computedEnd,
       id: `apt-${Date.now()}`,
       createdAt: new Date().toISOString(),
       reminderSent: false
@@ -523,6 +554,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     syncDoc('appointments', created.id, created);
     setAppointments(prev => [created, ...prev]);
+    return { success: true };
+  };
+
+  const rescheduleAppointment = (
+    appointmentId: string,
+    newDate: string,
+    newStartTime: string,
+    newEndTime: string
+  ): { success: boolean; error?: string } => {
+    const apt = appointments.find(a => a.id === appointmentId);
+    if (!apt) {
+      return { success: false, error: 'Agendamento não encontrado.' };
+    }
+
+    const srv = services.find(s => s.id === apt.serviceId);
+    const officialDuration = srv?.durationMinutes || apt.serviceDuration || 30;
+    const sched = schedules.find(s => s.professionalId === apt.professionalId);
+
+    const validation = isTimeSlotAvailable({
+      date: newDate,
+      startTime: newStartTime,
+      durationMinutes: officialDuration > 0 ? officialDuration : 30,
+      professionalId: apt.professionalId,
+      scheduleConfig: sched,
+      existingAppointments: appointments,
+      excludeAppointmentId: appointmentId,
+      isEncaixe: apt.isEncaixe
+    });
+
+    if (!validation.available) {
+      return {
+        success: false,
+        error: validation.reason || 'O novo horário selecionado não está disponível.'
+      };
+    }
+
+    const startMins = timeToMinutes(newStartTime);
+    const computedEnd = minutesToTime(startMins + officialDuration);
+
+    const updated: Appointment = {
+      ...apt,
+      date: newDate,
+      startTime: newStartTime,
+      endTime: computedEnd,
+      reminderSent: false
+    };
+
+    syncDoc('appointments', appointmentId, updated);
+    setAppointments(prev => prev.map(a => (a.id === appointmentId ? updated : a)));
     return { success: true };
   };
 
@@ -745,11 +825,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateProfessional = (profId: string, data: Partial<User>) => {
     let updatedUsers = [...users];
     if (data.canViewAllProfessionals) {
-      updatedUsers = updatedUsers.map(u =>
-        u.tenantId === activeTenantId && u.role === 'PROFISSIONAL' && u.id !== profId
-          ? { ...u, canViewAllProfessionals: false }
-          : u
-      );
+      updatedUsers = updatedUsers.map(u => {
+        if (u.tenantId === activeTenantId && u.role === 'PROFISSIONAL' && u.id !== profId) {
+          const toggled = { ...u, canViewAllProfessionals: false };
+          syncDoc('users', u.id, toggled);
+          return toggled;
+        }
+        return u;
+      });
+    }
+    const target = users.find(u => u.id === profId);
+    if (target) {
+      const merged = { ...target, ...data };
+      syncDoc('users', profId, merged);
     }
     setUsers(updatedUsers.map(u => (u.id === profId ? { ...u, ...data } : u)));
   };
@@ -758,6 +846,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (professionals.length <= 1) {
       return { success: false, error: 'A barbearia deve manter ao menos 1 profissional ativo.' };
     }
+    deleteDocFromDb('users', profId);
     setUsers(prev => prev.filter(u => u.id !== profId));
     return { success: true };
   };
@@ -828,6 +917,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString()
     };
 
+    syncDoc('users', newUser.id, newUser);
     setUsers([...updatedUsers, newUser]);
     return { success: true };
   };
@@ -1242,10 +1332,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const uploadMedia = async (file: File, folder: string = 'barbershop_media'): Promise<string> => {
+  const uploadMedia = async (file: File, folder: string = 'barbershop_media', customTenantId?: string): Promise<string> => {
+    const targetTenant = customTenantId || activeTenantId || 'tenant-barbearia-do-joao';
     const timestamp = Date.now();
     const cleanFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const path = `${activeTenantId}/${folder}/${timestamp}_${cleanFileName}`;
+    const path = `tenants/${targetTenant}/${folder}/${timestamp}_${cleanFileName}`;
     return await uploadImageToStorage(file, path);
   };
 
@@ -1330,10 +1421,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     addAuditLog({
       actorUserId: 'user-super-admin',
-      actorUserName: 'Super Admin (Dono My Barber)',
+      actorUserName: 'Carlos Silva (Dono My Barber)',
       actorRole: 'SUPER_ADMIN',
       action: 'VISUALIZAR_COMO_ENCERRADO',
-      details: `Encerrada simulação de experiência. Retorno seguro ao painel Master Admin.`,
+      details: `Encerrada simulação de experiência. Retorno seguro ao Painel Carlos Silva.`,
       status: 'SUCESSO'
     });
   };
@@ -1383,6 +1474,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         likeGalleryWork,
         uploadMedia,
         addAppointment,
+        rescheduleAppointment,
         cancelAppointment,
         updateAppointmentStatus,
         addToWaitlist,

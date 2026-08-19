@@ -121,13 +121,13 @@ export const MasterAdminView: React.FC = () => {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-extrabold mb-3">
               <Crown className="w-3.5 h-3.5" />
-              <span>PAINEL DO PROPRIETÁRIO DA PLATAFORMA (MASTER ADMIN)</span>
+              <span>PAINEL CARLOS SILVA (PROPRIETÁRIO DA PLATAFORMA)</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-neutral-100 font-heading leading-tight">
               Gestão Global do Ecossistema My Barber
             </h1>
             <p className="text-xs sm:text-sm text-neutral-400 max-w-2xl mt-1.5 leading-relaxed">
-              Você está na conta Master Admin do My Barber com visão e controle integral sobre todas as barbearias parceiras, planos, usuários, serviços, agendamentos e trilhas de auditoria.
+              Você está no Painel Carlos Silva do My Barber com visão e controle integral sobre todas as barbearias parceiras, planos, usuários, serviços, agendamentos e trilhas de auditoria.
             </p>
           </div>
 
@@ -374,7 +374,7 @@ export const MasterAdminView: React.FC = () => {
                     Criar Login de Proprietário / Gerente
                   </h3>
                   <p className="text-[11px] text-neutral-400">
-                    Hierarquia: Você (Master Admin) cria o acesso do Proprietário/Gerente.
+                    Hierarquia: Você (Painel Carlos Silva) cria o acesso do Proprietário/Gerente.
                   </p>
                 </div>
               </div>
@@ -391,7 +391,7 @@ export const MasterAdminView: React.FC = () => {
                 <Crown className="w-3.5 h-3.5" />
                 <span>Regra de Hierarquia Ativa:</span>
               </div>
-              <div>• <strong>Master Admin (Dono do My Barber):</strong> Cria e gerencia os acessos de Proprietários e Gerentes.</div>
+              <div>• <strong>Painel Carlos Silva (Dono do My Barber):</strong> Cria e gerencia os acessos de Proprietários e Gerentes.</div>
               <div>• <strong>Gerente / Proprietário:</strong> Acessa seu salão e cria o login dos seus Barbeiros e Profissionais.</div>
             </div>
 

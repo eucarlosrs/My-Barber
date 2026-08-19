@@ -465,32 +465,79 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-neutral-300 mb-1">URL do Logotipo</label>
-                <input
-                  type="url"
-                  value={editingShop.logoUrl}
-                  onChange={e => {
-                    const newLogo = e.target.value;
-                    updateBarbershop({ logoUrl: newLogo });
-                    setEditingShop(prev => prev ? { ...prev, logoUrl: newLogo } : null);
-                  }}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
-                />
+              {/* Logotipo com Editor Visual */}
+              <div className="p-3.5 bg-neutral-950/80 border border-neutral-800 rounded-2xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-neutral-200 flex items-center gap-1.5">
+                    <Camera className="w-3.5 h-3.5 text-orange-400" />
+                    <span>Logotipo da Barbearia</span>
+                  </label>
+                  <span className="text-[10px] text-neutral-400">Ajuste de Zoom, Posição e Upload</span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-2xl overflow-hidden border border-neutral-700 bg-neutral-900 shrink-0 flex items-center justify-center">
+                    <AppImage
+                      src={editingShop.logoUrl}
+                      alt="Logo"
+                      fallbackType="logo"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex-1 space-y-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowLogoEditModal(true)}
+                      className="w-full py-2 px-3 bg-gradient-to-r from-orange-500/20 to-amber-500/20 hover:from-orange-500/30 hover:to-amber-500/30 border border-orange-500/40 hover:border-orange-500 text-orange-300 hover:text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
+                    >
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-orange-400" />
+                      <span>Abrir Editor Visual do Logo</span>
+                    </button>
+                    <input
+                      type="url"
+                      placeholder="Ou cole a URL direta da imagem..."
+                      value={editingShop.logoUrl}
+                      onChange={e => {
+                        const newLogo = e.target.value;
+                        updateBarbershop({ logoUrl: newLogo });
+                        setEditingShop(prev => prev ? { ...prev, logoUrl: newLogo } : null);
+                      }}
+                      className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-2.5 py-1 text-[11px] text-neutral-300 focus:outline-none focus:border-orange-500 font-mono"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-neutral-300 mb-1">URL do Banner</label>
-                <input
-                  type="url"
-                  value={editingShop.bannerUrl || editingShop.salonImages[0] || ''}
-                  onChange={e => {
-                    const newBanner = e.target.value;
-                    updateBarbershop({ bannerUrl: newBanner });
-                    setEditingShop(prev => prev ? { ...prev, bannerUrl: newBanner } : null);
-                  }}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
-                />
+              {/* Banner com Editor Visual */}
+              <div className="p-3.5 bg-neutral-950/80 border border-neutral-800 rounded-2xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-neutral-200 flex items-center gap-1.5">
+                    <ImageIcon className="w-3.5 h-3.5 text-orange-400" />
+                    <span>Banner / Capa Principal</span>
+                  </label>
+                  <span className="text-[10px] text-neutral-400">Ajuste Panorâmico</span>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="w-full h-20 rounded-xl overflow-hidden border border-neutral-700 bg-neutral-900">
+                    <AppImage
+                      src={editingShop.bannerUrl || editingShop.salonImages[0] || ''}
+                      alt="Banner"
+                      fallbackType="banner"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowBannerEditModal(true)}
+                      className="flex-1 py-2 px-3 bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 hover:border-neutral-600 text-neutral-200 hover:text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    >
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Abrir Editor Visual do Banner</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -498,16 +545,56 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
               <button
                 onClick={() => {
                   setEditingShop(null);
-                  setSuccessToast('Dados da barbearia atualizados!');
+                  setSuccessToast('Dados da barbearia atualizados com sucesso!');
                   setTimeout(() => setSuccessToast(null), 3000);
                 }}
-                className="px-4 py-2 bg-orange-500 text-neutral-950 font-black rounded-xl text-xs"
+                className="px-5 py-2.5 bg-orange-500 hover:bg-orange-400 text-neutral-950 font-black rounded-xl text-xs shadow-lg shadow-orange-500/20 cursor-pointer"
               >
                 Concluir Alterações
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Visual Image Studio Modal para LOGO */}
+      {showLogoEditModal && editingShop && (
+        <ImageEditModal
+          isOpen={showLogoEditModal}
+          onClose={() => setShowLogoEditModal(false)}
+          title={`Editar Logotipo — ${editingShop.name}`}
+          subtitle="Faça upload, ajuste o zoom, arraste para reposicionar ou selecione uma sugestão."
+          currentImageUrl={editingShop.logoUrl}
+          fallbackType="logo"
+          presets={LOGO_PRESETS}
+          onSave={(newUrl) => {
+            updateBarbershop({ logoUrl: newUrl });
+            setEditingShop(prev => prev ? { ...prev, logoUrl: newUrl } : null);
+            setShowLogoEditModal(false);
+            setSuccessToast('Logotipo atualizado e salvo!');
+            setTimeout(() => setSuccessToast(null), 3000);
+          }}
+        />
+      )}
+
+      {/* Visual Image Studio Modal para BANNER */}
+      {showBannerEditModal && editingShop && (
+        <ImageEditModal
+          isOpen={showBannerEditModal}
+          onClose={() => setShowBannerEditModal(false)}
+          title={`Editar Banner Principal — ${editingShop.name}`}
+          subtitle="Faça upload do banner, controle o enquadramento, zoom e cores de fundo."
+          currentImageUrl={editingShop.bannerUrl || editingShop.salonImages[0] || ''}
+          fallbackType="banner"
+          presets={BANNER_PRESETS}
+          onSave={(newUrl) => {
+            updateBarbershop({ bannerUrl: newUrl });
+            setEditingShop(prev => prev ? { ...prev, bannerUrl: newUrl } : null);
+            setShowBannerEditModal(false);
+            setSuccessToast('Banner atualizado e salvo!');
+            setTimeout(() => setSuccessToast(null), 3000);
+          }}
+        />
       )}
 
       {/* Modal: Cadastrar Nova Barbearia */}

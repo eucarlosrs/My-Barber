@@ -96,9 +96,16 @@ export async function uploadImageToStorage(file: File, destinationPath: string):
   try {
     if (storage) {
       const storageRef = ref(storage, destinationPath);
-      const snapshot = await uploadBytes(storageRef, file);
+      const snapshot = await uploadBytes(storageRef, file, {
+        contentType: file.type || 'image/jpeg',
+        customMetadata: {
+          uploadedAt: new Date().toISOString()
+        }
+      });
       const downloadUrl = await getDownloadURL(snapshot.ref);
-      return downloadUrl;
+      // Append unique timestamp for instant client cache invalidation
+      const cacheBust = downloadUrl.includes('?') ? `&t=${Date.now()}` : `?t=${Date.now()}`;
+      return `${downloadUrl}${cacheBust}`;
     }
   } catch (error) {
     console.warn('Firebase Storage upload warning (falling back to Base64 local storage):', error);

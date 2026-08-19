@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { PhoneFrame } from './PhoneFrame';
+import { generateAvailableSlots, generateUpcomingDays, getTodayLocalDateString } from '../../utils/scheduleEngine';
 import {
   Calendar,
   Clock,
@@ -91,6 +92,7 @@ export const ClientAppView: React.FC = () => {
     currentBarbershop,
     services,
     professionals,
+    schedules,
     appointments,
     addAppointment,
     currentUser,
@@ -141,17 +143,21 @@ export const ClientAppView: React.FC = () => {
   // Story Viewer Modal
   const [activeStory, setActiveStory] = useState<StoryItem | null>(null);
 
+  // Real-time dynamic date tracking
+  const todayStr = useMemo(() => getTodayLocalDateString(), []);
+  const upcomingDays = useMemo(() => generateUpcomingDays(14), []);
+
   // Booking Flow Steps & State
   const [selectedCategory, setSelectedCategory] = useState<string>('TODOS');
   const [selectedService, setSelectedService] = useState<Service | null>(services[0] || null);
   const [selectedProfessional, setSelectedProfessional] = useState<UserType | null>(professionals[0] || null);
-  const [selectedDate, setSelectedDate] = useState<string>('2026-08-11');
+  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [selectedTime, setSelectedTime] = useState<string>('14:00');
   const [bookingSuccessMsg, setBookingSuccessMsg] = useState<string | null>(null);
   const [bookingErrorMsg, setBookingErrorMsg] = useState<string | null>(null);
 
   // Waitlist form
-  const [waitlistDate, setWaitlistDate] = useState('2026-08-15');
+  const [waitlistDate, setWaitlistDate] = useState(todayStr);
   const [waitlistService, setWaitlistService] = useState(services[0]?.id || '');
   const [waitlistTimeRange, setWaitlistTimeRange] = useState<'MANHA' | 'TARDE' | 'NOITE' | 'QUALQUER'>('TARDE');
   const [waitlistSuccess, setWaitlistSuccess] = useState(false);
@@ -166,27 +172,62 @@ export const ClientAppView: React.FC = () => {
   const clientAppointments = appointments.filter(a => a.clientId === currentUser.id);
   const clientCustPackages = customerPackages.filter(cp => cp.clientId === currentUser.id);
 
-  // Days list for horizontal picker
-  const upcomingDays = [
-    { date: '2026-08-10', dayName: 'Hoje', dayNum: '10', month: 'Ago' },
-    { date: '2026-08-11', dayName: 'Ter', dayNum: '11', month: 'Ago' },
-    { date: '2026-08-12', dayName: 'Qua', dayNum: '12', month: 'Ago' },
-    { date: '2026-08-13', dayName: 'Qui', dayNum: '13', month: 'Ago' },
-    { date: '2026-08-14', dayName: 'Sex', dayNum: '14', month: 'Ago' },
-    { date: '2026-08-15', dayName: 'Sáb', dayNum: '15', month: 'Ago' },
-    { date: '2026-08-17', dayName: 'Seg', dayNum: '17', month: 'Ago' }
-  ];
+  // Dynamic Time Slots calculation based on fundamental availability rules
+  const selectedScheduleConfig = schedules.find(s => s.professionalId === selectedProfessional?.id);
+  const serviceDuration = selectedService?.durationMinutes || 30;
 
-  // Grouped Time Slots
-  const morningSlots = ['09:00', '09:30', '10:00', '10:30', '11:00', '11:30'];
-  const afternoonSlots = ['13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30'];
-  const eveningSlots = ['18:00', '18:30', '19:00', '19:30'];
+  const {
+    morningSlots,
+    afternoonSlots,
+    eveningSlots,
+    allSlots
+  } = useMemo(() => {
+    if (!selectedProfessional) {
+      return { morningSlots: [], afternoonSlots: [], eveningSlots: [], allSlots: [] };
+    }
+    return generateAvailableSlots({
+      date: selectedDate,
+      durationMinutes: serviceDuration,
+      professionalId: selectedProfessional.id,
+      scheduleConfig: selectedScheduleConfig,
+      existingAppointments: appointments,
+      stepMinutes: 30
+    });
+  }, [selectedDate, serviceDuration, selectedProfessional, selectedScheduleConfig, appointments]);
 
-  // Categories list
-  const categories = ['TODOS', 'Cabelo', 'Barba', 'Combos', 'Estética', 'Química'];
+  // Sincroniza automaticamente a seleção de horário com o primeiro horário disponível
+  useEffect(() => {
+    if (allSlots.length > 0) {
+      const isCurrentSelectedValid = allSlots.some(s => s.time === selectedTime && s.available);
+      if (!isCurrentSelectedValid) {
+        const firstAvailable = allSlots.find(s => s.available);
+        if (firstAvailable) {
+          setSelectedTime(firstAvailable.time);
+        }
+      }
+    }
+  }, [allSlots, selectedTime]);
+
+  // Dynamic categories list based on services registered by the barbershop
+  const categories = useMemo(() => {
+    const customCats = Array.from(new Set(services.map(s => s.category).filter(Boolean)));
+    return ['TODOS', ...customCats];
+  }, [services]);
+
   const filteredServices = selectedCategory === 'TODOS'
     ? services
     : services.filter(s => s.category.toLowerCase() === selectedCategory.toLowerCase());
+
+  // Garante que o serviço selecionado pertença aos serviços cadastrados da barbearia
+  useEffect(() => {
+    if (services.length > 0) {
+      if (!selectedService || !services.some(s => s.id === selectedService.id)) {
+        setSelectedService(services[0]);
+      }
+    } else {
+      setSelectedService(null);
+    }
+  }, [services, selectedService]);
 
   const handleSelectGoogleAccount = (acc: { googleId: string; name: string; email: string; avatarUrl: string }) => {
     setGoogleAccount(acc);
@@ -535,74 +576,98 @@ export const ClientAppView: React.FC = () => {
                 </div>
 
                 {/* Category Filter Chips */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-2 no-scrollbar">
-                  {categories.map(cat => (
-                    <button
-                      key={cat}
-                      onClick={() => setSelectedCategory(cat)}
-                      className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
-                        selectedCategory === cat
-                          ? 'bg-orange-500 text-neutral-950 font-semibold shadow-md'
-                          : 'bg-neutral-900 text-neutral-400 hover:text-neutral-200 border border-neutral-800'
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Services Cards Grid with photos */}
-                <div className="grid grid-cols-1 gap-2.5">
-                  {filteredServices.map(srv => {
-                    const isSelected = selectedService?.id === srv.id;
-                    return (
+                {categories.length > 1 && (
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-2 no-scrollbar">
+                    {categories.map(cat => (
                       <button
-                        key={srv.id}
-                        onClick={() => setSelectedService(srv)}
-                        className={`w-full text-left p-3 rounded-2xl border transition-all flex items-center gap-3 active:scale-[0.99] ${
-                          isSelected
-                            ? 'bg-orange-500/10 border-orange-500 ring-1 ring-orange-500/50 shadow-lg shadow-orange-500/5'
-                            : 'bg-neutral-900/90 border-neutral-800/80 hover:border-neutral-700 text-neutral-300'
+                        key={cat}
+                        onClick={() => setSelectedCategory(cat)}
+                        className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                          selectedCategory === cat
+                            ? 'bg-orange-500 text-neutral-950 font-semibold shadow-md'
+                            : 'bg-neutral-900 text-neutral-400 hover:text-neutral-200 border border-neutral-800'
                         }`}
                       >
-                        {/* Service Thumbnail */}
-                        <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-950 shrink-0 border border-neutral-800 relative">
-                          <AppImage
-                            src={srv.imageUrl || 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=200'}
-                            alt={srv.name}
-                            fallbackType="service"
-                            className="w-full h-full object-cover"
-                          />
-                          {isSelected && (
-                            <div className="absolute inset-0 bg-orange-500/30 flex items-center justify-center">
-                              <Check className="w-5 h-5 text-orange-300 font-bold" />
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Service Details */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="font-semibold text-sm text-neutral-100 truncate">{srv.name}</span>
-                            <span className="font-bold text-emerald-400 text-xs shrink-0 font-mono">
-                              R$ {srv.price.toFixed(2).replace('.', ',')}
-                            </span>
-                          </div>
-                          <p className="text-xs text-neutral-400 line-clamp-1 mt-0.5">{srv.description}</p>
-                          <div className="flex items-center gap-2 mt-1.5">
-                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-md">
-                              <Clock className="w-3 h-3" />
-                              {srv.durationMinutes} min
-                            </span>
-                            <span className="text-[11px] text-neutral-400 bg-neutral-950 px-2 py-0.5 rounded-md border border-neutral-800/60 font-medium">
-                              {srv.category}
-                            </span>
-                          </div>
-                        </div>
+                        {cat}
                       </button>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Services Cards Grid with photos */}
+                {services.length === 0 ? (
+                  <div className="bg-neutral-900/80 border border-neutral-800/80 rounded-2xl p-6 text-center space-y-2">
+                    <Scissors className="w-8 h-8 text-neutral-600 mx-auto" />
+                    <p className="text-xs font-bold text-neutral-300">Nenhum serviço cadastrado nesta barbearia</p>
+                    <p className="text-[11px] text-neutral-500">Esta barbearia ainda não cadastrou opções para agendamento.</p>
+                  </div>
+                ) : filteredServices.length === 0 ? (
+                  <div className="bg-neutral-900/80 border border-neutral-800/80 rounded-2xl p-6 text-center space-y-2">
+                    <p className="text-xs font-bold text-neutral-300">Nenhum serviço encontrado nesta categoria</p>
+                    <button
+                      onClick={() => setSelectedCategory('TODOS')}
+                      className="px-3 py-1.5 bg-orange-500 text-neutral-950 rounded-xl text-xs font-bold"
+                    >
+                      Ver Todos os Serviços
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2.5">
+                    {filteredServices.map(srv => {
+                      const isSelected = selectedService?.id === srv.id;
+                      return (
+                        <button
+                          key={srv.id}
+                          onClick={() => setSelectedService(srv)}
+                          className={`w-full text-left p-3 rounded-2xl border transition-all flex items-center gap-3 active:scale-[0.99] ${
+                            isSelected
+                              ? 'bg-orange-500/10 border-orange-500 ring-1 ring-orange-500/50 shadow-lg shadow-orange-500/5'
+                              : 'bg-neutral-900/90 border-neutral-800/80 hover:border-neutral-700 text-neutral-300'
+                          }`}
+                        >
+                          {/* Service Thumbnail */}
+                          <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-950 shrink-0 border border-neutral-800 relative">
+                            <AppImage
+                              src={srv.imageUrl || 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=200'}
+                              alt={srv.name}
+                              fallbackType="service"
+                              className="w-full h-full object-cover"
+                            />
+                            {isSelected && (
+                              <div className="absolute inset-0 bg-orange-500/30 flex items-center justify-center">
+                                <Check className="w-5 h-5 text-orange-300 font-bold" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Service Details */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-semibold text-sm text-neutral-100 truncate">{srv.name}</span>
+                              <span className="font-bold text-emerald-400 text-xs shrink-0 font-mono">
+                                R$ {srv.price.toFixed(2).replace('.', ',')}
+                              </span>
+                            </div>
+                            {srv.description && (
+                              <p className="text-xs text-neutral-400 line-clamp-1 mt-0.5">{srv.description}</p>
+                            )}
+                            <div className="flex items-center gap-2 mt-1.5">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-md">
+                                <Clock className="w-3 h-3" />
+                                {srv.durationMinutes} min
+                              </span>
+                              {srv.category && (
+                                <span className="text-[11px] text-neutral-400 bg-neutral-950 px-2 py-0.5 rounded-md border border-neutral-800/60 font-medium">
+                                  {srv.category}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Step 2: Select Professional */}
@@ -692,77 +757,125 @@ export const ClientAppView: React.FC = () => {
 
                 {/* Time Slots Section */}
                 <div className="bg-neutral-900/80 border border-neutral-800/80 rounded-2xl p-3.5 space-y-3">
-                  <div>
-                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block mb-1.5">
-                      ☀️ Manhã
-                    </span>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {morningSlots.map(t => {
-                        const isSelected = selectedTime === t;
-                        return (
-                          <button
-                            key={t}
-                            onClick={() => setSelectedTime(t)}
-                            className={`py-1.5 rounded-xl text-xs font-bold transition-all ${
-                              isSelected
-                                ? 'bg-orange-500 text-neutral-950 shadow-md'
-                                : 'bg-neutral-950 hover:bg-neutral-800 text-neutral-300 border border-neutral-800'
-                            }`}
-                          >
-                            {t}
-                          </button>
-                        );
-                      })}
+                  {allSlots.length === 0 ? (
+                    <div className="text-center py-4 px-2">
+                      <Clock className="w-6 h-6 text-neutral-500 mx-auto mb-1.5" />
+                      <p className="text-xs font-bold text-neutral-300">Sem expediente nesta data</p>
+                      <p className="text-[10px] text-neutral-500 mt-0.5">
+                        O profissional selecionado não possui horários de atendimento nesta data. Escolha outro dia ou profissional.
+                      </p>
                     </div>
-                  </div>
+                  ) : (
+                    <>
+                      {morningSlots.length > 0 && (
+                        <div>
+                          <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block mb-1.5">
+                            ☀️ Manhã
+                          </span>
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {morningSlots.map(slot => {
+                              const isSelected = selectedTime === slot.time && slot.available;
+                              return (
+                                <button
+                                  key={slot.time}
+                                  type="button"
+                                  disabled={!slot.available}
+                                  title={slot.reason || (slot.available ? 'Disponível' : 'Indisponível')}
+                                  onClick={() => {
+                                    if (slot.available) {
+                                      setSelectedTime(slot.time);
+                                      setBookingErrorMsg(null);
+                                    }
+                                  }}
+                                  className={`py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center relative ${
+                                    !slot.available
+                                      ? 'bg-neutral-950/40 text-neutral-600 border border-neutral-900 cursor-not-allowed line-through opacity-60'
+                                      : isSelected
+                                      ? 'bg-orange-500 text-neutral-950 shadow-md ring-2 ring-orange-400'
+                                      : 'bg-neutral-950 hover:bg-neutral-800 text-neutral-300 border border-neutral-800'
+                                  }`}
+                                >
+                                  {slot.time}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
 
-                  <div>
-                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block mb-1.5">
-                      🌤️ Tarde
-                    </span>
-                    <div className="grid grid-cols-4 gap-1.5">
-                      {afternoonSlots.map(t => {
-                        const isSelected = selectedTime === t;
-                        return (
-                          <button
-                            key={t}
-                            onClick={() => setSelectedTime(t)}
-                            className={`py-1.5 rounded-xl text-xs font-bold transition-all ${
-                              isSelected
-                                ? 'bg-orange-500 text-neutral-950 shadow-md'
-                                : 'bg-neutral-950 hover:bg-neutral-800 text-neutral-300 border border-neutral-800'
-                            }`}
-                          >
-                            {t}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+                      {afternoonSlots.length > 0 && (
+                        <div>
+                          <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block mb-1.5">
+                            🌤️ Tarde
+                          </span>
+                          <div className="grid grid-cols-4 gap-1.5">
+                            {afternoonSlots.map(slot => {
+                              const isSelected = selectedTime === slot.time && slot.available;
+                              return (
+                                <button
+                                  key={slot.time}
+                                  type="button"
+                                  disabled={!slot.available}
+                                  title={slot.reason || (slot.available ? 'Disponível' : 'Indisponível')}
+                                  onClick={() => {
+                                    if (slot.available) {
+                                      setSelectedTime(slot.time);
+                                      setBookingErrorMsg(null);
+                                    }
+                                  }}
+                                  className={`py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center relative ${
+                                    !slot.available
+                                      ? 'bg-neutral-950/40 text-neutral-600 border border-neutral-900 cursor-not-allowed line-through opacity-60'
+                                      : isSelected
+                                      ? 'bg-orange-500 text-neutral-950 shadow-md ring-2 ring-orange-400'
+                                      : 'bg-neutral-950 hover:bg-neutral-800 text-neutral-300 border border-neutral-800'
+                                  }`}
+                                >
+                                  {slot.time}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
 
-                  <div>
-                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block mb-1.5">
-                      🌙 Noite
-                    </span>
-                    <div className="grid grid-cols-4 gap-1.5">
-                      {eveningSlots.map(t => {
-                        const isSelected = selectedTime === t;
-                        return (
-                          <button
-                            key={t}
-                            onClick={() => setSelectedTime(t)}
-                            className={`py-1.5 rounded-xl text-xs font-bold transition-all ${
-                              isSelected
-                                ? 'bg-orange-500 text-neutral-950 shadow-md'
-                                : 'bg-neutral-950 hover:bg-neutral-800 text-neutral-300 border border-neutral-800'
-                            }`}
-                          >
-                            {t}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+                      {eveningSlots.length > 0 && (
+                        <div>
+                          <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block mb-1.5">
+                            🌙 Noite
+                          </span>
+                          <div className="grid grid-cols-4 gap-1.5">
+                            {eveningSlots.map(slot => {
+                              const isSelected = selectedTime === slot.time && slot.available;
+                              return (
+                                <button
+                                  key={slot.time}
+                                  type="button"
+                                  disabled={!slot.available}
+                                  title={slot.reason || (slot.available ? 'Disponível' : 'Indisponível')}
+                                  onClick={() => {
+                                    if (slot.available) {
+                                      setSelectedTime(slot.time);
+                                      setBookingErrorMsg(null);
+                                    }
+                                  }}
+                                  className={`py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center relative ${
+                                    !slot.available
+                                      ? 'bg-neutral-950/40 text-neutral-600 border border-neutral-900 cursor-not-allowed line-through opacity-60'
+                                      : isSelected
+                                      ? 'bg-orange-500 text-neutral-950 shadow-md ring-2 ring-orange-400'
+                                      : 'bg-neutral-950 hover:bg-neutral-800 text-neutral-300 border border-neutral-800'
+                                  }`}
+                                >
+                                  {slot.time}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -2029,7 +2142,7 @@ export const ClientAppView: React.FC = () => {
     return (
       <PhoneFrame
         title="App Exclusivo do Cliente"
-        subtitle="Visualização com Vida de Aplicativo (Master Admin)"
+        subtitle="Visualização com Vida de Aplicativo (Painel Carlos Silva)"
         barbershopName={currentBarbershop.name}
       >
         {appBody}

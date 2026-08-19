@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Appointment } from '../../types';
 import { AppImage } from '../common/AppImage';
+import { getTodayLocalDateString } from '../../utils/scheduleEngine';
 
 export const ProfessionalAppView: React.FC = () => {
   const {
@@ -51,7 +52,7 @@ export const ProfessionalAppView: React.FC = () => {
   const [encaixeClientPhone, setEncaixeClientPhone] = useState('');
   const [encaixeServiceId, setEncaixeServiceId] = useState(services[0]?.id || '');
   const [encaixeTime, setEncaixeTime] = useState('12:15');
-  const [encaixeDate, setEncaixeDate] = useState('2026-08-10');
+  const [encaixeDate, setEncaixeDate] = useState(getTodayLocalDateString());
   const [encaixeNotes, setEncaixeNotes] = useState('Encaixe de emergência');
 
   // Filtered appointments
@@ -438,7 +439,7 @@ export const ProfessionalAppView: React.FC = () => {
     return (
       <PhoneFrame
         title="App do Barbeiro Profissional"
-        subtitle="Agenda & Comissões no Celular (Master Admin)"
+        subtitle="Agenda & Comissões no Celular (Painel Carlos Silva)"
         barbershopName={currentBarbershop.name}
       >
         {profBody}

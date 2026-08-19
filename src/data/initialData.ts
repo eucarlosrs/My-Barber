@@ -94,12 +94,12 @@ export const INITIAL_BARBERSHOPS: Barbershop[] = [
 ];
 
 export const INITIAL_USERS: User[] = [
-  // Super Admin / Master Admin — Dono e Proprietário da Plataforma My Barber (Controle Global)
+  // Super Admin — Dono e Proprietário da Plataforma My Barber (Controle Global)
   {
     id: 'user-super-admin',
     tenantId: 'platform-global',
     role: 'SUPER_ADMIN',
-    name: 'Carlos (Master Admin — Proprietário)',
+    name: 'Carlos Silva (Proprietário da Plataforma)',
     email: 'carlosrs.email@gmail.com',
     whatsapp: '(11) 99999-0000',
     avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',

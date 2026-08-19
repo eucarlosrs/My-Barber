@@ -44,12 +44,12 @@ export const MasterAdminImpersonate: React.FC = () => {
                 <h2 className="font-black text-neutral-100 text-lg sm:text-xl font-heading">
                   Visualizar como Usuário (Auditoria de Experiência)
                 </h2>
-                <span className="bg-amber-500 text-neutral-950 font-black text-[10px] uppercase px-2 py-0.5 rounded-md tracking-wider">
-                  Exclusivo Master Admin
+                <span className="bg-[#FF6B00] text-neutral-950 font-black text-[10px] uppercase px-2 py-0.5 rounded-md tracking-wider">
+                  Exclusivo Painel Carlos Silva
                 </span>
               </div>
               <p className="text-xs text-neutral-400 mt-1 max-w-2xl">
-                Selecione uma barbearia e vivencie exatamente o que cada nível hierárquico (Proprietário, Gerente, Barbeiro ou Cliente) enxerga na prática, sem alterar sua conta Master Admin.
+                Selecione uma barbearia e vivencie exatamente o que cada nível hierárquico (Proprietário, Gerente, Barbeiro ou Cliente) enxerga na prática, sem alterar sua conta.
               </p>
             </div>
           </div>

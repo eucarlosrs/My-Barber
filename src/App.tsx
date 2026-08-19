@@ -37,7 +37,7 @@ const MainContent: React.FC = () => {
 export default function App() {
   return (
     <AppProvider>
-      <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans selection:bg-amber-500 selection:text-neutral-950">
+      <div className="min-h-screen bg-[#0D0D0D] text-[#F5F5F5] flex flex-col font-sans selection:bg-[#FF6B00] selection:text-[#0D0D0D]">
         <HeaderBar />
         <main className="flex-1">
           <MainContent />
