@@ -33,14 +33,17 @@ export const AppImage: React.FC<AppImageProps> = ({
   alt,
   fallbackType = 'avatar',
   customFallback,
-  className,
+  className = '',
   onError,
+  onLoad,
   ...props
 }) => {
   const [errorCount, setErrorCount] = useState(0);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     setErrorCount(0);
+    setIsLoaded(false);
   }, [src]);
 
   // Determine current active source based on error stage
@@ -59,13 +62,19 @@ export const AppImage: React.FC<AppImageProps> = ({
       alt={alt || 'Imagem'}
       referrerPolicy="no-referrer"
       loading="lazy"
+      onLoad={(e) => {
+        setIsLoaded(true);
+        if (onLoad) {
+          onLoad(e);
+        }
+      }}
       onError={(e) => {
         setErrorCount(prev => prev + 1);
         if (onError) {
           onError(e);
         }
       }}
-      className={className}
+      className={`${className} transition-opacity duration-300 ${isLoaded || errorCount > 0 ? 'opacity-100' : 'opacity-90'}`}
       {...props}
     />
   );

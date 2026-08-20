@@ -116,8 +116,17 @@ export async function seedFirestoreIfEmpty() {
 export function subscribeCollection<T>(
   collectionName: string,
   onUpdate: (data: T[]) => void,
-  fallbackData: T[]
+  fallbackData: T[],
+  onFirstLoad?: () => void
 ) {
+  let firstFired = false;
+  const markLoaded = () => {
+    if (!firstFired) {
+      firstFired = true;
+      if (onFirstLoad) onFirstLoad();
+    }
+  };
+
   try {
     const colRef = collection(db, collectionName);
     const unsubscribe = onSnapshot(
@@ -127,15 +136,18 @@ export function subscribeCollection<T>(
           const items = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as unknown as T));
           onUpdate(items);
         }
+        markLoaded();
       },
       error => {
         console.warn(`Firestore sync warning on ${collectionName}:`, error);
         onUpdate(fallbackData);
+        markLoaded();
       }
     );
     return unsubscribe;
   } catch (e) {
     console.warn(`Error setting up listener for ${collectionName}:`, e);
+    markLoaded();
     return () => {};
   }
 }

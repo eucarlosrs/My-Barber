@@ -76,6 +76,9 @@ function getInitialTenantFromUrl(): string | null {
 }
 
 interface AppContextType {
+  // Loading & Hydration
+  isInitialLoading: boolean;
+
   // Navigation & View Mode
   viewMode: AppViewMode;
   setViewMode: (mode: AppViewMode) => void;
@@ -266,6 +269,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [galleryWorks, setGalleryWorks] = useState<GalleryWork[]>(INITIAL_GALLERY_WORKS);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS);
   const [whatsappLoginPhone, setWhatsappLoginPhone] = useState<string>('');
+  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
 
   // Impersonation state (Super Admin exclusive)
   const [isImpersonating, setIsImpersonating] = useState<boolean>(false);
@@ -299,9 +303,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     seedFirestoreIfEmpty();
 
-    const unsubBarbershops = subscribeCollection<Barbershop>('barbershops', setBarbershops, INITIAL_BARBERSHOPS);
-    const unsubUsers = subscribeCollection<User>('users', setUsers, INITIAL_USERS);
-    const unsubServices = subscribeCollection<Service>('services', setServices, INITIAL_SERVICES);
+    let loadedCount = 0;
+    const requiredLoads = 3; // barbershops, users, services
+    const checkInitialReady = () => {
+      loadedCount++;
+      if (loadedCount >= requiredLoads) {
+        setIsInitialLoading(false);
+      }
+    };
+
+    // Safety timeout: never let loading hang longer than 600ms
+    const safetyTimeout = setTimeout(() => {
+      setIsInitialLoading(false);
+    }, 600);
+
+    const unsubBarbershops = subscribeCollection<Barbershop>('barbershops', setBarbershops, INITIAL_BARBERSHOPS, checkInitialReady);
+    const unsubUsers = subscribeCollection<User>('users', setUsers, INITIAL_USERS, checkInitialReady);
+    const unsubServices = subscribeCollection<Service>('services', setServices, INITIAL_SERVICES, checkInitialReady);
     const unsubSchedules = subscribeCollection<ProfessionalScheduleConfig>('schedules', setSchedules, INITIAL_SCHEDULES);
     const unsubAppointments = subscribeCollection<Appointment>('appointments', setAppointments, INITIAL_APPOINTMENTS);
     const unsubWaitlist = subscribeCollection<WaitlistEntry>('waitlist', setWaitlist, INITIAL_WAITLIST);
@@ -316,6 +334,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubAuditLogs = subscribeCollection<AuditLog>('audit_logs', setAuditLogs, INITIAL_AUDIT_LOGS);
 
     return () => {
+      clearTimeout(safetyTimeout);
       unsubBarbershops();
       unsubUsers();
       unsubServices();
@@ -1491,6 +1510,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider
       value={{
+        isInitialLoading,
         viewMode,
         setViewMode,
         getBarbershopDirectUrl,
