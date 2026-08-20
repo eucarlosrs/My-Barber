@@ -37,19 +37,27 @@ import {
   Camera,
   Building2,
   ThumbsUp,
-  Trophy
+  Trophy,
+  Plus,
+  Minus,
+  Compass,
+  Store,
+  ExternalLink
 } from 'lucide-react';
-import { Service, User as UserType, GalleryWork, Promotion, Raffle } from '../../types';
+import { Service, User as UserType, GalleryWork, Promotion, Raffle, Barbershop } from '../../types';
 import { AppImage } from '../common/AppImage';
 import { APP_ASSETS } from '../../data/assets';
 
 export const ClientAppView: React.FC = () => {
   const {
     currentBarbershop,
+    barbershops,
+    users,
     services,
     professionals,
     schedules,
     appointments,
+    allAppointments,
     addAppointment,
     currentUser,
     loginWithWhatsApp,
@@ -67,17 +75,22 @@ export const ClientAppView: React.FC = () => {
     galleryWorks,
     likeGalleryWork,
     isImpersonating,
-    logout
+    logout,
+    setActiveTenantId,
+    setViewMode,
+    getBarbershopDirectUrl
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'BOOKING' | 'GALLERY' | 'MY_APPOINTMENTS' | 'PROMOTIONS' | 'RAFFLES' | 'PACKAGES' | 'ABOUT' | 'WAITLIST'>('BOOKING');
   const [selectedGalleryCategory, setSelectedGalleryCategory] = useState<string>('TODOS');
   const [activeWorkDetail, setActiveWorkDetail] = useState<GalleryWork | null>(null);
   const [copiedCoupon, setCopiedCoupon] = useState<string | null>(null);
+  const [copiedDirectLink, setCopiedDirectLink] = useState(false);
 
   // Google Login Modal & State
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [googleStep, setGoogleStep] = useState<'SELECT_ACCOUNT' | 'COMPLETE_DATA'>('SELECT_ACCOUNT');
+  const [pendingBookingAfterLogin, setPendingBookingAfterLogin] = useState(false);
   const [googleAccount, setGoogleAccount] = useState<{
     googleId: string;
     name: string;
@@ -123,6 +136,7 @@ export const ClientAppView: React.FC = () => {
   const [selectedTime, setSelectedTime] = useState<string>('14:00');
   const [bookingSuccessMsg, setBookingSuccessMsg] = useState<string | null>(null);
   const [bookingErrorMsg, setBookingErrorMsg] = useState<string | null>(null);
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string, boolean>>({});
 
   // Waitlist form
   const [waitlistDate, setWaitlistDate] = useState(todayStr);
@@ -137,7 +151,14 @@ export const ClientAppView: React.FC = () => {
   const isClient = currentUser.role === 'CLIENTE';
 
   // Client's appointments
-  const clientAppointments = appointments.filter(a => a.clientId === currentUser.id);
+  const clientAppointments = useMemo(() => {
+    return appointments.filter(a => a.clientId === currentUser.id);
+  }, [appointments, currentUser.id]);
+
+  const clientOtherAppointments = useMemo(() => {
+    return allAppointments.filter(a => a.clientId === currentUser.id && a.tenantId !== currentBarbershop.id);
+  }, [allAppointments, currentUser.id, currentBarbershop.id]);
+
   const clientCustPackages = customerPackages.filter(cp => cp.clientId === currentUser.id);
 
   // Dynamic Time Slots calculation based on fundamental availability rules
@@ -177,9 +198,30 @@ export const ClientAppView: React.FC = () => {
   }, [allSlots, selectedTime]);
 
   // Dynamic categories list based on services registered by the barbershop
+  // Prioritized sequence: TODOS -> Cabelo -> Barba -> Combos -> Química -> Estética -> others
   const categories = useMemo(() => {
-    const customCats = Array.from(new Set(services.map(s => s.category).filter(Boolean)));
-    return ['TODOS', ...customCats];
+    const existingCats: string[] = Array.from(
+      new Set(services.map(s => s.category?.trim()).filter((c): c is string => Boolean(c)))
+    );
+
+    const getPriority = (cat: string) => {
+      const lower = cat.toLowerCase();
+      if (lower.includes('cabelo') || lower.includes('corte')) return 1;
+      if (lower.includes('barba') || lower.includes('barboterapia')) return 2;
+      if (lower.includes('combo')) return 3;
+      if (lower.includes('quim') || lower.includes('quím') || lower.includes('platinad') || lower.includes('nevou')) return 4;
+      if (lower.includes('estét') || lower.includes('estet') || lower.includes('sobrancelha') || lower.includes('facial')) return 5;
+      return 10;
+    };
+
+    const sorted = existingCats.sort((a, b) => {
+      const pA = getPriority(a);
+      const pB = getPriority(b);
+      if (pA !== pB) return pA - pB;
+      return a.localeCompare(b, 'pt-BR');
+    });
+
+    return ['TODOS', ...sorted];
   }, [services]);
 
   const filteredServices = selectedCategory === 'TODOS'
@@ -197,61 +239,9 @@ export const ClientAppView: React.FC = () => {
     }
   }, [services, selectedService]);
 
-  const handleSelectGoogleAccount = (acc: { googleId: string; name: string; email: string; avatarUrl: string }) => {
-    setGoogleAccount(acc);
-    setLoginError(null);
-    setGoogleStep('COMPLETE_DATA');
-  };
-
-  const handleCustomGoogleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!customGoogleEmail.trim() || !customGoogleName.trim()) {
-      setLoginError('Por favor informe seu nome e e-mail Google.');
-      return;
-    }
-    setGoogleAccount({
-      googleId: `g-custom-${Date.now()}`,
-      name: customGoogleName.trim(),
-      email: customGoogleEmail.trim(),
-      avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(customGoogleName.trim())}&background=f97316&color=fff`
-    });
-    setLoginError(null);
-    setGoogleStep('COMPLETE_DATA');
-  };
-
-  const handleCompleteGoogleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!clientPhone.trim()) {
-      setLoginError('O WhatsApp / Telefone é obrigatório para receber confirmações de agendamento.');
-      return;
-    }
-    if (!clientBirthDate.trim()) {
-      setLoginError('A Data de Aniversário é obrigatória para benefícios e sorteios.');
-      return;
-    }
-
-    loginWithGoogle({
-      googleId: googleAccount.googleId,
-      email: googleAccount.email,
-      name: googleAccount.name,
-      avatarUrl: googleAccount.avatarUrl,
-      whatsapp: clientPhone.trim(),
-      birthDate: clientBirthDate.trim()
-    });
-
-    setShowLoginModal(false);
-    setGoogleStep('SELECT_ACCOUNT');
-    setLoginError(null);
-  };
-
-  const handleConfirmBooking = () => {
+  const executeBookingWithClient = (clientUser: UserType) => {
     if (!selectedService || !selectedProfessional) {
       setBookingErrorMsg('Por favor selecione o serviço e o profissional.');
-      return;
-    }
-
-    if (!isClient) {
-      setShowLoginModal(true);
       return;
     }
 
@@ -272,9 +262,9 @@ export const ClientAppView: React.FC = () => {
       serviceDuration: selectedService.durationMinutes,
       professionalId: selectedProfessional.id,
       professionalName: selectedProfessional.name,
-      clientId: currentUser.id,
-      clientName: currentUser.name,
-      clientWhatsApp: currentUser.whatsapp,
+      clientId: clientUser.id,
+      clientName: clientUser.name,
+      clientWhatsApp: clientUser.whatsapp,
       date: selectedDate,
       startTime: selectedTime,
       endTime,
@@ -288,6 +278,116 @@ export const ClientAppView: React.FC = () => {
     } else {
       setBookingErrorMsg(res.error || 'Erro ao agendar.');
     }
+  };
+
+  const handleSelectGoogleAccount = (acc: { googleId: string; name: string; email: string; avatarUrl: string }) => {
+    setGoogleAccount(acc);
+    setLoginError(null);
+
+    // Check if client already exists globally and has whatsapp + birthDate in database
+    const existingClient = users.find(
+      u =>
+        u.role === 'CLIENTE' &&
+        ((acc.googleId && u.googleId === acc.googleId) ||
+         (acc.email && u.email?.toLowerCase() === acc.email.toLowerCase()))
+    );
+
+    const hasCompleteData =
+      existingClient &&
+      existingClient.whatsapp &&
+      existingClient.whatsapp.replace(/\D/g, '').length >= 8 &&
+      existingClient.birthDate &&
+      existingClient.birthDate.trim().length > 0;
+
+    if (hasCompleteData && existingClient) {
+      // User has existing complete profile -> log in directly without asking again!
+      const loggedUser = loginWithGoogle({
+        googleId: acc.googleId,
+        email: acc.email,
+        name: acc.name,
+        avatarUrl: acc.avatarUrl,
+        whatsapp: existingClient.whatsapp,
+        birthDate: existingClient.birthDate
+      });
+
+      setShowLoginModal(false);
+      setGoogleStep('SELECT_ACCOUNT');
+      setLoginError(null);
+
+      if (pendingBookingAfterLogin) {
+        setPendingBookingAfterLogin(false);
+        executeBookingWithClient(loggedUser);
+      }
+    } else {
+      // Prompt "COMPLETE SEU CADASTRO" screen
+      if (existingClient?.whatsapp) {
+        setClientPhone(existingClient.whatsapp);
+      }
+      if (existingClient?.birthDate) {
+        setClientBirthDate(existingClient.birthDate);
+      }
+      setGoogleStep('COMPLETE_DATA');
+    }
+  };
+
+  const handleCustomGoogleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customGoogleEmail.trim() || !customGoogleName.trim()) {
+      setLoginError('Por favor informe seu nome e e-mail Google.');
+      return;
+    }
+    const acc = {
+      googleId: `g-custom-${Date.now()}`,
+      name: customGoogleName.trim(),
+      email: customGoogleEmail.trim(),
+      avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(customGoogleName.trim())}&background=f97316&color=fff`
+    };
+    handleSelectGoogleAccount(acc);
+  };
+
+  const handleCompleteGoogleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clientPhone.trim()) {
+      setLoginError('O WhatsApp / Telefone é obrigatório para receber confirmações de agendamento.');
+      return;
+    }
+    if (!clientBirthDate.trim()) {
+      setLoginError('A Data de Aniversário é obrigatória para benefícios e sorteios.');
+      return;
+    }
+
+    const loggedUser = loginWithGoogle({
+      googleId: googleAccount.googleId,
+      email: googleAccount.email,
+      name: googleAccount.name,
+      avatarUrl: googleAccount.avatarUrl,
+      whatsapp: clientPhone.trim(),
+      birthDate: clientBirthDate.trim()
+    });
+
+    setShowLoginModal(false);
+    setGoogleStep('SELECT_ACCOUNT');
+    setLoginError(null);
+
+    if (pendingBookingAfterLogin) {
+      setPendingBookingAfterLogin(false);
+      executeBookingWithClient(loggedUser);
+    }
+  };
+
+  const handleConfirmBooking = () => {
+    if (!selectedService || !selectedProfessional) {
+      setBookingErrorMsg('Por favor selecione o serviço e o profissional.');
+      return;
+    }
+
+    if (!isClient) {
+      setPendingBookingAfterLogin(true);
+      setShowLoginModal(true);
+      return;
+    }
+
+    executeBookingWithClient(currentUser);
   };
 
   const handleRaffleClick = (raffleId: string) => {
@@ -370,16 +470,55 @@ export const ClientAppView: React.FC = () => {
               <span>ABERTO AGORA</span>
             </div>
 
-            {/* Quick WhatsApp Action Button */}
-            <a
-              href={`https://wa.me/55${currentBarbershop.whatsapp.replace(/\D/g, '')}`}
-              target="_blank"
-              rel="noreferrer"
-              className="absolute top-3 right-3 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 p-2 rounded-full shadow-lg transition-transform active:scale-95"
-              title="Conversar no WhatsApp"
-            >
-              <Phone className="w-3.5 h-3.5" />
-            </a>
+            {/* Top Right Quick Actions */}
+            <div className="absolute top-3 right-3 flex items-center gap-1.5">
+              {/* Copy Link Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  const url = getBarbershopDirectUrl(currentBarbershop);
+                  navigator.clipboard.writeText(url);
+                  setCopiedDirectLink(true);
+                  setTimeout(() => setCopiedDirectLink(false), 3000);
+                }}
+                className={`p-2 rounded-full shadow-lg backdrop-blur-md transition-all active:scale-95 text-xs flex items-center gap-1 font-bold ${
+                  copiedDirectLink
+                    ? 'bg-emerald-500 text-neutral-950 px-2.5'
+                    : 'bg-neutral-950/80 hover:bg-neutral-900 text-neutral-200 border border-neutral-700/80'
+                }`}
+                title="Copiar link direto desta barbearia"
+              >
+                {copiedDirectLink ? (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span className="text-[10px]">Copiado!</span>
+                  </>
+                ) : (
+                  <Share2 className="w-3.5 h-3.5" />
+                )}
+              </button>
+
+              {/* Discovery / Switch Barbershop */}
+              <button
+                type="button"
+                onClick={() => setViewMode('DISCOVERY')}
+                className="p-2 rounded-full bg-neutral-950/80 hover:bg-neutral-900 text-neutral-200 border border-neutral-700/80 shadow-lg backdrop-blur-md transition-all active:scale-95"
+                title="Explorar outras barbearias da rede My Barber"
+              >
+                <Compass className="w-3.5 h-3.5 text-orange-400" />
+              </button>
+
+              {/* WhatsApp Action Button */}
+              <a
+                href={`https://wa.me/55${currentBarbershop.whatsapp.replace(/\D/g, '')}`}
+                target="_blank"
+                rel="noreferrer"
+                className="bg-emerald-500 hover:bg-emerald-400 text-neutral-950 p-2 rounded-full shadow-lg transition-transform active:scale-95"
+                title="Conversar no WhatsApp"
+              >
+                <Phone className="w-3.5 h-3.5" />
+              </a>
+            </div>
           </div>
 
           {/* Barbershop Info Row & Client Login Status */}
@@ -478,16 +617,16 @@ export const ClientAppView: React.FC = () => {
                   </span>
                   <span className="text-[9px] text-orange-400/90 font-medium">Toque para ver</span>
                 </div>
-                <div className="flex items-center gap-3 overflow-x-auto pb-1 no-scrollbar">
-                  {/* Highlighted Promotions */}
+                <div className="flex items-center gap-3.5 overflow-x-auto py-2 px-1 no-scrollbar">
+                  {/* Highlighted Promotions - Sized for ~3.5 items visible & unclipped circles */}
                   {highlightedPromos.map(promo => (
                     <button
                       key={promo.id}
                       onClick={() => setSelectedHighlightPromo(promo)}
-                      className="flex flex-col items-center gap-1.5 shrink-0 group focus:outline-none"
+                      className="w-[88px] sm:w-[94px] shrink-0 flex flex-col items-center gap-1.5 group focus:outline-none"
                       title={promo.title}
                     >
-                      <div className="w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-orange-500 via-amber-500 to-orange-400 group-hover:scale-105 transition-transform shadow-md relative">
+                      <div className="w-16 h-16 sm:w-[68px] sm:h-[68px] rounded-full p-[2.5px] bg-gradient-to-tr from-orange-500 via-amber-500 to-orange-400 group-hover:scale-105 transition-transform shadow-md relative">
                         <div className="w-full h-full rounded-full overflow-hidden bg-neutral-950 border border-neutral-900 relative">
                           <AppImage
                             src={promo.imageUrl || 'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=200'}
@@ -498,31 +637,31 @@ export const ClientAppView: React.FC = () => {
                           <div className="absolute inset-0 bg-neutral-950/20" />
                         </div>
                         {promo.discountPercentage && (
-                          <div className="absolute -top-1 -right-1 bg-orange-500 text-neutral-950 text-[9px] font-black px-1.5 py-0.2 rounded-full shadow border border-neutral-950">
+                          <div className="absolute -top-1 -right-1 bg-orange-500 text-neutral-950 text-[9px] font-black px-1.5 py-0.2 rounded-full shadow border border-neutral-950 z-10">
                             {promo.discountPercentage}%
                           </div>
                         )}
                       </div>
-                      <div className="text-center w-16">
+                      <div className="text-center w-full px-0.5">
                         <span className="text-[10px] font-bold text-neutral-200 block truncate group-hover:text-orange-400 transition-colors">
                           {promo.title}
                         </span>
-                        <span className="text-[8px] font-black uppercase text-amber-400/90 block">
+                        <span className="text-[8px] font-black uppercase text-amber-400/90 block truncate">
                           {promo.highlightTag || 'PROMO'}
                         </span>
                       </div>
                     </button>
                   ))}
 
-                  {/* Highlighted Raffles */}
+                  {/* Highlighted Raffles - Sized for ~3.5 items visible & unclipped circles */}
                   {highlightedRaffles.map(raffle => (
                     <button
                       key={raffle.id}
                       onClick={() => setSelectedHighlightRaffle(raffle)}
-                      className="flex flex-col items-center gap-1.5 shrink-0 group focus:outline-none"
+                      className="w-[88px] sm:w-[94px] shrink-0 flex flex-col items-center gap-1.5 group focus:outline-none"
                       title={raffle.title}
                     >
-                      <div className="w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-amber-400 via-orange-500 to-yellow-300 group-hover:scale-105 transition-transform shadow-md relative">
+                      <div className="w-16 h-16 sm:w-[68px] sm:h-[68px] rounded-full p-[2.5px] bg-gradient-to-tr from-amber-400 via-orange-500 to-yellow-300 group-hover:scale-105 transition-transform shadow-md relative">
                         <div className="w-full h-full rounded-full overflow-hidden bg-neutral-950 border border-neutral-900 relative">
                           <AppImage
                             src={raffle.imageUrl || 'https://images.unsplash.com/photo-1512690459411-b9245aed614b?w=200'}
@@ -532,15 +671,15 @@ export const ClientAppView: React.FC = () => {
                           />
                           <div className="absolute inset-0 bg-neutral-950/20" />
                         </div>
-                        <div className="absolute -top-1 -right-1 bg-amber-400 text-neutral-950 text-[9px] font-black px-1 py-0.2 rounded-full shadow border border-neutral-950 flex items-center">
+                        <div className="absolute -top-1 -right-1 bg-amber-400 text-neutral-950 text-[9px] font-black px-1.5 py-0.5 rounded-full shadow border border-neutral-950 flex items-center z-10">
                           <Trophy className="w-2.5 h-2.5" />
                         </div>
                       </div>
-                      <div className="text-center w-16">
+                      <div className="text-center w-full px-0.5">
                         <span className="text-[10px] font-bold text-neutral-200 block truncate group-hover:text-amber-400 transition-colors">
                           {raffle.title}
                         </span>
-                        <span className="text-[8px] font-black uppercase text-amber-400/90 block">
+                        <span className="text-[8px] font-black uppercase text-amber-400/90 block truncate">
                           {raffle.status === 'REALIZADO' ? 'GANHADOR' : (raffle.highlightTag || 'SORTEIO')}
                         </span>
                       </div>
@@ -634,18 +773,21 @@ export const ClientAppView: React.FC = () => {
                   <div className="grid grid-cols-1 gap-2.5">
                     {filteredServices.map(srv => {
                       const isSelected = selectedService?.id === srv.id;
+                      const isDescExpanded = !!expandedDescriptions[srv.id];
+                      const isLongTitle = srv.name.length > 22;
+
                       return (
                         <button
                           key={srv.id}
                           onClick={() => setSelectedService(srv)}
-                          className={`w-full text-left p-3 rounded-2xl border transition-all flex items-center gap-3.5 active:scale-[0.99] group ${
+                          className={`w-full text-left p-3 rounded-2xl border transition-all flex items-start gap-3.5 active:scale-[0.99] group ${
                             isSelected
                               ? 'bg-neutral-900/95 border-2 border-orange-500 shadow-lg shadow-orange-500/10'
                               : 'bg-neutral-900/90 border border-neutral-800/90 hover:border-neutral-700 text-neutral-300'
                           }`}
                         >
                           {/* Service Thumbnail */}
-                          <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl overflow-hidden bg-neutral-950 shrink-0 border border-neutral-800 relative">
+                          <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl overflow-hidden bg-neutral-950 shrink-0 border border-neutral-800 relative mt-0.5">
                             <AppImage
                               src={srv.imageUrl || 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=200'}
                               alt={srv.name}
@@ -656,21 +798,63 @@ export const ClientAppView: React.FC = () => {
 
                           {/* Service Details */}
                           <div className="flex-1 min-w-0 space-y-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="font-bold text-sm text-neutral-100 truncate group-hover:text-orange-400 transition-colors">
-                                {srv.name}
-                              </span>
+                            {/* Service Name with Marquee Movement if long & Price */}
+                            <div className="flex items-center justify-between gap-2 overflow-hidden">
+                              <div className="overflow-hidden relative max-w-[190px] sm:max-w-[250px] flex-1">
+                                <span
+                                  className={`font-bold text-sm text-neutral-100 block group-hover:text-orange-400 transition-colors ${
+                                    isLongTitle ? 'animate-marquee-smooth' : 'truncate'
+                                  }`}
+                                  title={srv.name}
+                                >
+                                  {srv.name}
+                                </span>
+                              </div>
                               <span className="font-bold text-emerald-400 text-sm shrink-0 font-mono tracking-tight">
                                 R$ {srv.price.toFixed(2).replace('.', ',')}
                               </span>
                             </div>
 
+                            {/* Service Description with '+' expander button */}
                             {srv.description && (
-                              <p className="text-xs text-neutral-400 truncate leading-snug">
-                                {srv.description}
-                              </p>
+                              <div className="text-xs text-neutral-400 leading-snug">
+                                {isDescExpanded ? (
+                                  <div className="text-neutral-300 whitespace-normal text-xs bg-neutral-950/80 p-2.5 rounded-xl border border-neutral-800/80 my-1">
+                                    <p className="leading-relaxed">{srv.description}</p>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setExpandedDescriptions(prev => ({ ...prev, [srv.id]: false }));
+                                      }}
+                                      className="inline-flex items-center gap-1 text-[10px] font-bold text-orange-400 hover:text-orange-300 mt-1.5"
+                                    >
+                                      <Minus className="w-3 h-3" />
+                                      <span>Ver menos</span>
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center justify-between gap-1.5">
+                                    <p className="truncate flex-1">{srv.description}</p>
+                                    {srv.description.length > 28 && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setExpandedDescriptions(prev => ({ ...prev, [srv.id]: true }));
+                                        }}
+                                        className="p-1 px-1.5 bg-neutral-800/90 hover:bg-neutral-700 text-orange-400 rounded-md text-[10px] font-black shrink-0 flex items-center gap-0.5 border border-neutral-700/60 transition-colors shadow-sm"
+                                        title="Ver descrição completa"
+                                      >
+                                        <Plus className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             )}
 
+                            {/* Badges: Duration & Category */}
                             <div className="flex items-center gap-2 pt-0.5">
                               <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-500 bg-amber-500/15 px-2.5 py-1 rounded-lg border border-amber-500/20">
                                 <Clock className="w-3.5 h-3.5" />
@@ -935,7 +1119,7 @@ export const ClientAppView: React.FC = () => {
             </div>
           )}
 
-          {/* TAB 2: 📅 MEUS AGENDAMENTOS (VIP BOARDING PASS TICKET) */}
+          {/* TAB 2: 📅 MEUS AGENDAMENTOS (HISTÓRICO MULTI-BARBEARIA DA PLATAFORMA) */}
           {activeTab === 'MY_APPOINTMENTS' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -943,93 +1127,191 @@ export const ClientAppView: React.FC = () => {
                   <h3 className="font-black text-neutral-100 font-heading text-base">
                     Meus Agendamentos
                   </h3>
-                  <p className="text-[11px] text-neutral-400">Tickets de corte e histórico</p>
+                  <p className="text-[11px] text-neutral-400">Tickets de corte e histórico em toda a rede My Barber</p>
                 </div>
                 <span className="text-xs bg-orange-500/10 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-full font-bold">
-                  {clientAppointments.length} agendados
+                  {clientAppointments.length + clientOtherAppointments.length} agendados
                 </span>
               </div>
 
-              {clientAppointments.length === 0 ? (
-                <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-8 text-center space-y-3">
-                  <div className="w-12 h-12 rounded-full bg-neutral-800 text-neutral-500 flex items-center justify-center mx-auto">
-                    <Calendar className="w-6 h-6" />
+              {/* Seção 1: Agendamentos na barbearia atual */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-[10px] font-black text-orange-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Store className="w-3.5 h-3.5" />
+                    <span>Nesta Barbearia ({currentBarbershop.name})</span>
                   </div>
-                  <div>
-                    <p className="text-xs font-bold text-neutral-200">Você ainda não tem agendamentos</p>
-                    <p className="text-[11px] text-neutral-500 mt-0.5">Reserve seu horário em poucos segundos na aba Agendar.</p>
-                  </div>
-                  <button
-                    onClick={() => setActiveTab('BOOKING')}
-                    className="px-4 py-2 bg-orange-500 text-neutral-950 font-bold rounded-xl text-xs"
-                  >
-                    Agendar Agora
-                  </button>
+                  <span className="text-[10px] text-neutral-400 font-mono">
+                    {clientAppointments.length} agendamento(s)
+                  </span>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {clientAppointments.map(apt => (
-                    <div
-                      key={apt.id}
-                      className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden shadow-lg relative"
-                    >
-                      {/* Ticket Top Header */}
-                      <div className="bg-gradient-to-r from-orange-500/20 via-neutral-900 to-neutral-900 p-3.5 flex items-center justify-between border-b border-neutral-800/80">
-                        <div className="flex items-center gap-2">
-                          <Ticket className="w-4 h-4 text-orange-400" />
-                          <span className="font-black text-neutral-100 text-xs uppercase tracking-wider font-heading">
-                            VIP PASS • {apt.serviceName}
-                          </span>
-                        </div>
-                        <span className="text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-md border border-emerald-500/30">
-                          {apt.status}
-                        </span>
-                      </div>
 
-                      {/* Ticket Body */}
-                      <div className="p-3.5 space-y-3">
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div>
-                            <span className="text-[10px] text-neutral-500 block">Data e Horário</span>
-                            <span className="font-extrabold text-orange-400">
-                              {apt.date.split('-').reverse().join('/')} às {apt.startTime}
+                {clientAppointments.length === 0 ? (
+                  <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 text-center space-y-2.5">
+                    <div className="w-10 h-10 rounded-full bg-neutral-800 text-neutral-500 flex items-center justify-center mx-auto">
+                      <Calendar className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-neutral-200">Sem agendamentos nesta barbearia</p>
+                      <p className="text-[11px] text-neutral-500 mt-0.5">Reserve seu horário em poucos segundos na aba Agendar.</p>
+                    </div>
+                    <button
+                      onClick={() => setActiveTab('BOOKING')}
+                      className="px-4 py-1.5 bg-orange-500 text-neutral-950 font-bold rounded-xl text-xs"
+                    >
+                      Agendar Agora
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {clientAppointments.map(apt => (
+                      <div
+                        key={apt.id}
+                        className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden shadow-lg relative"
+                      >
+                        {/* Ticket Top Header */}
+                        <div className="bg-gradient-to-r from-orange-500/20 via-neutral-900 to-neutral-900 p-3.5 flex items-center justify-between border-b border-neutral-800/80">
+                          <div className="flex items-center gap-2">
+                            <Ticket className="w-4 h-4 text-orange-400" />
+                            <span className="font-black text-neutral-100 text-xs uppercase tracking-wider font-heading">
+                              VIP PASS • {apt.serviceName}
                             </span>
                           </div>
-                          <div>
-                            <span className="text-[10px] text-neutral-500 block">Profissional</span>
-                            <span className="font-bold text-neutral-200">{apt.professionalName}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between pt-2 border-t border-dashed border-neutral-800">
-                          <div className="flex items-center gap-2">
-                            <QrCode className="w-6 h-6 text-neutral-400" />
-                            <span className="text-[10px] text-neutral-500 font-mono">ID: {apt.id.slice(0, 8)}</span>
-                          </div>
-                          <span className="text-sm font-black text-emerald-400 font-mono">
-                            R$ {apt.servicePrice.toFixed(2).replace('.', ',')}
+                          <span className="text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-md border border-emerald-500/30">
+                            {apt.status}
                           </span>
                         </div>
-                      </div>
 
-                      {/* WhatsApp Reminder status */}
-                      <div className="bg-neutral-950 px-3.5 py-2 border-t border-neutral-800/80 flex items-center justify-between text-[10px] text-neutral-400">
-                        <span className="flex items-center gap-1 text-emerald-400 font-semibold">
-                          <CheckCircle2 className="w-3 h-3" />
-                          Lembrete via WhatsApp Ativo
-                        </span>
-                        <a
-                          href={`https://wa.me/55${currentBarbershop.whatsapp.replace(/\D/g, '')}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-neutral-300 hover:text-orange-400 flex items-center gap-1 font-bold"
-                        >
-                          <Phone className="w-2.5 h-2.5" />
-                          Falar com Salão
-                        </a>
+                        {/* Ticket Body */}
+                        <div className="p-3.5 space-y-3">
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <span className="text-[10px] text-neutral-500 block">Data e Horário</span>
+                              <span className="font-extrabold text-orange-400">
+                                {apt.date.split('-').reverse().join('/')} às {apt.startTime}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-neutral-500 block">Profissional</span>
+                              <span className="font-bold text-neutral-200">{apt.professionalName}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-2 border-t border-dashed border-neutral-800">
+                            <div className="flex items-center gap-2">
+                              <QrCode className="w-6 h-6 text-neutral-400" />
+                              <span className="text-[10px] text-neutral-500 font-mono">ID: {apt.id.slice(0, 8)}</span>
+                            </div>
+                            <span className="text-sm font-black text-emerald-400 font-mono">
+                              R$ {apt.servicePrice.toFixed(2).replace('.', ',')}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* WhatsApp Reminder status */}
+                        <div className="bg-neutral-950 px-3.5 py-2 border-t border-neutral-800/80 flex items-center justify-between text-[10px] text-neutral-400">
+                          <span className="flex items-center gap-1 text-emerald-400 font-semibold">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Lembrete via WhatsApp Ativo
+                          </span>
+                          <a
+                            href={`https://wa.me/55${currentBarbershop.whatsapp.replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-neutral-300 hover:text-orange-400 flex items-center gap-1 font-bold"
+                          >
+                            <Phone className="w-2.5 h-2.5" />
+                            Falar com Salão
+                          </a>
+                        </div>
                       </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Seção 2: Agendamentos em outras barbearias da rede com o mesmo cadastro global */}
+              {clientOtherAppointments.length > 0 && (
+                <div className="space-y-3 pt-3 border-t border-neutral-800/80">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[10px] font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <Compass className="w-3.5 h-3.5" />
+                      <span>Em Outras Barbearias da Rede</span>
                     </div>
-                  ))}
+                    <span className="text-[10px] text-neutral-400 font-mono">
+                      {clientOtherAppointments.length} agendamento(s)
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {clientOtherAppointments.map(apt => {
+                      const shop = barbershops.find(b => b.id === apt.tenantId);
+                      return (
+                        <div
+                          key={apt.id}
+                          className="bg-neutral-900/90 border border-neutral-800 hover:border-amber-500/40 rounded-2xl overflow-hidden shadow-lg transition-all relative"
+                        >
+                          <div className="bg-neutral-950 p-3 flex items-center justify-between border-b border-neutral-800/80">
+                            <div className="flex items-center gap-2">
+                              {shop?.logoUrl ? (
+                                <AppImage
+                                  src={shop.logoUrl}
+                                  alt={shop.name}
+                                  fallbackType="logo"
+                                  className="w-6 h-6 rounded-lg object-cover border border-neutral-700"
+                                />
+                              ) : (
+                                <Store className="w-4 h-4 text-amber-400" />
+                              )}
+                              <div>
+                                <span className="font-extrabold text-neutral-100 text-xs block leading-tight">
+                                  {shop?.name || 'Barbearia da Rede'}
+                                </span>
+                                <span className="text-[10px] text-neutral-400">
+                                  {shop?.address.neighborhood}, {shop?.address.city}
+                                </span>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (shop) {
+                                  setActiveTenantId(shop.id);
+                                }
+                              }}
+                              className="px-2.5 py-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-colors"
+                            >
+                              <span>Acessar</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </button>
+                          </div>
+
+                          <div className="p-3 space-y-2 text-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-neutral-200">{apt.serviceName}</span>
+                              <span className="text-xs font-black text-emerald-400 font-mono">
+                                R$ {apt.servicePrice.toFixed(2).replace('.', ',')}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 text-[11px] text-neutral-400">
+                              <div>
+                                <span className="text-[10px] text-neutral-500 block">Data e Horário</span>
+                                <span className="font-semibold text-neutral-200">
+                                  {apt.date.split('-').reverse().join('/')} às {apt.startTime}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-neutral-500 block">Profissional</span>
+                                <span className="font-semibold text-neutral-200">{apt.professionalName}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>

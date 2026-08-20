@@ -43,6 +43,10 @@ export const INITIAL_BARBERSHOPS: Barbershop[] = [
       state: 'SP',
       zipCode: '01304-001'
     },
+    coordinates: {
+      latitude: -23.5558,
+      longitude: -46.6606
+    },
     socialMedia: {
       instagram: '@barbeariarodrigues.oficial',
       facebook: 'fb.com/barbeariarodrigues',
@@ -78,6 +82,10 @@ export const INITIAL_BARBERSHOPS: Barbershop[] = [
       city: 'Rio de Janeiro',
       state: 'RJ',
       zipCode: '22020-001'
+    },
+    coordinates: {
+      latitude: -22.9711,
+      longitude: -43.1856
     },
     socialMedia: {
       instagram: '@vintagebarberclub',

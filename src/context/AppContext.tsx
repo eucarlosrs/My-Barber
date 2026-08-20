@@ -47,12 +47,41 @@ import {
 } from '../lib/firestoreSync';
 import { uploadImageToStorage } from '../lib/storage';
 
-export type AppViewMode = 'LOGIN' | 'ARCHITECTURE' | 'MASTER_ADMIN' | 'WEBADMIN' | 'CLIENT_APP' | 'PROFESSIONAL_APP';
+export type AppViewMode = 'LOGIN' | 'ARCHITECTURE' | 'MASTER_ADMIN' | 'WEBADMIN' | 'CLIENT_APP' | 'PROFISSIONAL_APP' | 'DISCOVERY';
+
+function getInitialTenantFromUrl(): string | null {
+  try {
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const slugOrId = searchParams.get('b') || searchParams.get('barbearia') || searchParams.get('tenant') || searchParams.get('id');
+      if (slugOrId) {
+        const found = INITIAL_BARBERSHOPS.find(
+          b => b.id === slugOrId || b.slug === slugOrId || b.slug.toLowerCase() === slugOrId.toLowerCase()
+        );
+        if (found) return found.id;
+      }
+      const hash = window.location.hash.replace(/^#\/?/, '');
+      if (hash) {
+        const hashSlug = hash.replace(/^barbearia\//, '');
+        const found = INITIAL_BARBERSHOPS.find(
+          b => b.id === hashSlug || b.slug === hashSlug || b.slug.toLowerCase() === hashSlug.toLowerCase()
+        );
+        if (found) return found.id;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
 
 interface AppContextType {
   // Navigation & View Mode
   viewMode: AppViewMode;
   setViewMode: (mode: AppViewMode) => void;
+
+  // Direct Link Helper
+  getBarbershopDirectUrl: (barbershop?: Barbershop | string) => string;
 
   // Authentication & Session
   authenticatedUser: User | null;
@@ -171,6 +200,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [viewMode, setViewMode] = useState<AppViewMode>(() => {
+    const urlTenant = getInitialTenantFromUrl();
+    if (urlTenant) {
+      return 'CLIENT_APP';
+    }
     try {
       const savedId = localStorage.getItem('mybarber_session_user_id');
       if (savedId) {
@@ -190,6 +223,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [barbershops, setBarbershops] = useState<Barbershop[]>(INITIAL_BARBERSHOPS);
   const [activeTenantId, setActiveTenantId] = useState<string>(() => {
+    const urlTenant = getInitialTenantFromUrl();
+    if (urlTenant) {
+      return urlTenant;
+    }
     try {
       const savedId = localStorage.getItem('mybarber_session_user_id');
       if (savedId) {
@@ -312,11 +349,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [barbershops, users]);
 
-  // When changing tenant, reset current user if outside tenant (unless user is SUPER_ADMIN)
+  // When changing tenant, reset current user if outside tenant (unless user is SUPER_ADMIN or CLIENTE)
   useEffect(() => {
     const activeUser = users.find(u => u.id === currentUserId);
-    if (activeUser?.role === 'SUPER_ADMIN') {
-      return; // Super Admin has global oversight across all tenants
+    if (activeUser?.role === 'SUPER_ADMIN' || activeUser?.role === 'CLIENTE') {
+      return; // Super Admin has global oversight; Clients have unified multi-barbershop accounts
     }
 
     const userInTenant = users.find(u => u.tenantId === activeTenantId && u.id === currentUserId);
@@ -984,6 +1021,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  // Helper to generate direct public link for any barbershop
+  const getBarbershopDirectUrl = (barbershop?: Barbershop | string): string => {
+    let shopSlug = '';
+    if (typeof barbershop === 'string') {
+      const found = barbershops.find(b => b.id === barbershop || b.slug === barbershop);
+      shopSlug = found?.slug || barbershop;
+    } else if (barbershop) {
+      shopSlug = barbershop.slug;
+    } else {
+      shopSlug = currentBarbershop.slug;
+    }
+
+    if (typeof window !== 'undefined') {
+      return `${window.location.origin}/?b=${shopSlug}`;
+    }
+    return `https://mybarber.com.br/?b=${shopSlug}`;
+  };
+
   // Google Account Login for Clients with mandatory WhatsApp & Birth Date
   const loginWithGoogle = (data: {
     googleId?: string;
@@ -996,18 +1051,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const cleanPhone = data.whatsapp.trim();
     const cleanEmail = data.email.trim().toLowerCase();
     
-    // Check if client already exists by Google ID, email, or WhatsApp
+    // Check if client already exists globally across the platform by Google ID, email, or WhatsApp
     let client = users.find(
       u =>
-        u.tenantId === activeTenantId &&
         u.role === 'CLIENTE' &&
         ((data.googleId && u.googleId === data.googleId) ||
          (cleanEmail && u.email?.toLowerCase() === cleanEmail) ||
-         (cleanPhone && u.whatsapp.replace(/\D/g, '') === cleanPhone.replace(/\D/g, '')))
+         (cleanPhone && u.whatsapp && cleanPhone.replace(/\D/g, '').length >= 8 && u.whatsapp.replace(/\D/g, '') === cleanPhone.replace(/\D/g, '')))
     );
 
     if (client) {
-      // Update missing client info if provided
+      // Update missing client info if provided, keeping global identity intact
       const updatedClient: User = {
         ...client,
         name: data.name.trim() || client.name,
@@ -1023,7 +1077,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       syncDoc('users', updatedClient.id, updatedClient);
       client = updatedClient;
     } else {
-      // Create new client via Google login
+      // Create new global client via Google login
       client = {
         id: `user-client-google-${Date.now()}`,
         tenantId: activeTenantId,
@@ -1439,6 +1493,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       value={{
         viewMode,
         setViewMode,
+        getBarbershopDirectUrl,
         authenticatedUser,
         loginWithCredentials,
         logout,

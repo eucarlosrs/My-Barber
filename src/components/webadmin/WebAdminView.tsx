@@ -58,13 +58,16 @@ export const WebAdminView: React.FC = () => {
     createCommunication,
     currentUser,
     galleryWorks,
-    uploadMedia
+    uploadMedia,
+    getBarbershopDirectUrl,
+    setViewMode
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<
     'DASHBOARD' | 'APPOINTMENTS' | 'GALLERY' | 'PROFESSIONALS' | 'RAFFLES' | 'PROMOTIONS' | 'SERVICES' | 'CLIENTS' | 'FINANCIAL' | 'SETTINGS'
   >('DASHBOARD');
 
+  const [copiedLink, setCopiedLink] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Quick Image Edit Modal States
@@ -164,6 +167,64 @@ export const WebAdminView: React.FC = () => {
               ></div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Link de Divulgação da Barbearia (Instagram Bio & WhatsApp) */}
+      <div className="my-4 bg-gradient-to-r from-orange-500/15 via-neutral-900 to-neutral-900 border border-orange-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/30 flex items-center justify-center shrink-0">
+            <Share2 className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black text-neutral-100 uppercase tracking-wider font-heading">
+                Link Oficial da Barbearia
+              </span>
+              <span className="bg-orange-500 text-neutral-950 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">
+                Divulgação
+              </span>
+            </div>
+            <p className="text-xs text-neutral-400 mt-0.5 truncate">
+              Compartilhe no seu Instagram, bio, WhatsApp e redes sociais para seus clientes agendarem direto:
+            </p>
+            <div className="text-xs font-mono text-orange-400 font-bold mt-1 truncate select-all">
+              {getBarbershopDirectUrl(currentBarbershop)}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+          <button
+            onClick={() => {
+              const url = getBarbershopDirectUrl(currentBarbershop);
+              navigator.clipboard.writeText(url);
+              setCopiedLink(true);
+              setTimeout(() => setCopiedLink(false), 3000);
+            }}
+            className="flex-1 sm:flex-initial px-4 py-2 bg-orange-500 hover:bg-orange-400 text-neutral-950 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md cursor-pointer"
+          >
+            {copiedLink ? (
+              <>
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Link Copiado!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-4 h-4" />
+                <span>Copiar Link</span>
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={() => setViewMode('CLIENT_APP')}
+            className="px-3.5 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Visualizar a página pública como o cliente vê"
+          >
+            <Eye className="w-4 h-4 text-neutral-400" />
+            <span className="hidden md:inline">Ver Página Pública</span>
+          </button>
         </div>
       </div>
 

@@ -12,6 +12,7 @@ import { WebAdminView } from './components/webadmin/WebAdminView';
 import { ClientAppView } from './components/app/ClientAppView';
 import { ProfessionalAppView } from './components/app/ProfessionalAppView';
 import { AuthLoginView } from './components/auth/AuthLoginView';
+import { BarbershopDiscoveryView } from './components/discovery/BarbershopDiscoveryView';
 
 const MainContent: React.FC = () => {
   const { viewMode } = useApp();
@@ -19,6 +20,8 @@ const MainContent: React.FC = () => {
   switch (viewMode) {
     case 'LOGIN':
       return <AuthLoginView />;
+    case 'DISCOVERY':
+      return <BarbershopDiscoveryView />;
     case 'MASTER_ADMIN':
       return <MasterAdminView />;
     case 'WEBADMIN':

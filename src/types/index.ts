@@ -78,6 +78,11 @@ export interface BarbershopReminderConfig {
   whatsappTemplate: string;
 }
 
+export interface BarbershopCoordinates {
+  latitude: number;
+  longitude: number;
+}
+
 export interface Barbershop {
   id: string;
   name: string; // Ex: "Barbearia do João"
@@ -90,6 +95,7 @@ export interface Barbershop {
   phone: string;
   whatsapp: string;
   address: BarbershopAddress;
+  coordinates?: BarbershopCoordinates;
   socialMedia: BarbershopSocialMedia;
   planId: PlanId;
   reminderConfig: BarbershopReminderConfig;
