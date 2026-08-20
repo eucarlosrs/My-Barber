@@ -88,16 +88,83 @@ export const REALISTIC_BARBERSHOP_ASSETS = {
 };
 
 /**
+ * Compresses an image file in the browser using an offscreen canvas
+ * before upload, ensuring lightning fast transfers and lightweight database storage.
+ */
+export async function compressImageFile(file: File, maxDimension: number = 1200, quality: number = 0.85): Promise<{ blob: Blob; dataUrl: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Falha ao obter contexto 2D para compressão.'));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve({ blob, dataUrl });
+            } else {
+              resolve({ blob: file, dataUrl });
+            }
+          },
+          'image/jpeg',
+          quality
+        );
+      };
+      img.onerror = () => reject(new Error('Falha ao carregar imagem para compressão.'));
+      img.src = reader.result as string;
+    };
+    reader.onerror = () => reject(new Error('Falha ao ler arquivo.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
  * Uploads an image file to Firebase Storage under a designated path.
- * In case of storage quota / network fallback, converts to a Base64 data URL
- * so that custom uploads work immediately in client and admin interfaces.
+ * Automatically compresses the image for optimum speed and quality.
+ * In case of storage quota / network fallback, converts to an optimized Base64 data URL
+ * so that custom uploads work immediately across all devices and published previews.
  */
 export async function uploadImageToStorage(file: File, destinationPath: string): Promise<string> {
+  let compressedDataUrl = '';
+  let fileToUpload: Blob = file;
+
+  try {
+    const compressed = await compressImageFile(file, 1200, 0.85);
+    fileToUpload = compressed.blob;
+    compressedDataUrl = compressed.dataUrl;
+  } catch (compErr) {
+    console.warn('Image compression note:', compErr);
+  }
+
   try {
     if (storage) {
       const storageRef = ref(storage, destinationPath);
-      const snapshot = await uploadBytes(storageRef, file, {
-        contentType: file.type || 'image/jpeg',
+      const snapshot = await uploadBytes(storageRef, fileToUpload, {
+        contentType: 'image/jpeg',
         customMetadata: {
           uploadedAt: new Date().toISOString()
         }
@@ -108,10 +175,14 @@ export async function uploadImageToStorage(file: File, destinationPath: string):
       return `${downloadUrl}${cacheBust}`;
     }
   } catch (error) {
-    console.warn('Firebase Storage upload warning (falling back to Base64 local storage):', error);
+    console.warn('Firebase Storage direct upload note (using optimized compressed data URL):', error);
   }
 
-  // Graceful fallback: convert file to Base64 Data URL
+  // Graceful fallback: return optimized compressed Data URL
+  if (compressedDataUrl) {
+    return compressedDataUrl;
+  }
+
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
