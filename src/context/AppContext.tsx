@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import {
   Barbershop,
   User,
@@ -293,11 +293,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isImpersonating, setIsImpersonating] = useState<boolean>(false);
   const [impersonationOriginUserId, setImpersonationOriginUserId] = useState<string | null>(null);
 
-  // Current Barbershop
-  const currentBarbershop = barbershops.find(b => b.id === activeTenantId) || barbershops[0];
+  // Current Barbershop (memoized for rock-solid stability)
+  const currentBarbershop = useMemo(() => {
+    return barbershops.find(b => b.id === activeTenantId) || barbershops[0];
+  }, [barbershops, activeTenantId]);
 
-  // Current User
-  const currentUser = users.find(u => u.id === currentUserId) || users[0];
+  // Current User (memoized for rock-solid stability)
+  const currentUser = useMemo(() => {
+    return users.find(u => u.id === currentUserId) || users[0];
+  }, [users, currentUserId]);
 
   // Tenant-scoped users
   const tenantUsers = users.filter(u => u.tenantId === activeTenantId);
@@ -370,21 +374,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubAuditLogs();
     };
   }, []);
-
-  // Auto-normalize demo tenant and user names to Barbearia Rodrigues
-  useEffect(() => {
-    const legacyTenant = barbershops.find(b => b.id === 'tenant-barbearia-do-joao' && b.name === 'Barbearia do João');
-    if (legacyTenant) {
-      const updated = { ...legacyTenant, name: 'Barbearia Rodrigues', slug: 'barbearia-rodrigues', customDomain: 'www.barbeariarodrigues.com.br' };
-      syncDoc('barbershops', legacyTenant.id, updated);
-    }
-
-    const legacyOwner = users.find(u => u.id === 'user-joao-owner' && (u.name === 'João Carlos Silva' || u.name === 'João Rodrigues (Proprietário)'));
-    if (legacyOwner) {
-      const updated = { ...legacyOwner, name: 'Barbearia Rodrigues', email: 'contato@barbeariarodrigues.com.br' };
-      syncDoc('users', legacyOwner.id, updated);
-    }
-  }, [barbershops, users]);
 
   // When changing tenant, reset current user if outside tenant (unless user is SUPER_ADMIN or CLIENTE)
   useEffect(() => {
