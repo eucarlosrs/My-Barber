@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { APP_ASSETS } from '../../data/assets';
 
 interface AppImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
-  fallbackType?: 'avatar' | 'logo' | 'banner' | 'service' | 'product' | 'story' | 'gallery';
+  fallbackType?: 'avatar' | 'userAvatar' | 'logo' | 'banner' | 'service' | 'product' | 'story' | 'gallery';
   customFallback?: string;
 }
 
@@ -10,7 +10,8 @@ interface AppImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
 const LOCAL_PHOTO_FALLBACKS: Record<string, string> = {
   logo: APP_ASSETS.logo,
   banner: APP_ASSETS.banner,
-  avatar: APP_ASSETS.barberFelipe,
+  avatar: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200" fill="none"><rect width="200" height="200" rx="36" fill="%23262626"/><circle cx="100" cy="80" r="38" fill="%23F97316"/><path d="M40 170C40 132 68 118 100 118C132 118 160 132 160 170" fill="%23F97316"/><rect x="2" y="2" width="196" height="196" rx="34" stroke="%23333333" stroke-width="3"/></svg>',
+  userAvatar: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200" fill="none"><rect width="200" height="200" rx="100" fill="%23262626"/><circle cx="100" cy="80" r="38" fill="%23F97316"/><path d="M40 170C40 132 68 118 100 118C132 118 160 132 160 170" fill="%23F97316"/></svg>',
   service: APP_ASSETS.haircutFade,
   product: APP_ASSETS.products,
   story: APP_ASSETS.haircutFade,

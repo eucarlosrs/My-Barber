@@ -550,11 +550,11 @@ export const ClientAppView: React.FC = () => {
                       <AppImage
                         src={currentUser.avatarUrl}
                         alt={currentUser.name}
-                        fallbackType="avatar"
-                        className="w-7 h-7 rounded-full object-cover border border-orange-500/60"
+                        fallbackType="userAvatar"
+                        className="w-7 h-7 rounded-full object-cover border border-orange-500/60 shrink-0"
                       />
                     ) : (
-                      <div className="w-7 h-7 rounded-full bg-orange-500 text-neutral-950 flex items-center justify-center font-black text-[11px]">
+                      <div className="w-7 h-7 rounded-full bg-orange-500 text-neutral-950 flex items-center justify-center font-black text-[11px] shrink-0">
                         {currentUser.name.charAt(0)}
                       </div>
                     )}
