@@ -17,6 +17,7 @@ import {
   User as UserIcon
 } from 'lucide-react';
 import { MY_BARBER_PLANS } from '../../types';
+import { AppImage } from './AppImage';
 
 export const HeaderBar: React.FC = () => {
   const {
@@ -130,7 +131,12 @@ export const HeaderBar: React.FC = () => {
             <div className="flex items-center gap-2 bg-[#0D0D0D] px-3 py-1.5 rounded-xl border border-[#2D2D2D]">
               <div className="w-6 h-6 rounded-full bg-[#1C1C1C] flex items-center justify-center overflow-hidden shrink-0 border border-[#2D2D2D]">
                 {currentUser.avatarUrl ? (
-                  <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-full h-full object-cover" />
+                  <AppImage
+                    src={currentUser.avatarUrl}
+                    alt={currentUser.name}
+                    fallbackType="userAvatar"
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <UserIcon className="w-3.5 h-3.5 text-[#A3A3A3]" />
                 )}
