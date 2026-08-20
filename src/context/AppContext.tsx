@@ -225,15 +225,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [barbershops, setBarbershops] = useState<Barbershop[]>(INITIAL_BARBERSHOPS);
-  const [activeTenantId, setActiveTenantId] = useState<string>(() => {
+  const [activeTenantId, setActiveTenantIdState] = useState<string>(() => {
     const urlTenant = getInitialTenantFromUrl();
     if (urlTenant) {
+      try {
+        localStorage.setItem('mybarber_active_tenant_id', urlTenant);
+      } catch {
+        // ignore
+      }
       return urlTenant;
     }
     try {
-      const savedId = localStorage.getItem('mybarber_session_user_id');
-      if (savedId) {
-        const u = INITIAL_USERS.find(user => user.id === savedId);
+      const savedTenantId = localStorage.getItem('mybarber_active_tenant_id');
+      if (savedTenantId) {
+        return savedTenantId;
+      }
+      const savedUserId = localStorage.getItem('mybarber_session_user_id');
+      if (savedUserId) {
+        const u = INITIAL_USERS.find(user => user.id === savedUserId);
         if (u && u.tenantId && u.tenantId !== 'platform-global') {
           return u.tenantId;
         }
@@ -243,6 +252,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return INITIAL_BARBERSHOPS[0].id;
   });
+
+  const setActiveTenantId = (newTenantId: string) => {
+    setActiveTenantIdState(newTenantId);
+    try {
+      localStorage.setItem('mybarber_active_tenant_id', newTenantId);
+    } catch {
+      // ignore
+    }
+  };
 
   const [users, setUsers] = useState<User[]>(INITIAL_USERS);
   const [currentUserId, setCurrentUserId] = useState<string>(() => {
