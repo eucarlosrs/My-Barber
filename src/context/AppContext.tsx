@@ -1336,6 +1336,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setServices(prev => [...prev, ...defaultServices]);
     setStock(prev => [...prev, ...defaultStock]);
 
+    // Persist permanently to Firestore
+    syncDoc('barbershops', newBarbershop.id, newBarbershop);
+    syncDoc('users', newManager.id, newManager);
+    syncDoc('users', initialBarber.id, initialBarber);
+    defaultServices.forEach(srv => syncDoc('services', srv.id, srv));
+    defaultStock.forEach(stk => syncDoc('stock', stk.id, stk));
+
     addAuditLog({
       actorUserId: currentUser.id,
       actorUserName: currentUser.name,
@@ -1355,6 +1362,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: 'Não é possível remover a única barbearia ativa do sistema.' };
     }
     const target = barbershops.find(b => b.id === barbershopId);
+    
+    // Delete from Firestore
+    deleteDocFromDb('barbershops', barbershopId);
+    users.filter(u => u.tenantId === barbershopId).forEach(u => deleteDocFromDb('users', u.id));
+    services.filter(s => s.tenantId === barbershopId).forEach(s => deleteDocFromDb('services', s.id));
+    appointments.filter(a => a.tenantId === barbershopId).forEach(a => deleteDocFromDb('appointments', a.id));
+
     setBarbershops(prev => prev.filter(b => b.id !== barbershopId));
     setUsers(prev => prev.filter(u => u.tenantId !== barbershopId));
     setServices(prev => prev.filter(s => s.tenantId !== barbershopId));
