@@ -774,7 +774,6 @@ export const ClientAppView: React.FC = () => {
                     {filteredServices.map(srv => {
                       const isSelected = selectedService?.id === srv.id;
                       const isDescExpanded = !!expandedDescriptions[srv.id];
-                      const isLongTitle = srv.name.length > 22;
 
                       return (
                         <button
@@ -798,19 +797,17 @@ export const ClientAppView: React.FC = () => {
 
                           {/* Service Details */}
                           <div className="flex-1 min-w-0 space-y-1">
-                            {/* Service Name with Marquee Movement if long & Price */}
-                            <div className="flex items-center justify-between gap-2 overflow-hidden">
-                              <div className="overflow-hidden relative max-w-[190px] sm:max-w-[250px] flex-1">
+                            {/* Service Name & Price (wraps up to 2 lines on mobile instead of marquee) */}
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
                                 <span
-                                  className={`font-bold text-sm text-neutral-100 block group-hover:text-orange-400 transition-colors ${
-                                    isLongTitle ? 'animate-marquee-smooth' : 'truncate'
-                                  }`}
+                                  className="font-bold text-sm text-neutral-100 block group-hover:text-orange-400 transition-colors line-clamp-2 leading-snug break-words"
                                   title={srv.name}
                                 >
                                   {srv.name}
                                 </span>
                               </div>
-                              <span className="font-bold text-emerald-400 text-sm shrink-0 font-mono tracking-tight">
+                              <span className="font-bold text-emerald-400 text-sm shrink-0 font-mono tracking-tight pt-0.5">
                                 R$ {srv.price.toFixed(2).replace('.', ',')}
                               </span>
                             </div>
