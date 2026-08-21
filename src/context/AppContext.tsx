@@ -95,7 +95,7 @@ interface AppContextType {
   activeTenantId: string;
   setActiveTenantId: (id: string) => void;
   currentBarbershop: Barbershop;
-  updateBarbershop: (updated: Partial<Barbershop>) => void;
+  updateBarbershop: (updated: Partial<Barbershop>, targetShopId?: string) => void;
   barbershops: Barbershop[];
   registerBarbershop: (input: RegisterBarbershopInput) => { success: boolean; barbershopId: string; error?: string };
   deleteBarbershop: (barbershopId: string) => { success: boolean; error?: string };
@@ -549,14 +549,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  const updateBarbershop = (updated: Partial<Barbershop>) => {
-    const target = barbershops.find(b => b.id === activeTenantId);
+  const updateBarbershop = (updated: Partial<Barbershop>, targetShopId?: string) => {
+    const shopIdToUpdate = targetShopId || activeTenantId;
+    const target = barbershops.find(b => b.id === shopIdToUpdate);
     if (target) {
       const merged = { ...target, ...updated };
       syncDoc('barbershops', target.id, merged);
     }
     setBarbershops(prev =>
-      prev.map(b => (b.id === activeTenantId ? { ...b, ...updated } : b))
+      prev.map(b => (b.id === shopIdToUpdate ? { ...b, ...updated } : b))
     );
   };
 

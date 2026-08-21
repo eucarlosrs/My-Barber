@@ -431,6 +431,49 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
 
             <div className="space-y-4 pt-4">
               <div>
+                <label className="block text-xs font-bold text-neutral-300 mb-1">Nome da Barbearia</label>
+                <input
+                  type="text"
+                  value={editingShop.name}
+                  onChange={e => {
+                    const newName = e.target.value;
+                    updateBarbershop({ name: newName }, editingShop.id);
+                    setEditingShop(prev => prev ? { ...prev, name: newName } : null);
+                  }}
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-neutral-300 mb-1">WhatsApp de Atendimento</label>
+                  <input
+                    type="text"
+                    value={editingShop.whatsapp}
+                    onChange={e => {
+                      const newWa = e.target.value;
+                      updateBarbershop({ whatsapp: newWa }, editingShop.id);
+                      setEditingShop(prev => prev ? { ...prev, whatsapp: newWa } : null);
+                    }}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-neutral-300 mb-1">Domínio Próprio / Slug</label>
+                  <input
+                    type="text"
+                    value={editingShop.customDomain || editingShop.slug}
+                    onChange={e => {
+                      const newDomain = e.target.value;
+                      updateBarbershop({ customDomain: newDomain }, editingShop.id);
+                      setEditingShop(prev => prev ? { ...prev, customDomain: newDomain } : null);
+                    }}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
                 <label className="block text-xs font-bold text-neutral-300 mb-1">Status da Barbearia</label>
                 <select
                   value={editingShop.status || 'ACTIVE'}
@@ -452,7 +495,7 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                   value={editingShop.planId}
                   onChange={e => {
                     const newPlan = e.target.value as PlanId;
-                    updateBarbershop({ planId: newPlan });
+                    updateBarbershop({ planId: newPlan }, editingShop.id);
                     setEditingShop(prev => prev ? { ...prev, planId: newPlan } : null);
                   }}
                   className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
@@ -499,7 +542,7 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                       value={editingShop.logoUrl}
                       onChange={e => {
                         const newLogo = e.target.value;
-                        updateBarbershop({ logoUrl: newLogo });
+                        updateBarbershop({ logoUrl: newLogo }, editingShop.id);
                         setEditingShop(prev => prev ? { ...prev, logoUrl: newLogo } : null);
                       }}
                       className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-2.5 py-1 text-[11px] text-neutral-300 focus:outline-none focus:border-orange-500 font-mono"
@@ -568,7 +611,7 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
           fallbackType="logo"
           presets={LOGO_PRESETS}
           onSave={(newUrl) => {
-            updateBarbershop({ logoUrl: newUrl });
+            updateBarbershop({ logoUrl: newUrl }, editingShop.id);
             setEditingShop(prev => prev ? { ...prev, logoUrl: newUrl } : null);
             setShowLogoEditModal(false);
             setSuccessToast('Logotipo atualizado e salvo!');
@@ -588,7 +631,7 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
           fallbackType="banner"
           presets={BANNER_PRESETS}
           onSave={(newUrl) => {
-            updateBarbershop({ bannerUrl: newUrl });
+            updateBarbershop({ bannerUrl: newUrl }, editingShop.id);
             setEditingShop(prev => prev ? { ...prev, bannerUrl: newUrl } : null);
             setShowBannerEditModal(false);
             setSuccessToast('Banner atualizado e salvo!');
