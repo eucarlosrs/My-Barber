@@ -2018,20 +2018,18 @@ export const ClientAppView: React.FC = () => {
         {/* 2.5 FLOATING ACTION BUTTON (AGENDAR) - FOLLOWS CLIENT ACROSS ALL TABS */}
         {/* ========================================================================= */}
         {activeTab !== 'BOOKING' && (
-          <div className="fixed bottom-18 right-4 sm:right-6 md:right-8 z-40 animate-bounce-subtle pointer-events-auto">
+          <div className="fixed bottom-16 right-3 sm:right-5 md:right-6 z-40 pointer-events-auto">
             <button
               type="button"
               onClick={() => {
                 setActiveTab('BOOKING');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className="group flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 hover:from-orange-400 hover:to-amber-400 text-neutral-950 font-black rounded-full shadow-[0_10px_25px_-5px_rgba(249,115,22,0.6)] hover:shadow-[0_15px_30px_-5px_rgba(249,115,22,0.8)] border border-orange-300/40 transition-all duration-300 transform active:scale-95 cursor-pointer"
+              className="group flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-neutral-950 font-bold rounded-full shadow-[0_4px_14px_rgba(249,115,22,0.45)] hover:shadow-[0_6px_20px_rgba(249,115,22,0.6)] border border-orange-300/30 transition-all duration-200 transform active:scale-95 cursor-pointer backdrop-blur-sm"
               title="Agendar horário na barbearia agora"
             >
-              <div className="w-6 h-6 rounded-full bg-neutral-950/15 flex items-center justify-center">
-                <Scissors className="w-4 h-4 text-neutral-950 stroke-[2.5] group-hover:rotate-12 transition-transform duration-300" />
-              </div>
-              <span className="text-sm uppercase tracking-wider font-heading font-black">
+              <Scissors className="w-3.5 h-3.5 text-neutral-950 stroke-[2.2] group-hover:rotate-12 transition-transform duration-200 shrink-0" />
+              <span className="text-xs font-black uppercase tracking-wide font-heading">
                 Agendar
               </span>
             </button>
