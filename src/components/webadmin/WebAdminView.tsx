@@ -170,26 +170,26 @@ export const WebAdminView: React.FC = () => {
         </div>
       </div>
 
-      {/* Link de Divulgação da Barbearia (Instagram Bio & WhatsApp) */}
-      <div className="my-4 bg-gradient-to-r from-orange-500/15 via-neutral-900 to-neutral-900 border border-orange-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/30 flex items-center justify-center shrink-0">
+      {/* Link de Divulgação Exclusivo da Barbearia no My Barber */}
+      <div className="my-4 bg-gradient-to-r from-orange-500/15 via-neutral-900 to-neutral-900 border border-orange-500/40 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+        <div className="flex items-center gap-3.5 min-w-0 flex-1">
+          <div className="w-11 h-11 rounded-2xl bg-orange-500/20 text-orange-400 border border-orange-500/30 flex items-center justify-center shrink-0 shadow-md">
             <Share2 className="w-5 h-5" />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-black text-neutral-100 uppercase tracking-wider font-heading">
-                Link Oficial da Barbearia
+              <span className="text-xs sm:text-sm font-black text-neutral-100 uppercase tracking-wider font-heading">
+                Endereço Exclusivo no My Barber
               </span>
-              <span className="bg-orange-500 text-neutral-950 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">
-                Divulgação
+              <span className="bg-orange-500 text-neutral-950 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                Exclusivo
               </span>
             </div>
-            <p className="text-xs text-neutral-400 mt-0.5 truncate">
-              Compartilhe no seu Instagram, bio, WhatsApp e redes sociais para seus clientes agendarem direto:
+            <p className="text-xs text-neutral-300 mt-0.5">
+              Seus clientes entram direto na sua página, carregando somente seus serviços, profissionais e fotos.
             </p>
-            <div className="text-xs font-mono text-orange-400 font-bold mt-1 truncate select-all">
-              {getBarbershopDirectUrl(currentBarbershop)}
+            <div className="text-xs sm:text-sm font-mono text-orange-400 font-extrabold mt-1.5 truncate select-all bg-neutral-950/80 px-3 py-1.5 rounded-xl border border-neutral-800 w-fit">
+              https://{currentBarbershop.slug}.mybarberbr.com.br
             </div>
           </div>
         </div>
@@ -197,12 +197,13 @@ export const WebAdminView: React.FC = () => {
         <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
           <button
             onClick={() => {
-              const url = getBarbershopDirectUrl(currentBarbershop);
+              const url = `https://${currentBarbershop.slug}.mybarberbr.com.br`;
               navigator.clipboard.writeText(url);
               setCopiedLink(true);
               setTimeout(() => setCopiedLink(false), 3000);
             }}
-            className="flex-1 sm:flex-initial px-4 py-2 bg-orange-500 hover:bg-orange-400 text-neutral-950 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md cursor-pointer"
+            className="flex-1 sm:flex-initial px-4 py-2.5 bg-orange-500 hover:bg-orange-400 text-neutral-950 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md cursor-pointer"
+            title="Copiar link exclusivo para enviar aos clientes ou colocar no Instagram"
           >
             {copiedLink ? (
               <>
@@ -212,18 +213,18 @@ export const WebAdminView: React.FC = () => {
             ) : (
               <>
                 <Share2 className="w-4 h-4" />
-                <span>Copiar Link</span>
+                <span>Copiar Link Exclusivo</span>
               </>
             )}
           </button>
 
           <button
             onClick={() => setViewMode('CLIENT_APP')}
-            className="px-3.5 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+            className="px-3.5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
             title="Visualizar a página pública como o cliente vê"
           >
-            <Eye className="w-4 h-4 text-neutral-400" />
-            <span className="hidden md:inline">Ver Página Pública</span>
+            <Eye className="w-4 h-4 text-orange-400" />
+            <span className="hidden md:inline">Ver App do Cliente</span>
           </button>
         </div>
       </div>
@@ -798,13 +799,29 @@ export const WebAdminView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-neutral-300 mb-1">Domínio Próprio Exclusivo</label>
-                <input
-                  type="text"
-                  value={currentBarbershop.customDomain}
-                  onChange={e => updateBarbershop({ customDomain: e.target.value })}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs font-mono text-neutral-200 focus:outline-none focus:border-amber-500"
-                />
+                <label className="block text-xs font-semibold text-neutral-300 mb-1">
+                  Endereço Exclusivo da Barbearia (My Barber)
+                </label>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs font-mono text-orange-400 font-bold">
+                    https://{currentBarbershop.slug}.mybarberbr.com.br
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = `https://${currentBarbershop.slug}.mybarberbr.com.br`;
+                      navigator.clipboard.writeText(url);
+                      setCopiedLink(true);
+                      setTimeout(() => setCopiedLink(false), 3000);
+                    }}
+                    className="px-3 py-2 bg-neutral-800 hover:bg-neutral-750 text-neutral-200 border border-neutral-700 rounded-xl text-xs font-bold shrink-0 transition-colors"
+                  >
+                    {copiedLink ? 'Copiado!' : 'Copiar'}
+                  </button>
+                </div>
+                <span className="text-[10px] text-neutral-500 mt-1 block">
+                  Identificação exclusiva dentro do domínio oficial mybarberbr.com.br.
+                </span>
               </div>
 
               <div>

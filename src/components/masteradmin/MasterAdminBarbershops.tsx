@@ -24,7 +24,9 @@ import {
   Upload,
   SlidersHorizontal,
   Image as ImageIcon,
-  Sparkles
+  Sparkles,
+  Share2,
+  Globe
 } from 'lucide-react';
 import { PlanId, MY_BARBER_PLANS, RegisterBarbershopInput, Barbershop } from '../../types';
 import { AppImage } from '../common/AppImage';
@@ -67,13 +69,16 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
     setActiveTenantId,
     setViewMode,
     users,
-    setCurrentUserId
+    setCurrentUserId,
+    getBarbershopDirectUrl,
+    getBarbershopExclusiveDomain
   } = useApp();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [editingShop, setEditingShop] = useState<Barbershop | null>(null);
   const [showLogoEditModal, setShowLogoEditModal] = useState(false);
   const [showBannerEditModal, setShowBannerEditModal] = useState(false);
+  const [copiedDirectLinkShopId, setCopiedDirectLinkShopId] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [errorToast, setErrorToast] = useState<string | null>(null);
 
@@ -114,7 +119,7 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
       ...prev,
       name,
       slug,
-      customDomain: slug ? `www.${slug}.com.br` : '',
+      customDomain: slug ? `${slug}.mybarberbr.com.br` : '',
       about: name ? `${name} — Barbearia e cuidados masculinos de alto padrão.` : prev.about
     }));
   };
@@ -317,14 +322,56 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
 
               {/* Shop Details */}
               <div className="p-4 space-y-3 flex-1">
-                <div className="grid grid-cols-2 gap-2 text-xs bg-neutral-950 p-2.5 rounded-xl border border-neutral-800/80">
-                  <div>
-                    <span className="text-[10px] text-neutral-500 block">Domínio do App:</span>
-                    <span className="font-mono text-neutral-300 text-[11px] truncate block">{shop.customDomain}</span>
+                {/* Exclusive Subdomain & Link Card */}
+                <div className="bg-neutral-950 p-2.5 rounded-xl border border-neutral-800 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
+                        <Globe className="w-3 h-3 text-orange-400" />
+                        <span>Endereço Exclusivo (My Barber)</span>
+                      </div>
+                      <span className="font-mono text-orange-400 font-bold text-xs truncate block mt-0.5">
+                        {getBarbershopExclusiveDomain(shop)}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = getBarbershopDirectUrl(shop);
+                        navigator.clipboard.writeText(url);
+                        setCopiedDirectLinkShopId(shop.id);
+                        setTimeout(() => setCopiedDirectLinkShopId(null), 3000);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all shrink-0 cursor-pointer ${
+                        copiedDirectLinkShopId === shop.id
+                          ? 'bg-emerald-500 text-neutral-950 font-black'
+                          : 'bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-700'
+                      }`}
+                      title="Copiar link exclusivo de divulgação desta barbearia"
+                    >
+                      {copiedDirectLinkShopId === shop.id ? (
+                        <>
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>Copiado!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Share2 className="w-3 h-3 text-orange-400" />
+                          <span>Copiar Link</span>
+                        </>
+                      )}
+                    </button>
                   </div>
-                  <div>
-                    <span className="text-[10px] text-neutral-500 block">WhatsApp Oficial:</span>
-                    <span className="font-mono text-emerald-400 text-[11px] truncate block">{shop.whatsapp}</span>
+
+                  <div className="pt-2 border-t border-neutral-800/80 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="text-[10px] text-neutral-500 block">WhatsApp Oficial:</span>
+                      <span className="font-mono text-emerald-400 text-[11px] truncate block">{shop.whatsapp}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-neutral-500 block">Identificador (Slug):</span>
+                      <span className="font-mono text-neutral-300 text-[11px] truncate block">{shop.slug}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -459,18 +506,49 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-neutral-300 mb-1">Domínio Próprio / Slug</label>
+                  <label className="block text-xs font-bold text-neutral-300 mb-1">Identificador Exclusivo (Slug)</label>
                   <input
                     type="text"
-                    value={editingShop.customDomain || editingShop.slug}
+                    value={editingShop.slug}
                     onChange={e => {
-                      const newDomain = e.target.value;
-                      updateBarbershop({ customDomain: newDomain }, editingShop.id);
-                      setEditingShop(prev => prev ? { ...prev, customDomain: newDomain } : null);
+                      const cleanSlug = e.target.value
+                        .toLowerCase()
+                        .normalize('NFD')
+                        .replace(/[\u0300-\u036f]/g, '')
+                        .replace(/[^a-z0-9-]+/g, '');
+                      const newDomain = `${cleanSlug}.mybarberbr.com.br`;
+                      updateBarbershop({ slug: cleanSlug, customDomain: newDomain }, editingShop.id);
+                      setEditingShop(prev => prev ? { ...prev, slug: cleanSlug, customDomain: newDomain } : null);
                     }}
                     className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
                   />
                 </div>
+              </div>
+
+              {/* Endereço Exclusivo da Barbearia */}
+              <div className="p-3 bg-neutral-950 rounded-2xl border border-orange-500/30 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-neutral-400">Endereço Exclusivo no My Barber:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = `https://${editingShop.slug}.mybarberbr.com.br`;
+                      navigator.clipboard.writeText(url);
+                      setSuccessToast(`Endereço copiado: ${url}`);
+                      setTimeout(() => setSuccessToast(null), 3000);
+                    }}
+                    className="text-[10px] text-orange-400 hover:text-orange-300 font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    <Share2 className="w-3 h-3" />
+                    <span>Copiar Link Exclusivo</span>
+                  </button>
+                </div>
+                <div className="font-mono text-xs text-orange-400 font-bold bg-neutral-900 px-3 py-2 rounded-xl border border-neutral-800 break-all">
+                  https://{editingShop.slug}.mybarberbr.com.br
+                </div>
+                <p className="text-[10px] text-neutral-500">
+                  Ao abrir este link, o cliente é direcionado diretamente para a página exclusiva da sua barbearia.
+                </p>
               </div>
 
               <div>
@@ -686,30 +764,39 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-semibold text-neutral-300 mb-1">Subdomínio / Slug</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ex: razor-club"
-                      value={formState.slug}
-                      onChange={e => setFormState(prev => ({ ...prev, slug: e.target.value }))}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
-                    />
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-semibold text-neutral-300 mb-1">
+                      Identificador / Subdomínio Exclusivo *
+                    </label>
+                    <div className="flex items-center rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-xs focus-within:border-orange-500">
+                      <span className="text-neutral-500 font-mono text-[11px] mr-1">https://</span>
+                      <input
+                        type="text"
+                        required
+                        placeholder="barbeariadojoao"
+                        value={formState.slug}
+                        onChange={e => {
+                          const cleanSlug = e.target.value
+                            .toLowerCase()
+                            .normalize('NFD')
+                            .replace(/[\u0300-\u036f]/g, '')
+                            .replace(/[^a-z0-9-]+/g, '');
+                          setFormState(prev => ({
+                            ...prev,
+                            slug: cleanSlug,
+                            customDomain: `${cleanSlug}.mybarberbr.com.br`
+                          }));
+                        }}
+                        className="flex-1 bg-transparent text-orange-400 font-bold font-mono focus:outline-none"
+                      />
+                      <span className="text-neutral-400 font-mono text-[11px] font-bold">.mybarberbr.com.br</span>
+                    </div>
+                    <span className="text-[10px] text-neutral-500 mt-1 block">
+                      Endereço exclusivo para os clientes acessarem diretamente esta barbearia.
+                    </span>
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-semibold text-neutral-300 mb-1">Domínio Personalizado do App</label>
-                    <input
-                      type="text"
-                      placeholder="Ex: www.barbeariarazor.com.br"
-                      value={formState.customDomain}
-                      onChange={e => setFormState(prev => ({ ...prev, customDomain: e.target.value }))}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
-                    />
-                  </div>
-
-                  <div>
+                  <div className="sm:col-span-2">
                     <label className="block text-[11px] font-semibold text-neutral-300 mb-1">WhatsApp Comercial da Barbearia *</label>
                     <input
                       type="text"

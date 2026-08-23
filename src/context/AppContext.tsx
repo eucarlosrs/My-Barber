@@ -49,22 +49,57 @@ import { uploadImageToStorage } from '../lib/storage';
 
 export type AppViewMode = 'LOGIN' | 'ARCHITECTURE' | 'MASTER_ADMIN' | 'WEBADMIN' | 'CLIENT_APP' | 'PROFISSIONAL_APP' | 'DISCOVERY';
 
-function getInitialTenantFromUrl(): string | null {
+export const MY_BARBER_MAIN_DOMAIN = 'mybarberbr.com.br';
+
+function getInitialTenantFromUrl(barbershopList: Barbershop[] = INITIAL_BARBERSHOPS): string | null {
   try {
     if (typeof window !== 'undefined') {
+      // 1. Identificação por Subdomínio exclusivo (ex: barbeariadojoao.mybarberbr.com.br ou slug.localhost)
+      const hostname = window.location.hostname.toLowerCase();
+      const hostParts = hostname.split('.');
+      if (hostParts.length >= 3 || (hostParts.length === 2 && hostParts[1].includes('localhost'))) {
+        const sub = hostParts[0];
+        if (sub && !['www', 'app', 'painel', 'admin', 'api', 'dev', 'ais-dev', 'ais-pre'].includes(sub)) {
+          const found = barbershopList.find(
+            b => b.slug.toLowerCase() === sub ||
+                 b.slug.replace(/[^a-z0-9]/g, '') === sub.replace(/[^a-z0-9]/g, '') ||
+                 b.id.toLowerCase() === sub ||
+                 b.customDomain.toLowerCase().includes(sub)
+          );
+          if (found) return found.id;
+        }
+      }
+
+      // 2. Identificação por parâmetros de URL (?b=slug, ?barbearia=slug, ?shop=slug)
       const searchParams = new URLSearchParams(window.location.search);
-      const slugOrId = searchParams.get('b') || searchParams.get('barbearia') || searchParams.get('tenant') || searchParams.get('id');
+      const slugOrId = searchParams.get('b') || searchParams.get('barbearia') || searchParams.get('shop') || searchParams.get('slug') || searchParams.get('tenant') || searchParams.get('id');
       if (slugOrId) {
-        const found = INITIAL_BARBERSHOPS.find(
-          b => b.id === slugOrId || b.slug === slugOrId || b.slug.toLowerCase() === slugOrId.toLowerCase()
+        const clean = slugOrId.toLowerCase().trim();
+        const found = barbershopList.find(
+          b => b.id.toLowerCase() === clean ||
+               b.slug.toLowerCase() === clean ||
+               b.slug.replace(/[^a-z0-9]/g, '') === clean.replace(/[^a-z0-9]/g, '')
         );
         if (found) return found.id;
       }
-      const hash = window.location.hash.replace(/^#\/?/, '');
+
+      // 3. Identificação por Hash ou Rota de Caminho (#/barbeariadojoao ou /barbearia/slug)
+      const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
       if (hash) {
         const hashSlug = hash.replace(/^barbearia\//, '');
-        const found = INITIAL_BARBERSHOPS.find(
-          b => b.id === hashSlug || b.slug === hashSlug || b.slug.toLowerCase() === hashSlug.toLowerCase()
+        const found = barbershopList.find(
+          b => b.id.toLowerCase() === hashSlug ||
+               b.slug.toLowerCase() === hashSlug ||
+               b.slug.replace(/[^a-z0-9]/g, '') === hashSlug.replace(/[^a-z0-9]/g, '')
+        );
+        if (found) return found.id;
+      }
+
+      const pathname = window.location.pathname.replace(/^\//, '').replace(/\/$/, '').toLowerCase();
+      if (pathname && !['login', 'master-admin', 'webadmin', 'profissional'].includes(pathname)) {
+        const pathSlug = pathname.replace(/^barbearia\//, '');
+        const found = barbershopList.find(
+          b => b.slug.toLowerCase() === pathSlug || b.id.toLowerCase() === pathSlug
         );
         if (found) return found.id;
       }
@@ -85,6 +120,7 @@ interface AppContextType {
 
   // Direct Link Helper
   getBarbershopDirectUrl: (barbershop?: Barbershop | string) => string;
+  getBarbershopExclusiveDomain: (barbershop?: Barbershop | string) => string;
 
   // Authentication & Session
   authenticatedUser: User | null;
@@ -390,6 +426,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
   }, [activeTenantId, users, currentUserId]);
+
+  // Detect exclusive barbershop subdomain/URL and load directly into client view
+  useEffect(() => {
+    if (barbershops.length > 0) {
+      const urlTenant = getInitialTenantFromUrl(barbershops);
+      if (urlTenant) {
+        if (activeTenantId !== urlTenant) {
+          setActiveTenantId(urlTenant);
+        }
+        try {
+          const savedUserId = localStorage.getItem('mybarber_session_user_id');
+          const u = users.find(user => user.id === savedUserId);
+          if (!u || u.role === 'CLIENTE') {
+            setViewMode('CLIENT_APP');
+          }
+        } catch {
+          setViewMode('CLIENT_APP');
+        }
+      }
+    }
+  }, [barbershops]);
 
   // Audit logging helper
   const addAuditLog = (log: Omit<AuditLog, 'id' | 'timestamp'>) => {
@@ -1048,8 +1105,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  // Helper to generate direct public link for any barbershop
-  const getBarbershopDirectUrl = (barbershop?: Barbershop | string): string => {
+  // Helper to generate direct public link for any barbershop (Exclusive address on mybarberbr.com.br)
+  const getBarbershopExclusiveDomain = (barbershop?: Barbershop | string): string => {
     let shopSlug = '';
     if (typeof barbershop === 'string') {
       const found = barbershops.find(b => b.id === barbershop || b.slug === barbershop);
@@ -1059,11 +1116,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else {
       shopSlug = currentBarbershop.slug;
     }
+    const cleanSlug = shopSlug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '') || 'barbearia';
+    return `${cleanSlug}.${MY_BARBER_MAIN_DOMAIN}`;
+  };
 
-    if (typeof window !== 'undefined') {
-      return `${window.location.origin}/?b=${shopSlug}`;
-    }
-    return `https://mybarber.com.br/?b=${shopSlug}`;
+  const getBarbershopDirectUrl = (barbershop?: Barbershop | string): string => {
+    const domain = getBarbershopExclusiveDomain(barbershop);
+    return `https://${domain}`;
   };
 
   // Google Account Login for Clients with mandatory WhatsApp & Birth Date
@@ -1536,6 +1595,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         viewMode,
         setViewMode,
         getBarbershopDirectUrl,
+        getBarbershopExclusiveDomain,
         authenticatedUser,
         loginWithCredentials,
         logout,

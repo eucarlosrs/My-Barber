@@ -472,7 +472,7 @@ export const ClientAppView: React.FC = () => {
 
             {/* Top Right Quick Actions */}
             <div className="absolute top-3 right-3 flex items-center gap-1.5">
-              {/* Copy Link Button */}
+              {/* Copy Exclusive Link Button */}
               <button
                 type="button"
                 onClick={() => {
@@ -486,7 +486,7 @@ export const ClientAppView: React.FC = () => {
                     ? 'bg-emerald-500 text-neutral-950 px-2.5'
                     : 'bg-neutral-950/80 hover:bg-neutral-900 text-neutral-200 border border-neutral-700/80'
                 }`}
-                title="Copiar link direto desta barbearia"
+                title="Copiar link exclusivo desta barbearia"
               >
                 {copiedDirectLink ? (
                   <>
@@ -498,23 +498,13 @@ export const ClientAppView: React.FC = () => {
                 )}
               </button>
 
-              {/* Discovery / Switch Barbershop */}
-              <button
-                type="button"
-                onClick={() => setViewMode('DISCOVERY')}
-                className="p-2 rounded-full bg-neutral-950/80 hover:bg-neutral-900 text-neutral-200 border border-neutral-700/80 shadow-lg backdrop-blur-md transition-all active:scale-95"
-                title="Explorar outras barbearias da rede My Barber"
-              >
-                <Compass className="w-3.5 h-3.5 text-orange-400" />
-              </button>
-
               {/* WhatsApp Action Button */}
               <a
                 href={`https://wa.me/55${currentBarbershop.whatsapp.replace(/\D/g, '')}`}
                 target="_blank"
                 rel="noreferrer"
                 className="bg-emerald-500 hover:bg-emerald-400 text-neutral-950 p-2 rounded-full shadow-lg transition-transform active:scale-95"
-                title="Conversar no WhatsApp"
+                title="Conversar no WhatsApp da Barbearia"
               >
                 <Phone className="w-3.5 h-3.5" />
               </a>
@@ -2023,6 +2013,30 @@ export const ClientAppView: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* ========================================================================= */}
+        {/* 2.5 FLOATING ACTION BUTTON (AGENDAR) - FOLLOWS CLIENT ACROSS ALL TABS */}
+        {/* ========================================================================= */}
+        {activeTab !== 'BOOKING' && (
+          <div className="fixed bottom-18 right-4 sm:right-6 md:right-8 z-40 animate-bounce-subtle pointer-events-auto">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('BOOKING');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="group flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 hover:from-orange-400 hover:to-amber-400 text-neutral-950 font-black rounded-full shadow-[0_10px_25px_-5px_rgba(249,115,22,0.6)] hover:shadow-[0_15px_30px_-5px_rgba(249,115,22,0.8)] border border-orange-300/40 transition-all duration-300 transform active:scale-95 cursor-pointer"
+              title="Agendar horário na barbearia agora"
+            >
+              <div className="w-6 h-6 rounded-full bg-neutral-950/15 flex items-center justify-center">
+                <Scissors className="w-4 h-4 text-neutral-950 stroke-[2.5] group-hover:rotate-12 transition-transform duration-300" />
+              </div>
+              <span className="text-sm uppercase tracking-wider font-heading font-black">
+                Agendar
+              </span>
+            </button>
+          </div>
+        )}
 
         {/* ========================================================================= */}
         {/* 3. NATIVE APP BOTTOM NAVIGATION BAR (FIXED/STICKY) */}

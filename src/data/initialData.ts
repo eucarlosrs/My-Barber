@@ -23,7 +23,7 @@ export const INITIAL_BARBERSHOPS: Barbershop[] = [
     id: 'tenant-barbearia-do-joao',
     name: 'Barbearia Rodrigues',
     slug: 'barbearia-rodrigues',
-    customDomain: 'www.barbeariarodrigues.com.br',
+    customDomain: 'barbearia-rodrigues.mybarberbr.com.br',
     logoUrl: APP_ASSETS.logo,
     bannerUrl: APP_ASSETS.banner,
     salonImages: [
@@ -64,7 +64,7 @@ export const INITIAL_BARBERSHOPS: Barbershop[] = [
     id: 'tenant-barbearia-vintage-club',
     name: 'Barbearia Vintage Club',
     slug: 'barbearia-vintage-club',
-    customDomain: 'www.vintagebarberclub.com.br',
+    customDomain: 'barbearia-vintage-club.mybarberbr.com.br',
     logoUrl: 'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=400&auto=format&fit=crop&q=80',
     bannerUrl: 'https://images.unsplash.com/photo-1534778356534-d3d45b6df1da?w=1400&auto=format&fit=crop&q=85',
     salonImages: [

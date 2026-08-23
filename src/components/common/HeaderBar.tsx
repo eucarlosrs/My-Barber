@@ -118,9 +118,9 @@ export const HeaderBar: React.FC = () => {
 
             {/* Barbershop domain for Owners/Managers */}
             {isOwnerOrManager && (
-              <div className="hidden md:flex items-center gap-1.5 text-[#A3A3A3] bg-[#0D0D0D] px-2.5 py-1 rounded-xl border border-[#2D2D2D] text-[11px]">
+              <div className="hidden md:flex items-center gap-1.5 text-[#A3A3A3] bg-[#0D0D0D] px-2.5 py-1 rounded-xl border border-[#2D2D2D] text-[11px]" title="Endereço exclusivo no My Barber">
                 <Globe className="w-3 h-3 text-[#FF6B00] shrink-0" />
-                <span className="font-mono text-[#F5F5F5]">{currentBarbershop.customDomain}</span>
+                <span className="font-mono text-orange-400 font-bold">{currentBarbershop.slug}.mybarberbr.com.br</span>
               </div>
             )}
           </div>
