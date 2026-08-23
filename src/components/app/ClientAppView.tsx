@@ -553,9 +553,6 @@ export const ClientAppView: React.FC = () => {
                         <span>{currentUser.name.split(' ')[0]}</span>
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                       </div>
-                      <div className="text-[9px] text-neutral-400 font-mono">
-                        {currentUser.whatsapp || 'Google'}
-                      </div>
                     </div>
                     <button
                       onClick={logoutClient}
