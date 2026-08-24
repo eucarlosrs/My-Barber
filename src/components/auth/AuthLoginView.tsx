@@ -288,19 +288,6 @@ export const AuthLoginView: React.FC = () => {
                 )}
               </button>
             </form>
-
-            {/* Direct Client Access Link */}
-            <div className="mt-5 pt-4 border-t border-[#2D2D2D] flex items-center justify-between text-xs">
-              <span className="text-[#A3A3A3]">Quer apenas ver os serviços?</span>
-              <button
-                type="button"
-                onClick={() => setViewMode('CLIENT_APP')}
-                className="font-bold text-[#FF6B00] hover:text-[#D95400] flex items-center gap-1 transition-colors cursor-pointer"
-              >
-                <span>Acessar {currentBarbershop.name}</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
           </div>
         </div>
       </div>
