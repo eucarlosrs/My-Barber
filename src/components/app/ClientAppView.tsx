@@ -1,7 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { PhoneFrame } from './PhoneFrame';
-import { generateAvailableSlots, generateUpcomingDays, getTodayLocalDateString } from '../../utils/scheduleEngine';
+import {
+  generateAvailableSlots,
+  generateUpcomingDays,
+  getTodayLocalDateString,
+  getBarbershopRealOpenStatus
+} from '../../utils/scheduleEngine';
 import {
   Calendar,
   Clock,
@@ -119,6 +124,7 @@ export const ClientAppView: React.FC = () => {
   // Dynamic Highlights Modals (Promotions & Raffles)
   const [selectedHighlightPromo, setSelectedHighlightPromo] = useState<Promotion | null>(null);
   const [selectedHighlightRaffle, setSelectedHighlightRaffle] = useState<Raffle | null>(null);
+  const [showAddressModal, setShowAddressModal] = useState(false);
 
   // Dynamic Destaques list (configured by owner/manager)
   const highlightedPromos = useMemo(() => {
@@ -134,6 +140,26 @@ export const ClientAppView: React.FC = () => {
   // Real-time dynamic date tracking
   const todayStr = useMemo(() => getTodayLocalDateString(), []);
   const upcomingDays = useMemo(() => generateUpcomingDays(14), []);
+
+  // Real-time verified opening status based on barbershop schedules
+  const [currentDateTime, setCurrentDateTime] = useState<Date>(() => new Date());
+
+  // Periodically refresh the time to keep the open status 100% accurate
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentDateTime(new Date());
+    }, 60000); // updates every minute
+    return () => clearInterval(timer);
+  }, []);
+
+  const realOpenStatus = useMemo(() => {
+    const professionalIds = professionals.map(p => p.id);
+    return getBarbershopRealOpenStatus({
+      schedules,
+      professionalIds,
+      referenceDate: currentDateTime
+    });
+  }, [schedules, professionals, currentDateTime]);
 
   // Booking Flow Steps & State
   const [selectedCategory, setSelectedCategory] = useState<string>('TODOS');
@@ -553,10 +579,26 @@ export const ClientAppView: React.FC = () => {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/40 to-transparent"></div>
             
-            {/* Live Open Status Tag */}
-            <div className="absolute top-3 left-3 bg-neutral-950/80 backdrop-blur-md border border-emerald-500/40 text-emerald-400 px-2.5 py-1 rounded-full text-[10px] font-extrabold flex items-center gap-1.5 shadow-lg">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-              <span>ABERTO AGORA</span>
+            {/* Real-time Verified Open/Closed Status Tag */}
+            <div
+              className={`absolute top-3 left-3 bg-neutral-950/90 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-extrabold flex items-center gap-1.5 shadow-lg border transition-all ${
+                realOpenStatus.isOpen
+                  ? 'border-emerald-500/40 text-emerald-400'
+                  : 'border-amber-500/40 text-amber-400'
+              }`}
+              title={realOpenStatus.detailLabel}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  realOpenStatus.isOpen ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'
+                }`}
+              />
+              <span className="tracking-wide">{realOpenStatus.statusLabel}</span>
+              {realOpenStatus.detailLabel && (
+                <span className="text-[9px] text-neutral-400 font-normal hidden sm:inline border-l border-neutral-700 pl-1.5">
+                  {realOpenStatus.detailLabel}
+                </span>
+              )}
             </div>
 
             {/* Top Right Quick Actions */}
@@ -614,10 +656,17 @@ export const ClientAppView: React.FC = () => {
                   <h1 className="text-base sm:text-lg font-bold text-neutral-100 leading-tight">
                     {currentBarbershop.name}
                   </h1>
-                  <div className="flex items-center gap-1 text-xs text-neutral-400 mt-0.5">
-                    <MapPin className="w-3.5 h-3.5 text-orange-500 shrink-0" />
-                    <span className="line-clamp-1">{currentBarbershop.address.neighborhood}, {currentBarbershop.address.city}</span>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddressModal(true)}
+                    className="flex items-center gap-1 text-xs text-neutral-400 hover:text-orange-400 mt-0.5 group cursor-pointer transition-colors text-left"
+                    title="Clique para ver o endereço completo"
+                  >
+                    <MapPin className="w-3.5 h-3.5 text-orange-500 shrink-0 group-hover:scale-110 transition-transform" />
+                    <span className="line-clamp-1 group-hover:underline underline-offset-2">
+                      {currentBarbershop.address.neighborhood}, {currentBarbershop.address.city}
+                    </span>
+                  </button>
                 </div>
               </div>
 
@@ -2911,6 +2960,91 @@ export const ClientAppView: React.FC = () => {
                   </div>
                 </form>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* 4.5 COMPLETE ADDRESS MODAL */}
+        {showAddressModal && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-neutral-900 border border-neutral-800 rounded-3xl max-w-md w-full p-6 text-neutral-100 shadow-2xl relative animate-in fade-in zoom-in duration-200">
+              <button
+                type="button"
+                onClick={() => setShowAddressModal(false)}
+                className="absolute top-4 right-4 p-2 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800 rounded-full transition-colors cursor-pointer"
+                title="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-orange-500/10 border border-orange-500/30 rounded-2xl text-orange-500">
+                  <MapPin className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-neutral-100">
+                    Localização & Endereço
+                  </h3>
+                  <p className="text-xs text-neutral-400">
+                    {currentBarbershop.name}
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-neutral-950/80 border border-neutral-800/80 rounded-2xl p-4 mb-5 space-y-2.5">
+                <div>
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">Rua e Número</span>
+                  <p className="text-sm font-bold text-neutral-100 mt-0.5">
+                    {currentBarbershop.address.street}, Nº {currentBarbershop.address.number}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-neutral-900">
+                  <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">Bairro</span>
+                    <p className="text-xs font-semibold text-neutral-200 mt-0.5">
+                      {currentBarbershop.address.neighborhood}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">Cidade / UF</span>
+                    <p className="text-xs font-semibold text-neutral-200 mt-0.5">
+                      {currentBarbershop.address.city} - {currentBarbershop.address.state}
+                    </p>
+                  </div>
+                </div>
+
+                {currentBarbershop.address.zipCode && (
+                  <div className="pt-2 border-t border-neutral-900">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">CEP</span>
+                    <p className="text-xs font-mono text-neutral-300 mt-0.5">
+                      {currentBarbershop.address.zipCode}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                    `${currentBarbershop.address.street}, ${currentBarbershop.address.number} - ${currentBarbershop.address.neighborhood}, ${currentBarbershop.address.city} - ${currentBarbershop.address.state}`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-3 px-4 bg-orange-500 hover:bg-orange-400 text-neutral-950 rounded-2xl text-xs font-black tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 transition-all cursor-pointer"
+                >
+                  <span>Abrir no Google Maps</span>
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => setShowAddressModal(false)}
+                  className="py-3 px-4 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-2xl text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
             </div>
           </div>
         )}

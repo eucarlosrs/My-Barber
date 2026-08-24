@@ -361,3 +361,106 @@ export function generateAvailableSlots(params: {
     allSlots
   };
 }
+
+export interface BarbershopOpenStatus {
+  isOpen: boolean;
+  statusLabel: string;
+  detailLabel: string;
+  nextShiftStart?: string;
+  nextShiftEnd?: string;
+}
+
+/**
+ * Calcula em tempo real e de forma verídica se a barbearia está ABERTA ou FECHADA agora,
+ * baseando-se na escala real dos profissionais da barbearia para o dia e horário correntes.
+ */
+export function getBarbershopRealOpenStatus(params: {
+  schedules: ProfessionalScheduleConfig[];
+  professionalIds: string[];
+  referenceDate?: Date;
+}): BarbershopOpenStatus {
+  const { schedules, professionalIds, referenceDate = new Date() } = params;
+
+  const todayStr = getTodayLocalDateString(referenceDate);
+  const currentMinutes = getCurrentTimeMinutes(referenceDate);
+
+  // Coleta todos os turnos de trabalho ativos de todos os profissionais da barbearia no dia de hoje
+  const relevantSchedules = schedules.filter(s =>
+    professionalIds.length === 0 || professionalIds.includes(s.professionalId)
+  );
+
+  const todayActiveShifts: TimeShift[] = [];
+
+  if (relevantSchedules.length > 0) {
+    relevantSchedules.forEach(sched => {
+      const shiftInfo = getProfessionalShiftsForDate(sched, todayStr);
+      if (shiftInfo.enabled && shiftInfo.shifts.length > 0) {
+        todayActiveShifts.push(...shiftInfo.shifts);
+      }
+    });
+  } else {
+    // Fallback padrão se não houver profissionais cadastrados: Seg-Sáb 09:00 - 19:00
+    const dayOfWeek = getDayOfWeekFromDate(todayStr);
+    if (dayOfWeek !== 0) {
+      todayActiveShifts.push({ start: '09:00', end: '19:00' });
+    }
+  }
+
+  if (todayActiveShifts.length === 0) {
+    return {
+      isOpen: false,
+      statusLabel: 'FECHADO HOJE',
+      detailLabel: 'Sem expediente neste dia'
+    };
+  }
+
+  // Verifica se o minuto atual está dentro de qualquer um dos turnos ativos
+  let currentlyOpenShift: TimeShift | null = null;
+  for (const shift of todayActiveShifts) {
+    const sMin = timeToMinutes(shift.start);
+    const eMin = timeToMinutes(shift.end);
+    if (currentMinutes >= sMin && currentMinutes < eMin) {
+      currentlyOpenShift = shift;
+      break;
+    }
+  }
+
+  if (currentlyOpenShift) {
+    // Encontra o horário máximo de encerramento de hoje entre todos os turnos que continuam ativos
+    const closingMinutes = Math.max(
+      ...todayActiveShifts
+        .filter(s => currentMinutes < timeToMinutes(s.end))
+        .map(s => timeToMinutes(s.end))
+    );
+    const closingTime = minutesToTime(closingMinutes);
+
+    return {
+      isOpen: true,
+      statusLabel: 'ABERTO AGORA',
+      detailLabel: `Fecha às ${closingTime}`,
+      nextShiftEnd: closingTime
+    };
+  }
+
+  // Se não está aberto agora, verifica se ainda abrirá hoje mais tarde
+  const upcomingTodayShifts = todayActiveShifts
+    .filter(s => timeToMinutes(s.start) > currentMinutes)
+    .sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+
+  if (upcomingTodayShifts.length > 0) {
+    const nextStart = upcomingTodayShifts[0].start;
+    return {
+      isOpen: false,
+      statusLabel: 'FECHADO NO MOMENTO',
+      detailLabel: `Abre hoje às ${nextStart}`,
+      nextShiftStart: nextStart
+    };
+  }
+
+  // Se já encerrou os expedientes de hoje
+  return {
+    isOpen: false,
+    statusLabel: 'FECHADO AGORA',
+    detailLabel: 'Expediente de hoje encerrado'
+  };
+}
