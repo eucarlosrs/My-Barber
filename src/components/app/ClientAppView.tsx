@@ -773,7 +773,7 @@ export const ClientAppView: React.FC = () => {
 
               {/* Login / Profile Chip */}
               <div>
-                {isClient ? (
+                {authenticatedUser ? (
                   <div className="flex items-center gap-2 bg-neutral-900 border border-neutral-700/80 px-2.5 py-1.5 rounded-2xl text-xs shadow-md">
                     {currentUser.avatarUrl ? (
                       <AppImage
@@ -792,6 +792,21 @@ export const ClientAppView: React.FC = () => {
                         <span>{currentUser.name.split(' ')[0]}</span>
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                       </div>
+                      {currentUser.role !== 'CLIENTE' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (currentUser.role === 'SUPER_ADMIN') setViewMode('MASTER_ADMIN');
+                            else if (currentUser.role === 'PROPRIETARIO' || currentUser.role === 'GERENTE') setViewMode('WEBADMIN');
+                            else if (currentUser.role === 'PROFISSIONAL') setViewMode('PROFISSIONAL_APP');
+                          }}
+                          className="text-[9px] text-orange-400 font-bold hover:underline cursor-pointer flex items-center gap-0.5"
+                          title="Ir para o Painel de Gestão"
+                        >
+                          <Shield className="w-2.5 h-2.5" />
+                          <span>Painel Gestão</span>
+                        </button>
+                      )}
                     </div>
                     <button
                       onClick={logoutClient}

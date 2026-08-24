@@ -41,8 +41,8 @@ export const HeaderBar: React.FC = () => {
     return null;
   }
 
-  // If in client app view and not impersonating, completely hide header (client sees 100% full screen app)
-  if (viewMode === 'CLIENT_APP' && !isImpersonating) {
+  // If in client app view and current user is a normal client, hide header for 100% full screen client experience
+  if (viewMode === 'CLIENT_APP' && currentUser.role === 'CLIENTE' && !isImpersonating) {
     return null;
   }
 
