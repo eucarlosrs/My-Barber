@@ -228,6 +228,34 @@ export const ClientAppView: React.FC = () => {
     ? services
     : services.filter(s => s.category.toLowerCase() === selectedCategory.toLowerCase());
 
+  // Identificação e agrupamento inteligente dos serviços essenciais (Cabelo e Barba)
+  const hairServices = useMemo(() => {
+    return services.filter(s => {
+      const cat = s.category?.toLowerCase() || '';
+      const name = s.name?.toLowerCase() || '';
+      return cat.includes('cabelo') || cat.includes('corte') || name.includes('corte') || name.includes('cabelo') || name.includes('degrade') || name.includes('degradê') || name.includes('navalhad');
+    });
+  }, [services]);
+
+  const beardServices = useMemo(() => {
+    return services.filter(s => {
+      const cat = s.category?.toLowerCase() || '';
+      const name = s.name?.toLowerCase() || '';
+      return (cat.includes('barba') || cat.includes('barboterapia') || name.includes('barba') || name.includes('barboterapia')) && !cat.includes('combo') && !name.includes('combo');
+    });
+  }, [services]);
+
+  // Função para seleção rápida e rolagem suave para seleção de profissional
+  const handleSelectServiceAndProceed = (srv: Service) => {
+    setSelectedService(srv);
+    setTimeout(() => {
+      const profSection = document.getElementById('step-2-professionals');
+      if (profSection) {
+        profSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+  };
+
   // Garante que o serviço selecionado pertença aos serviços cadastrados da barbearia
   useEffect(() => {
     if (services.length > 0) {
@@ -717,8 +745,97 @@ export const ClientAppView: React.FC = () => {
                       Selecione o Serviço
                     </h3>
                   </div>
-                  <span className="text-xs text-neutral-400">{filteredServices.length} opções</span>
+                  <span className="text-xs text-neutral-400">{services.length} disponíveis</span>
                 </div>
+
+                {/* Atalho Rápido para Serviços Essenciais (Cabelo e Barba) */}
+                {(hairServices.length > 0 || beardServices.length > 0) && (
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    {/* Botão Rápido Cabelo */}
+                    {hairServices.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (hairServices.length === 1) {
+                            // Valor fixo padrão: seleciona direto e avança para escolha do profissional
+                            handleSelectServiceAndProceed(hairServices[0]);
+                          } else {
+                            // Possui variações (degradê, navalhado, etc.): filtra a categoria para o cliente escolher o tipo
+                            setSelectedCategory('Cabelo');
+                          }
+                        }}
+                        className={`p-3 rounded-2xl border text-left transition-all relative overflow-hidden group cursor-pointer active:scale-[0.98] ${
+                          selectedService && hairServices.some(h => h.id === selectedService.id)
+                            ? 'bg-orange-500/15 border-orange-500 shadow-md shadow-orange-500/10'
+                            : 'bg-neutral-900/90 border-neutral-800 hover:border-neutral-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="w-8 h-8 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center">
+                            <Scissors className="w-4 h-4" />
+                          </div>
+                          <span className="text-xs font-bold font-mono text-emerald-400">
+                            {hairServices.length === 1 
+                              ? `R$ ${hairServices[0].price.toFixed(2).replace('.', ',')}`
+                              : `a partir R$ ${Math.min(...hairServices.map(h => h.price)).toFixed(2).replace('.', ',')}`}
+                          </span>
+                        </div>
+                        <div className="mt-2">
+                          <div className="text-xs font-bold text-neutral-100 group-hover:text-orange-400 transition-colors">
+                            Corte de Cabelo
+                          </div>
+                          <div className="text-[10px] text-neutral-400 mt-0.5">
+                            {hairServices.length === 1 
+                              ? 'Valor fixo • Seleção direta' 
+                              : `${hairServices.length} tipos cadastrados`}
+                          </div>
+                        </div>
+                      </button>
+                    )}
+
+                    {/* Botão Rápido Barba */}
+                    {beardServices.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (beardServices.length === 1) {
+                            // Valor fixo padrão: seleciona direto e avança para escolha do profissional
+                            handleSelectServiceAndProceed(beardServices[0]);
+                          } else {
+                            // Possui variações: filtra para o cliente escolher o tipo
+                            setSelectedCategory('Barba');
+                          }
+                        }}
+                        className={`p-3 rounded-2xl border text-left transition-all relative overflow-hidden group cursor-pointer active:scale-[0.98] ${
+                          selectedService && beardServices.some(b => b.id === selectedService.id)
+                            ? 'bg-orange-500/15 border-orange-500 shadow-md shadow-orange-500/10'
+                            : 'bg-neutral-900/90 border-neutral-800 hover:border-neutral-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                            <Sparkles className="w-4 h-4" />
+                          </div>
+                          <span className="text-xs font-bold font-mono text-emerald-400">
+                            {beardServices.length === 1 
+                              ? `R$ ${beardServices[0].price.toFixed(2).replace('.', ',')}`
+                              : `a partir R$ ${Math.min(...beardServices.map(b => b.price)).toFixed(2).replace('.', ',')}`}
+                          </span>
+                        </div>
+                        <div className="mt-2">
+                          <div className="text-xs font-bold text-neutral-100 group-hover:text-amber-400 transition-colors">
+                            Barba / Barboterapia
+                          </div>
+                          <div className="text-[10px] text-neutral-400 mt-0.5">
+                            {beardServices.length === 1 
+                              ? 'Valor fixo • Seleção direta' 
+                              : `${beardServices.length} tipos cadastrados`}
+                          </div>
+                        </div>
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {/* Category Filter Chips */}
                 {categories.length > 1 && (
@@ -765,8 +882,8 @@ export const ClientAppView: React.FC = () => {
                       return (
                         <button
                           key={srv.id}
-                          onClick={() => setSelectedService(srv)}
-                          className={`w-full text-left p-3 rounded-2xl border transition-all flex items-start gap-3.5 active:scale-[0.99] group ${
+                          onClick={() => handleSelectServiceAndProceed(srv)}
+                          className={`w-full text-left p-3 rounded-2xl border transition-all flex items-start gap-3.5 active:scale-[0.99] group cursor-pointer ${
                             isSelected
                               ? 'bg-neutral-900/95 border-2 border-orange-500 shadow-lg shadow-orange-500/10'
                               : 'bg-neutral-900/90 border border-neutral-800/90 hover:border-neutral-700 text-neutral-300'
@@ -784,7 +901,7 @@ export const ClientAppView: React.FC = () => {
 
                           {/* Service Details */}
                           <div className="flex-1 min-w-0 space-y-1">
-                            {/* Service Name & Price (wraps up to 2 lines on mobile instead of marquee) */}
+                            {/* Service Name & Price */}
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex-1 min-w-0">
                                 <span
@@ -859,7 +976,7 @@ export const ClientAppView: React.FC = () => {
               </div>
 
               {/* Step 2: Select Professional */}
-              <div>
+              <div id="step-2-professionals">
                 <div className="flex items-center gap-2 mb-2.5">
                   <span className="w-5 h-5 rounded-full bg-orange-500 text-neutral-950 font-bold text-[11px] flex items-center justify-center">
                     2
