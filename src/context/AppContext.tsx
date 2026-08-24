@@ -257,7 +257,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {
       // ignore
     }
-    return 'LOGIN';
+    return 'CLIENT_APP';
   });
 
   const [barbershops, setBarbershops] = useState<Barbershop[]>(INITIAL_BARBERSHOPS);
@@ -1292,12 +1292,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logoutClient = () => {
-    // Revert to owner or default user
-    const owner = users.find(u => u.tenantId === activeTenantId && u.role === 'PROPRIETARIO');
-    if (owner) {
-      setCurrentUserId(owner.id);
+    setAuthenticatedUser(null);
+    try {
+      localStorage.removeItem('mybarber_session_user_id');
+    } catch {
+      // ignore
     }
     setWhatsappLoginPhone('');
+    setViewMode('CLIENT_APP');
   };
 
   const registerBarbershop = (input: RegisterBarbershopInput) => {

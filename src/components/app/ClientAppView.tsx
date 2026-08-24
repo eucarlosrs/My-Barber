@@ -47,6 +47,7 @@ import {
 import { Service, User as UserType, GalleryWork, Promotion, Raffle, Barbershop } from '../../types';
 import { AppImage } from '../common/AppImage';
 import { APP_ASSETS } from '../../data/assets';
+import { triggerGooglePopupLogin } from '../../lib/googleAuth';
 
 export const ClientAppView: React.FC = () => {
   const {
@@ -60,8 +61,10 @@ export const ClientAppView: React.FC = () => {
     allAppointments,
     addAppointment,
     currentUser,
+    authenticatedUser,
     loginWithWhatsApp,
     loginWithGoogle,
+    loginWithCredentials,
     logoutClient,
     packages,
     customerPackages,
@@ -89,7 +92,7 @@ export const ClientAppView: React.FC = () => {
 
   // Google Login Modal & State
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [googleStep, setGoogleStep] = useState<'SELECT_ACCOUNT' | 'COMPLETE_DATA'>('SELECT_ACCOUNT');
+  const [googleStep, setGoogleStep] = useState<'SELECT_ACCOUNT' | 'MASTER_PASSWORD' | 'COMPLETE_DATA'>('SELECT_ACCOUNT');
   const [pendingBookingAfterLogin, setPendingBookingAfterLogin] = useState(false);
   const [googleAccount, setGoogleAccount] = useState<{
     googleId: string;
@@ -99,14 +102,17 @@ export const ClientAppView: React.FC = () => {
   }>({
     googleId: 'g-user-carlos-1',
     name: 'Carlos Eduardo Silva',
-    email: 'carlosrs.email@gmail.com',
+    email: 'carlos.cliente@gmail.com',
     avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80'
   });
-  const [clientPhone, setClientPhone] = useState('(11) 99123-4567');
-  const [clientBirthDate, setClientBirthDate] = useState('1995-08-15');
+  const [clientPreferredName, setClientPreferredName] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
+  const [clientBirthDate, setClientBirthDate] = useState('');
+  const [masterPassword, setMasterPassword] = useState('');
   const [customGoogleEmail, setCustomGoogleEmail] = useState('');
   const [customGoogleName, setCustomGoogleName] = useState('');
   const [useCustomGoogle, setUseCustomGoogle] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
   // Dynamic Highlights Modals (Promotions & Raffles)
@@ -148,7 +154,7 @@ export const ClientAppView: React.FC = () => {
   const [raffleFeedback, setRaffleFeedback] = useState<{ raffleId: string; message: string; success: boolean } | null>(null);
 
   // Is current logged in user a client?
-  const isClient = currentUser.role === 'CLIENTE';
+  const isClient = Boolean(authenticatedUser && authenticatedUser.role === 'CLIENTE');
 
   // Client's appointments
   const clientAppointments = useMemo(() => {
@@ -308,11 +314,48 @@ export const ClientAppView: React.FC = () => {
     }
   };
 
+  const handleRealGoogleLogin = async () => {
+    setIsGoogleLoading(true);
+    setLoginError(null);
+    try {
+      const result = await triggerGooglePopupLogin();
+      setIsGoogleLoading(false);
+
+      if (!result.success || !result.user) {
+        if (result.error) {
+          setLoginError(result.error);
+        }
+        return;
+      }
+
+      const acc = {
+        googleId: result.user.uid,
+        name: result.user.displayName,
+        email: result.user.email,
+        avatarUrl:
+          result.user.photoURL ||
+          `https://ui-avatars.com/api/?name=${encodeURIComponent(result.user.displayName)}&background=f97316&color=fff`
+      };
+
+      handleSelectGoogleAccount(acc);
+    } catch (err: any) {
+      setIsGoogleLoading(false);
+      setLoginError(err?.message || 'Erro ao conectar ao Google.');
+    }
+  };
+
   const handleSelectGoogleAccount = (acc: { googleId: string; name: string; email: string; avatarUrl: string }) => {
     setGoogleAccount(acc);
     setLoginError(null);
 
-    // Check if client already exists globally and has whatsapp + birthDate in database
+    // Master Admin Carlos Silva path
+    if (acc.email.trim().toLowerCase() === 'carlosrs.email@gmail.com') {
+      setMasterPassword('');
+      setGoogleStep('MASTER_PASSWORD');
+      return;
+    }
+
+    // Check if client already exists globally and has complete data
     const existingClient = users.find(
       u =>
         u.role === 'CLIENTE' &&
@@ -332,7 +375,7 @@ export const ClientAppView: React.FC = () => {
       const loggedUser = loginWithGoogle({
         googleId: acc.googleId,
         email: acc.email,
-        name: acc.name,
+        name: existingClient.name || acc.name,
         avatarUrl: acc.avatarUrl,
         whatsapp: existingClient.whatsapp,
         birthDate: existingClient.birthDate
@@ -347,15 +390,29 @@ export const ClientAppView: React.FC = () => {
         executeBookingWithClient(loggedUser);
       }
     } else {
-      // Prompt "COMPLETE SEU CADASTRO" screen
-      if (existingClient?.whatsapp) {
-        setClientPhone(existingClient.whatsapp);
-      }
-      if (existingClient?.birthDate) {
-        setClientBirthDate(existingClient.birthDate);
-      }
+      // First access / incomplete data -> Prompt "Complete seu cadastro"
+      setClientPreferredName(existingClient?.name || acc.name);
+      setClientPhone(existingClient?.whatsapp || '');
+      setClientBirthDate(existingClient?.birthDate || '');
       setGoogleStep('COMPLETE_DATA');
     }
+  };
+
+  const handleMasterPasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!masterPassword) {
+      setLoginError('Digite a senha de acesso mestre.');
+      return;
+    }
+    const res = loginWithCredentials('carlosrs.email@gmail.com', masterPassword);
+    if (!res.success) {
+      setLoginError(res.error || 'Senha incorreta.');
+      return;
+    }
+    setShowLoginModal(false);
+    setGoogleStep('SELECT_ACCOUNT');
+    setMasterPassword('');
+    setLoginError(null);
   };
 
   const handleCustomGoogleSubmit = (e: React.FormEvent) => {
@@ -375,19 +432,22 @@ export const ClientAppView: React.FC = () => {
 
   const handleCompleteGoogleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!clientPhone.trim()) {
+    const cleanPhoneDigits = clientPhone.replace(/\D/g, '');
+    if (!cleanPhoneDigits || cleanPhoneDigits.length < 8) {
       setLoginError('O WhatsApp / Telefone é obrigatório para receber confirmações de agendamento.');
       return;
     }
     if (!clientBirthDate.trim()) {
-      setLoginError('A Data de Aniversário é obrigatória para benefícios e sorteios.');
+      setLoginError('A Data de Nascimento é obrigatória para benefícios e sorteios.');
       return;
     }
+
+    const finalName = clientPreferredName.trim() || googleAccount.name;
 
     const loggedUser = loginWithGoogle({
       googleId: googleAccount.googleId,
       email: googleAccount.email,
-      name: googleAccount.name,
+      name: finalName,
       avatarUrl: googleAccount.avatarUrl,
       whatsapp: clientPhone.trim(),
       birthDate: clientBirthDate.trim()
@@ -1222,6 +1282,29 @@ export const ClientAppView: React.FC = () => {
 
           {/* TAB 2: 📅 MEUS AGENDAMENTOS (HISTÓRICO MULTI-BARBEARIA DA PLATAFORMA) */}
           {activeTab === 'MY_APPOINTMENTS' && (
+            !isClient ? (
+              <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 text-center space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-orange-500/10 text-orange-400 flex items-center justify-center mx-auto">
+                  <Calendar className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-neutral-100">Acesse seus agendamentos</h4>
+                  <p className="text-xs text-neutral-400 mt-1 max-w-xs mx-auto">
+                    Faça login com sua conta Google para visualizar seus horários marcados, histórico de serviços e tickets de atendimento.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setGoogleStep('SELECT_ACCOUNT');
+                    setShowLoginModal(true);
+                  }}
+                  className="px-5 py-2.5 bg-orange-500 hover:bg-orange-400 text-neutral-950 font-black rounded-xl text-xs flex items-center gap-2 mx-auto shadow-md transition-all active:scale-95 cursor-pointer"
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span>Entrar com Google</span>
+                </button>
+              </div>
+            ) : (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -1416,6 +1499,7 @@ export const ClientAppView: React.FC = () => {
                 </div>
               )}
             </div>
+            )
           )}
 
           {/* TAB 3: 🎟️ PACOTES (SEÇÃO 17 - CARTEIRA DIGITAL VIP) */}
@@ -2475,21 +2559,62 @@ export const ClientAppView: React.FC = () => {
                     </div>
                     <button
                       onClick={() => setShowLoginModal(false)}
-                      className="p-1 rounded-lg text-neutral-400 hover:text-white"
+                      className="p-1 rounded-lg text-neutral-400 hover:text-white cursor-pointer"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </div>
 
-                  <p className="text-xs text-neutral-300 mb-3">
-                    Selecione sua conta Google para acessar seus agendamentos, sorteios e histórico:
-                  </p>
+                  {loginError && (
+                    <div className="mb-3 p-2.5 rounded-xl bg-red-500/20 border border-red-500/40 text-red-300 text-xs flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{loginError}</span>
+                    </div>
+                  )}
+
+                  {/* Botão Oficial de Login Real com Google */}
+                  <button
+                    type="button"
+                    disabled={isGoogleLoading}
+                    onClick={handleRealGoogleLogin}
+                    className="w-full mb-3 py-3 px-4 bg-white hover:bg-neutral-100 text-neutral-900 font-bold rounded-2xl text-xs flex items-center justify-center gap-2.5 shadow-lg transition-all active:scale-98 cursor-pointer disabled:opacity-50"
+                  >
+                    {isGoogleLoading ? (
+                      <div className="w-4 h-4 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                        <path
+                          fill="#4285F4"
+                          d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.16 0 9.97 0 12s.45 3.84 1.25 5.42l4.03-3.15z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                        />
+                      </svg>
+                    )}
+                    <span>{isGoogleLoading ? 'Autenticando com Google...' : 'Entrar com Pop-up do Google'}</span>
+                  </button>
+
+                  <div className="relative flex py-1 items-center mb-3">
+                    <div className="flex-grow border-t border-neutral-800"></div>
+                    <span className="flex-shrink mx-2 text-[10px] uppercase font-bold text-neutral-500 tracking-wider">ou selecione</span>
+                    <div className="flex-grow border-t border-neutral-800"></div>
+                  </div>
 
                   <div className="space-y-2 mb-3">
                     {[
                       {
                         googleId: 'g-user-carlos-1',
-                        name: 'Carlos Eduardo Silva (Cliente)',
+                        name: 'Carlos Eduardo Silva',
                         email: 'carlos.cliente@gmail.com',
                         avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80',
                         phone: '(11) 99123-4567',
@@ -2516,8 +2641,6 @@ export const ClientAppView: React.FC = () => {
                         key={acc.googleId}
                         type="button"
                         onClick={() => {
-                          setClientPhone(acc.phone);
-                          setClientBirthDate(acc.birthDate);
                           handleSelectGoogleAccount(acc);
                         }}
                         className="w-full bg-neutral-950 hover:bg-neutral-850 border border-neutral-800 hover:border-orange-500/50 p-2.5 rounded-2xl flex items-center justify-between text-left transition-all group"
@@ -2587,8 +2710,69 @@ export const ClientAppView: React.FC = () => {
                     </form>
                   )}
                 </div>
+              ) : googleStep === 'MASTER_PASSWORD' ? (
+                /* Master Admin Carlos Silva Access Screen */
+                <form onSubmit={handleMasterPasswordSubmit} className="space-y-3.5">
+                  <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center font-bold">
+                        <Lock className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black font-heading text-neutral-100">Acesso Master Plataforma</h3>
+                        <p className="text-[10px] text-neutral-400 font-mono">carlosrs.email@gmail.com</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setGoogleStep('SELECT_ACCOUNT')}
+                      className="text-[10px] text-orange-400 hover:underline"
+                    >
+                      Trocar
+                    </button>
+                  </div>
+
+                  {loginError && (
+                    <div className="p-2.5 rounded-xl bg-red-500/20 border border-red-500/40 text-red-300 text-xs flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{loginError}</span>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-200 mb-1">
+                      Senha Mestre de Acesso
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      autoFocus
+                      value={masterPassword}
+                      onChange={e => setMasterPassword(e.target.value)}
+                      placeholder="Digite sua senha mestre"
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 font-mono"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setGoogleStep('SELECT_ACCOUNT')}
+                      className="px-3 py-2 bg-neutral-800 text-neutral-300 rounded-xl text-xs font-semibold"
+                    >
+                      Voltar
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-orange-500 hover:bg-orange-400 text-neutral-950 rounded-xl text-xs font-black shadow-md flex items-center gap-1.5 transition-all"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>Acessar Painel Master</span>
+                    </button>
+                  </div>
+                </form>
               ) : (
-                /* Step 2: Mandatory Phone (WhatsApp) & Birthday */
+                /* Step: Mandatory First Access "Bem-vindo! Complete seu cadastro" */
                 <form onSubmit={handleCompleteGoogleLogin} className="space-y-3.5">
                   <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
                     <div className="flex items-center gap-2.5">
@@ -2612,8 +2796,13 @@ export const ClientAppView: React.FC = () => {
                     </button>
                   </div>
 
-                  <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-2.5 text-[11px] text-orange-300">
-                    <strong>Etapa Obrigatória:</strong> Complete seu telefone e data de aniversário para ativar seus agendamentos e benefícios de fidelização.
+                  <div>
+                    <h3 className="text-sm font-black font-heading text-neutral-100 flex items-center gap-1.5">
+                      <span>🎉 Bem-vindo! Complete seu cadastro</span>
+                    </h3>
+                    <p className="text-[11px] text-neutral-400 mt-0.5">
+                      Preencha seus dados para confirmar seu agendamento e receber lembretes no WhatsApp.
+                    </p>
                   </div>
 
                   {loginError && (
@@ -2622,6 +2811,21 @@ export const ClientAppView: React.FC = () => {
                       <span>{loginError}</span>
                     </div>
                   )}
+
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-200 mb-1 flex items-center justify-between">
+                      <span>Como deseja ser chamado <span className="text-red-400">*</span></span>
+                      <span className="text-[10px] text-neutral-400 font-normal">Nome no aplicativo</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={clientPreferredName}
+                      onChange={e => setClientPreferredName(e.target.value)}
+                      placeholder="Ex: Carlos Silva"
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
 
                   <div>
                     <label className="block text-xs font-bold text-neutral-200 mb-1 flex items-center justify-between">
@@ -2640,7 +2844,7 @@ export const ClientAppView: React.FC = () => {
 
                   <div>
                     <label className="block text-xs font-bold text-neutral-200 mb-1 flex items-center justify-between">
-                      <span>Data de Aniversário <span className="text-red-400">*</span></span>
+                      <span>Data de Nascimento <span className="text-red-400">*</span></span>
                       <span className="text-[10px] text-purple-400 font-normal">Sorteios & presentes</span>
                     </label>
                     <input
@@ -2665,7 +2869,7 @@ export const ClientAppView: React.FC = () => {
                       className="px-4 py-2 bg-orange-500 hover:bg-orange-400 text-neutral-950 rounded-xl text-xs font-black shadow-md flex items-center gap-1.5 transition-all"
                     >
                       <Check className="w-4 h-4" />
-                      <span>Concluir Login Google</span>
+                      <span>Salvar Cadastro & Continuar</span>
                     </button>
                   </div>
                 </form>
