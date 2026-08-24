@@ -47,7 +47,8 @@ import {
   Minus,
   Compass,
   Store,
-  ExternalLink
+  ExternalLink,
+  Trash2
 } from 'lucide-react';
 import { Service, User as UserType, GalleryWork, Promotion, Raffle, Barbershop } from '../../types';
 import { AppImage } from '../common/AppImage';
@@ -106,11 +107,67 @@ export const ClientAppView: React.FC = () => {
     email: string;
     avatarUrl: string;
   }>({
-    googleId: 'g-user-carlos-1',
-    name: 'Carlos Eduardo Silva',
-    email: 'carlos.cliente@gmail.com',
-    avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80'
+    googleId: '',
+    name: '',
+    email: '',
+    avatarUrl: ''
   });
+
+  // Local storage for real remembered accounts on this specific device/browser
+  const [savedAccounts, setSavedAccounts] = useState<Array<{
+    googleId: string;
+    name: string;
+    email: string;
+    avatarUrl: string;
+    phone?: string;
+    birthDate?: string;
+    lastLoginAt: string;
+  }>>(() => {
+    try {
+      const raw = localStorage.getItem('mybarber_saved_google_accounts');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  });
+
+  const persistSavedAccount = (acc: {
+    googleId: string;
+    name: string;
+    email: string;
+    avatarUrl: string;
+    phone?: string;
+    birthDate?: string;
+  }) => {
+    try {
+      setSavedAccounts(prev => {
+        const filtered = prev.filter(a => a.email.toLowerCase() !== acc.email.toLowerCase());
+        const updated = [{ ...acc, lastLoginAt: new Date().toISOString() }, ...filtered].slice(0, 5);
+        localStorage.setItem('mybarber_saved_google_accounts', JSON.stringify(updated));
+        return updated;
+      });
+    } catch {
+      // ignore
+    }
+  };
+
+  const removeSavedAccount = (emailToRemove: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      setSavedAccounts(prev => {
+        const updated = prev.filter(a => a.email.toLowerCase() !== emailToRemove.toLowerCase());
+        localStorage.setItem('mybarber_saved_google_accounts', JSON.stringify(updated));
+        return updated;
+      });
+    } catch {
+      // ignore
+    }
+  };
+
   const [clientPreferredName, setClientPreferredName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [clientBirthDate, setClientBirthDate] = useState('');
@@ -399,6 +456,15 @@ export const ClientAppView: React.FC = () => {
 
     if (hasCompleteData && existingClient) {
       // User has existing complete profile -> log in directly without asking again!
+      persistSavedAccount({
+        googleId: acc.googleId,
+        email: acc.email,
+        name: existingClient.name || acc.name,
+        avatarUrl: acc.avatarUrl,
+        phone: existingClient.whatsapp,
+        birthDate: existingClient.birthDate
+      });
+
       const loggedUser = loginWithGoogle({
         googleId: acc.googleId,
         email: acc.email,
@@ -470,6 +536,15 @@ export const ClientAppView: React.FC = () => {
     }
 
     const finalName = clientPreferredName.trim() || googleAccount.name;
+
+    persistSavedAccount({
+      googleId: googleAccount.googleId,
+      email: googleAccount.email,
+      name: finalName,
+      avatarUrl: googleAccount.avatarUrl,
+      phone: clientPhone.trim(),
+      birthDate: clientBirthDate.trim()
+    });
 
     const loggedUser = loginWithGoogle({
       googleId: googleAccount.googleId,
@@ -2652,9 +2727,16 @@ export const ClientAppView: React.FC = () => {
                   </div>
 
                   {loginError && (
-                    <div className="mb-3 p-2.5 rounded-xl bg-red-500/20 border border-red-500/40 text-red-300 text-xs flex items-center gap-1.5">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>{loginError}</span>
+                    <div className="mb-3 p-2.5 rounded-xl bg-red-500/20 border border-red-500/40 text-red-300 text-xs flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <p className="font-semibold">{loginError}</p>
+                        {loginError.includes('autorização') && (
+                          <p className="text-[11px] text-red-200/80">
+                            Preencha seu nome e e-mail Google no formulário abaixo para acessar diretamente.
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -2690,85 +2772,87 @@ export const ClientAppView: React.FC = () => {
                     <span>{isGoogleLoading ? 'Autenticando com Google...' : 'Entrar com Pop-up do Google'}</span>
                   </button>
 
-                  <div className="relative flex py-1 items-center mb-3">
-                    <div className="flex-grow border-t border-neutral-800"></div>
-                    <span className="flex-shrink mx-2 text-[10px] uppercase font-bold text-neutral-500 tracking-wider">ou selecione</span>
-                    <div className="flex-grow border-t border-neutral-800"></div>
-                  </div>
+                  {/* Exibição apenas de contas salvas reais deste dispositivo */}
+                  {savedAccounts.length > 0 && (
+                    <div className="mb-3">
+                      <div className="relative flex py-1 items-center mb-2.5">
+                        <div className="flex-grow border-t border-neutral-800"></div>
+                        <span className="flex-shrink mx-2 text-[9px] uppercase font-bold text-neutral-400 tracking-wider">
+                          Contas salvas neste dispositivo
+                        </span>
+                        <div className="flex-grow border-t border-neutral-800"></div>
+                      </div>
 
-                  <div className="space-y-2 mb-3">
-                    {[
-                      {
-                        googleId: 'g-user-carlos-1',
-                        name: 'Carlos Eduardo Silva',
-                        email: 'carlos.cliente@gmail.com',
-                        avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80',
-                        phone: '(11) 99123-4567',
-                        birthDate: '1995-08-15'
-                      },
-                      {
-                        googleId: 'g-user-bruno-2',
-                        name: 'Bruno Henrique Souza',
-                        email: 'bruno.henrique@gmail.com',
-                        avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&auto=format&fit=crop&q=80',
-                        phone: '(11) 99234-5678',
-                        birthDate: '1991-05-20'
-                      },
-                      {
-                        googleId: 'g-user-gustavo-3',
-                        name: 'Gustavo Santos',
-                        email: 'gustavo.santos@gmail.com',
-                        avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&auto=format&fit=crop&q=80',
-                        phone: '(11) 99345-6789',
-                        birthDate: '1998-08-25'
-                      }
-                    ].map(acc => (
-                      <button
-                        key={acc.googleId}
-                        type="button"
-                        onClick={() => {
-                          handleSelectGoogleAccount(acc);
-                        }}
-                        className="w-full bg-neutral-950 hover:bg-neutral-850 border border-neutral-800 hover:border-orange-500/50 p-2.5 rounded-2xl flex items-center justify-between text-left transition-all group"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <AppImage
-                            src={acc.avatarUrl}
-                            alt={acc.name}
-                            fallbackType="avatar"
-                            className="w-9 h-9 rounded-full object-cover border border-neutral-700"
-                          />
-                          <div>
-                            <div className="text-xs font-bold text-neutral-100 group-hover:text-orange-400 transition-colors">
-                              {acc.name}
+                      <div className="space-y-2">
+                        {savedAccounts.map(acc => (
+                          <div
+                            key={acc.email}
+                            onClick={() => handleSelectGoogleAccount(acc)}
+                            className="w-full bg-neutral-950 hover:bg-neutral-850 border border-neutral-800 hover:border-orange-500/50 p-2.5 rounded-2xl flex items-center justify-between text-left transition-all group cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                              <AppImage
+                                src={acc.avatarUrl}
+                                alt={acc.name}
+                                fallbackType="avatar"
+                                className="w-8 h-8 rounded-full object-cover border border-neutral-700 shrink-0"
+                              />
+                              <div className="min-w-0">
+                                <div className="text-xs font-bold text-neutral-100 group-hover:text-orange-400 transition-colors truncate">
+                                  {acc.name}
+                                </div>
+                                <div className="text-[10px] text-neutral-400 font-mono truncate">{acc.email}</div>
+                              </div>
                             </div>
-                            <div className="text-[11px] text-neutral-400 font-mono">{acc.email}</div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                title="Remover deste dispositivo"
+                                onClick={(e) => removeSavedAccount(acc.email, e)}
+                                className="p-1.5 text-neutral-500 hover:text-red-400 rounded-lg hover:bg-neutral-800/80 transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                              <ChevronRight className="w-4 h-4 text-neutral-500 group-hover:text-orange-400 transition-colors" />
+                            </div>
                           </div>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-neutral-500 group-hover:text-orange-400 transition-colors" />
-                      </button>
-                    ))}
-                  </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-                  {/* Option for custom Google Account */}
-                  {!useCustomGoogle ? (
+                  {/* Opção para informar conta Google diretamente */}
+                  {savedAccounts.length > 0 && !useCustomGoogle ? (
                     <button
                       type="button"
                       onClick={() => setUseCustomGoogle(true)}
-                      className="w-full py-2 bg-neutral-950 hover:bg-neutral-800 text-neutral-300 rounded-xl text-xs font-semibold border border-neutral-800 transition-all text-center"
+                      className="w-full py-2 bg-neutral-950 hover:bg-neutral-850 text-neutral-300 rounded-xl text-xs font-semibold border border-neutral-800 transition-all text-center cursor-pointer"
                     >
                       + Usar outra conta Google
                     </button>
                   ) : (
-                    <form onSubmit={handleCustomGoogleSubmit} className="bg-neutral-950 p-3 rounded-2xl border border-neutral-800 space-y-2 mt-2">
-                      <div className="text-[11px] font-bold text-orange-400">Informar outra Conta Google:</div>
+                    <form onSubmit={handleCustomGoogleSubmit} className="bg-neutral-950 p-3.5 rounded-2xl border border-neutral-800 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-orange-400">
+                          Entrar com Nome e E-mail Google:
+                        </span>
+                        {savedAccounts.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setUseCustomGoogle(false)}
+                            className="text-[10px] text-neutral-400 hover:text-neutral-200"
+                          >
+                            Fechar
+                          </button>
+                        )}
+                      </div>
                       <input
                         type="text"
                         required
-                        placeholder="Nome completo (Ex: Rafael Lima)"
+                        placeholder="Seu Nome Completo"
                         value={customGoogleName}
                         onChange={e => setCustomGoogleName(e.target.value)}
-                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-2.5 py-1.5 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
                       />
                       <input
                         type="email"
@@ -2776,19 +2860,21 @@ export const ClientAppView: React.FC = () => {
                         placeholder="seu.email@gmail.com"
                         value={customGoogleEmail}
                         onChange={e => setCustomGoogleEmail(e.target.value)}
-                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-2.5 py-1.5 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
                       />
                       <div className="flex justify-end gap-2 pt-1">
-                        <button
-                          type="button"
-                          onClick={() => setUseCustomGoogle(false)}
-                          className="px-2 py-1 text-xs text-neutral-400"
-                        >
-                          Cancelar
-                        </button>
+                        {savedAccounts.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setUseCustomGoogle(false)}
+                            className="px-2.5 py-1.5 text-xs text-neutral-400 hover:text-neutral-200"
+                          >
+                            Cancelar
+                          </button>
+                        )}
                         <button
                           type="submit"
-                          className="px-3 py-1 bg-orange-500 text-neutral-950 rounded-lg text-xs font-bold"
+                          className="w-full sm:w-auto px-4 py-2 bg-orange-500 hover:bg-orange-400 text-neutral-950 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
                         >
                           Continuar com esta conta
                         </button>
