@@ -3,14 +3,14 @@ import { useApp } from '../../context/AppContext';
 import {
   Lock,
   Phone,
-  ArrowRight,
   AlertCircle,
   LogIn
 } from 'lucide-react';
 import { triggerGooglePopupLogin } from '../../lib/googleAuth';
+import { formatPhoneNumber } from '../../utils/formatters';
 
 export const AuthLoginView: React.FC = () => {
-  const { loginWithCredentials, loginWithGoogle, setViewMode, currentBarbershop } = useApp();
+  const { loginWithCredentials, loginWithGoogle } = useApp();
 
   const [whatsappPhone, setWhatsappPhone] = useState('(11) 99123-4567');
   const [googleEmail, setGoogleEmail] = useState('carlosrs.email@gmail.com');
@@ -192,7 +192,7 @@ export const AuthLoginView: React.FC = () => {
                       type="tel"
                       required
                       value={whatsappPhone}
-                      onChange={e => setWhatsappPhone(e.target.value)}
+                      onChange={e => setWhatsappPhone(formatPhoneNumber(e.target.value))}
                       placeholder="(11) 99123-4567"
                       className="w-full bg-[#0D0D0D] border border-[#2D2D2D] focus:border-[#FF6B00] rounded-2xl px-4 py-3 text-sm text-[#F5F5F5] placeholder-[#A3A3A3]/60 focus:outline-none transition-colors font-mono"
                     />

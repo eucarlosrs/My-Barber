@@ -84,3 +84,28 @@
   animation: marquee 6s ease-in-out infinite alternate;
 }
 
+@keyframes barberPoleMove {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 56px 0;
+  }
+}
+
+.barber-pole-stripe {
+  background: repeating-linear-gradient(
+    -45deg,
+    #ef4444 0px,
+    #ef4444 10px,
+    #ffffff 10px,
+    #ffffff 18px,
+    #3b82f6 18px,
+    #3b82f6 28px,
+    #ffffff 28px,
+    #ffffff 36px
+  );
+  background-size: 56px 56px;
+  animation: barberPoleMove 2.5s linear infinite;
+}
+

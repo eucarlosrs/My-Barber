@@ -48,6 +48,7 @@ import { Service, User as UserType, GalleryWork, Promotion, Raffle, Barbershop }
 import { AppImage } from '../common/AppImage';
 import { APP_ASSETS } from '../../data/assets';
 import { triggerGooglePopupLogin } from '../../lib/googleAuth';
+import { formatPhoneNumber } from '../../utils/formatters';
 
 export const ClientAppView: React.FC = () => {
   const {
@@ -2216,17 +2217,17 @@ export const ClientAppView: React.FC = () => {
         {/* 2.5 FLOATING ACTION BUTTON (AGENDAR) - FOLLOWS CLIENT ACROSS ALL TABS */}
         {/* ========================================================================= */}
         {activeTab !== 'BOOKING' && (
-          <div className="fixed bottom-16 right-3 sm:right-5 md:right-6 z-40 pointer-events-auto">
+          <div className="fixed bottom-20 right-3 sm:right-5 md:right-6 z-40 pointer-events-auto">
             <button
               type="button"
               onClick={() => {
                 setActiveTab('BOOKING');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className="group flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-neutral-950 font-bold rounded-full shadow-[0_4px_14px_rgba(249,115,22,0.45)] hover:shadow-[0_6px_20px_rgba(249,115,22,0.6)] border border-orange-300/30 transition-all duration-200 transform active:scale-95 cursor-pointer backdrop-blur-sm"
+              className="group flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-neutral-950 font-bold rounded-full shadow-[0_4px_18px_rgba(249,115,22,0.5)] hover:shadow-[0_6px_24px_rgba(249,115,22,0.7)] border border-orange-300/40 transition-all duration-200 transform active:scale-95 cursor-pointer backdrop-blur-sm"
               title="Agendar horário na barbearia agora"
             >
-              <Scissors className="w-3.5 h-3.5 text-neutral-950 stroke-[2.2] group-hover:rotate-12 transition-transform duration-200 shrink-0" />
+              <Scissors className="w-4 h-4 text-neutral-950 stroke-[2.4] group-hover:rotate-12 transition-transform duration-200 shrink-0" />
               <span className="text-xs font-black uppercase tracking-wide font-heading">
                 Agendar
               </span>
@@ -2235,42 +2236,78 @@ export const ClientAppView: React.FC = () => {
         )}
 
         {/* ========================================================================= */}
-        {/* 3. NATIVE APP BOTTOM NAVIGATION BAR (FIXED/STICKY) */}
+        {/* 3. NATIVE APP BOTTOM NAVIGATION BAR (FIXED WITH BARBER POLE THEMED EFFECT) */}
         {/* ========================================================================= */}
-        <nav aria-label="Navegação do aplicativo" className="absolute bottom-0 inset-x-0 bg-neutral-900/95 backdrop-blur-md border-t border-neutral-800/80 px-1 py-1.5 flex items-center justify-around z-30 shadow-2xl">
-          {[
-            { id: 'BOOKING', label: 'Agendar', icon: Scissors },
-            { id: 'GALLERY', label: 'Galeria', icon: Camera },
-            { id: 'MY_APPOINTMENTS', label: 'Cortes', icon: Calendar, badge: clientAppointments.length },
-            { id: 'PROMOTIONS', label: 'Promoções', icon: Tag, badge: promotions.filter(p => p.active).length },
-            { id: 'ABOUT', label: 'Salão', icon: Building2 },
-            { id: 'RAFFLES', label: 'Sorteios', icon: Gift }
-          ].map(tab => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex flex-col items-center justify-center py-1 px-1.5 rounded-xl transition-all relative ${
-                  isActive ? 'text-orange-400 scale-105' : 'text-neutral-400 hover:text-neutral-200'
-                }`}
-              >
-                <div className="relative">
-                  <Icon className={`w-4 h-4 ${isActive ? 'stroke-[2.5]' : 'stroke-2'}`} />
-                  {tab.badge && tab.badge > 0 ? (
-                    <span className="absolute -top-1.5 -right-2 bg-orange-500 text-neutral-950 text-[9px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center">
-                      {tab.badge}
-                    </span>
-                  ) : null}
-                </div>
-                <span className={`text-[9px] mt-0.5 tracking-tight font-semibold ${isActive ? 'font-black text-orange-400' : ''}`}>
-                  {tab.label}
-                </span>
-              </button>
-            );
-          })}
-        </nav>
+        <div className="fixed bottom-0 inset-x-0 z-40 flex justify-center pointer-events-none px-2 pb-2">
+          <div className="w-full max-w-4xl pointer-events-auto">
+            <nav
+              aria-label="Navegação da barbearia"
+              className="relative overflow-hidden rounded-2xl bg-neutral-950/95 backdrop-blur-xl border border-neutral-800/90 shadow-[0_-8px_30px_rgba(0,0,0,0.8),0_0_20px_rgba(249,115,22,0.1)] px-1 pt-1 pb-1.5"
+            >
+              {/* Efeito Barber Pole Temático no Topo do Menu */}
+              <div className="h-1 w-full barber-pole-stripe rounded-full opacity-85 shadow-[0_1px_6px_rgba(239,68,68,0.4)] mb-1" />
+
+              <div className="flex items-center justify-around">
+                {[
+                  { id: 'BOOKING', label: 'Agendar', icon: Scissors },
+                  { id: 'MY_APPOINTMENTS', label: 'Meus agendamentos', icon: Calendar, badge: clientAppointments.length },
+                  { id: 'GALLERY', label: 'Galeria', icon: Camera },
+                  { id: 'PROMOTIONS', label: 'Promoções', icon: Tag, badge: promotions.filter(p => p.active).length },
+                  { id: 'ABOUT', label: 'Salão', icon: Building2 },
+                  { id: 'RAFFLES', label: 'Sorteios', icon: Gift }
+                ].map(tab => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        setActiveTab(tab.id as any);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all relative cursor-pointer group ${
+                        isActive
+                          ? 'text-orange-400 font-bold'
+                          : 'text-neutral-400 hover:text-neutral-200'
+                      }`}
+                    >
+                      {/* Efeito de Lâmina / Brilho Âmbar de Barbearia no item Ativo */}
+                      {isActive && (
+                        <div className="absolute inset-0 bg-gradient-to-b from-orange-500/15 via-amber-500/5 to-transparent rounded-xl border-t border-orange-500/50 shadow-[0_0_12px_rgba(249,115,22,0.25)] pointer-events-none" />
+                      )}
+
+                      <div className="relative">
+                        <Icon
+                          className={`w-4 h-4 transition-all duration-200 ${
+                            isActive
+                              ? 'stroke-[2.6] text-orange-400 scale-110 drop-shadow-[0_2px_8px_rgba(249,115,22,0.6)]'
+                              : 'stroke-2 group-hover:scale-105'
+                          }`}
+                        />
+                        {tab.badge && tab.badge > 0 ? (
+                          <span className="absolute -top-1.5 -right-2 bg-gradient-to-r from-orange-500 to-amber-500 text-neutral-950 text-[9px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center shadow-md">
+                            {tab.badge}
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <span
+                        className={`text-[9px] mt-0.5 tracking-tight transition-colors ${
+                          isActive
+                            ? 'font-black text-orange-400 tracking-normal'
+                            : 'font-medium text-neutral-400'
+                        }`}
+                      >
+                        {tab.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </nav>
+          </div>
+        </div>
+
 
         {/* ========================================================================= */}
         {/* 4. MODALS (STORY VIEWER & GALLERY WORK DETAIL) */}
@@ -2833,10 +2870,10 @@ export const ClientAppView: React.FC = () => {
                       <span className="text-[10px] text-emerald-400 font-normal">Lembretes automáticos</span>
                     </label>
                     <input
-                      type="text"
+                      type="tel"
                       required
                       value={clientPhone}
-                      onChange={e => setClientPhone(e.target.value)}
+                      onChange={e => setClientPhone(formatPhoneNumber(e.target.value))}
                       placeholder="(11) 98888-7777"
                       className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 font-mono"
                     />
