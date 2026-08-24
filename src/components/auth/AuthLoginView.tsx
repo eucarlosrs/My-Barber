@@ -1,26 +1,15 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
-  Scissors,
-  Crown,
-  Building2,
   Lock,
-  Mail,
   Phone,
   ArrowRight,
-  Sparkles,
   AlertCircle,
-  KeyRound,
-  LogIn,
-  ChevronDown,
-  ChevronUp,
-  User,
-  Shield
+  LogIn
 } from 'lucide-react';
-import { UserRole } from '../../types';
 
 export const AuthLoginView: React.FC = () => {
-  const { loginWithCredentials, loginWithGoogle, setViewMode, currentBarbershop, users } = useApp();
+  const { loginWithCredentials, loginWithGoogle, setViewMode, currentBarbershop } = useApp();
 
   const [whatsappPhone, setWhatsappPhone] = useState('(11) 99123-4567');
   const [googleEmail, setGoogleEmail] = useState('carlosrs.email@gmail.com');
@@ -30,50 +19,13 @@ export const AuthLoginView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Admin collapsible login
-  const [showAdminSection, setShowAdminSection] = useState(false);
-  const [adminIdentifier, setAdminIdentifier] = useState('');
-  const [adminPassword, setAdminPassword] = useState('');
-
-  // Quick Demo Accounts (Master Admin ocultado com total discrição e sigilo)
-  const demoAccounts = [
-    {
-      role: 'PROPRIETARIO' as UserRole,
-      title: 'Proprietário da Barbearia',
-      name: 'Barbearia Rodrigues',
-      identifier: 'contato@barbeariarodrigues.com.br',
-      badge: '🏢 Barbearia Rodrigues',
-      badgeColor: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
-      description: 'Gerenciamento operacional: agendamentos, serviços, barbeiros, clientes e fotos.',
-      targetView: 'WebAdmin da Barbearia'
-    },
-    {
-      role: 'PROFISSIONAL' as UserRole,
-      title: 'Profissional / Barbeiro',
-      name: 'Marcos Oliveira (Mestre)',
-      identifier: 'marcos@barbeariadojoao.com.br',
-      badge: '✂️ Equipe Barbearia Rodrigues',
-      badgeColor: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
-      description: 'Rotina de atendimentos, agenda de horários, comissões e encaixes.',
-      targetView: 'App Profissional'
-    },
-    {
-      role: 'CLIENTE' as UserRole,
-      title: 'Cliente da Barbearia',
-      name: 'Carlos Eduardo',
-      identifier: '(11) 99123-4567',
-      badge: '👤 Cliente Final',
-      badgeColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-      description: 'Experiência de agendamento em tela cheia, serviços, fotos, fidelidade e cupons.',
-      targetView: 'App da Barbearia (Tela Cheia)'
-    }
-  ];
+  const isMasterAccount = googleEmail.trim().toLowerCase() === 'carlosrs.email@gmail.com';
 
   const handleGoogleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanEmail = googleEmail.trim().toLowerCase();
 
-    // Verificação restrita e exclusiva para a conta Master Carlos Silva
+    // Verificação restrita e exclusiva para a conta Master Carlos Silva (apenas e-mail e senha)
     if (cleanEmail === 'carlosrs.email@gmail.com') {
       if (googlePassword !== 'Ca.753268') {
         setErrorMsg('Senha incorreta para acesso ao Painel Carlos Silva.');
@@ -114,35 +66,6 @@ export const AuthLoginView: React.FC = () => {
     }, 400);
   };
 
-  const handleAdminSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!adminIdentifier.trim()) {
-      setErrorMsg('Informe o e-mail ou WhatsApp de acesso.');
-      return;
-    }
-
-    setIsLoading(true);
-    setErrorMsg(null);
-
-    setTimeout(() => {
-      const result = loginWithCredentials(adminIdentifier.trim(), adminPassword);
-      setIsLoading(false);
-      if (!result.success) {
-        setErrorMsg(result.error || 'Credenciais não encontradas.');
-      }
-    }, 400);
-  };
-
-  const handleQuickLogin = (emailOrPhone: string) => {
-    setIsLoading(true);
-    setErrorMsg(null);
-
-    setTimeout(() => {
-      loginWithCredentials(emailOrPhone);
-      setIsLoading(false);
-    }, 300);
-  };
-
   return (
     <div className="min-h-screen w-full bg-neutral-950 text-neutral-100 flex flex-col justify-between selection:bg-orange-500 selection:text-neutral-950">
       {/* Subtle background ambient lights */}
@@ -175,10 +98,9 @@ export const AuthLoginView: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start max-w-4xl mx-auto w-full">
-          
+        <div className="max-w-md mx-auto w-full">
           {/* Main Column: Google + WhatsApp Login Form */}
-          <div className="lg:col-span-7 bg-[#1C1C1C] border border-[#2D2D2D] rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
+          <div className="bg-[#1C1C1C] border border-[#2D2D2D] rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
             {/* Error Message Banner */}
             {errorMsg && (
               <div className="mb-5 p-3.5 bg-[#EF4444]/10 border border-[#EF4444]/30 rounded-2xl text-[#EF4444] text-xs flex items-start gap-2.5">
@@ -190,26 +112,28 @@ export const AuthLoginView: React.FC = () => {
             {/* Google + WhatsApp Form */}
             <form onSubmit={handleGoogleSubmit} className="space-y-4">
               
-              {/* WhatsApp Input (Required for Google Login) */}
-              <div>
-                <label className="block text-xs font-bold text-[#F5F5F5] mb-1.5 flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5 text-[#22C55E]" />
-                  <span>WhatsApp (Obrigatório para agendamento)</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="tel"
-                    required
-                    value={whatsappPhone}
-                    onChange={e => setWhatsappPhone(e.target.value)}
-                    placeholder="(11) 99123-4567"
-                    className="w-full bg-[#0D0D0D] border border-[#2D2D2D] focus:border-[#FF6B00] rounded-2xl px-4 py-3 text-sm text-[#F5F5F5] placeholder-[#A3A3A3]/60 focus:outline-none transition-colors font-mono"
-                  />
+              {/* WhatsApp Input (Apenas para Clientes da barbearia) */}
+              {!isMasterAccount && (
+                <div>
+                  <label className="block text-xs font-bold text-[#F5F5F5] mb-1.5 flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-[#22C55E]" />
+                    <span>WhatsApp (Obrigatório para agendamento)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="tel"
+                      required
+                      value={whatsappPhone}
+                      onChange={e => setWhatsappPhone(e.target.value)}
+                      placeholder="(11) 99123-4567"
+                      className="w-full bg-[#0D0D0D] border border-[#2D2D2D] focus:border-[#FF6B00] rounded-2xl px-4 py-3 text-sm text-[#F5F5F5] placeholder-[#A3A3A3]/60 focus:outline-none transition-colors font-mono"
+                    />
+                  </div>
+                  <p className="text-[11px] text-[#A3A3A3] mt-1">
+                    Seu WhatsApp será vinculado à sua conta Google para lembretes e confirmações.
+                  </p>
                 </div>
-                <p className="text-[11px] text-[#A3A3A3] mt-1">
-                  Seu WhatsApp será vinculado à sua conta Google para lembretes e confirmações.
-                </p>
-              </div>
+              )}
 
               {/* Google Account Card */}
               <div className="p-4 bg-[#0D0D0D] border border-[#2D2D2D] rounded-2xl">
@@ -261,7 +185,7 @@ export const AuthLoginView: React.FC = () => {
                   </div>
                 )}
 
-                {/* Validação de Senha quando for a conta Master Carlos Silva */}
+                {/* Validação de Senha Secreta quando for a conta Master Carlos Silva */}
                 {googleEmail.trim().toLowerCase() === 'carlosrs.email@gmail.com' && (
                   <div className="mt-3 pt-3 border-t border-[#2D2D2D] space-y-1.5 animate-fade-in">
                     <label className="block text-xs font-bold text-[#F5F5F5] flex items-center gap-1.5">
@@ -308,96 +232,6 @@ export const AuthLoginView: React.FC = () => {
                 <span>Acessar {currentBarbershop.name}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
-            </div>
-          </div>
-
-          {/* Right Column: Fast Demo Access & Administrative Expandable */}
-          <div className="lg:col-span-5 space-y-3.5">
-            
-            {/* Quick Demo Accounts for fast testing */}
-            <div className="bg-[#1C1C1C] border border-[#2D2D2D] rounded-3xl p-5 backdrop-blur-md">
-              <div className="flex items-center gap-2 mb-3">
-                <Sparkles className="w-4 h-4 text-[#FF6B00]" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-[#F5F5F5]">
-                  Acesso Rápido para Demonstração
-                </h3>
-              </div>
-              <p className="text-xs text-[#A3A3A3] mb-3 leading-relaxed">
-                Clique em qualquer perfil para testar o direcionamento automático:
-              </p>
-
-              <div className="space-y-2">
-                {demoAccounts.map((acc, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={() => handleQuickLogin(acc.identifier)}
-                    className="w-full text-left p-3 rounded-2xl bg-[#0D0D0D] hover:bg-[#151515] border border-[#2D2D2D] hover:border-[#FF6B00]/50 transition-all group flex items-center justify-between gap-2.5 cursor-pointer shadow-sm"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${acc.badgeColor}`}>
-                          {acc.badge}
-                        </span>
-                        <span className="text-xs font-bold text-[#F5F5F5] group-hover:text-[#FF6B00] transition-colors truncate">
-                          {acc.name}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="shrink-0 flex items-center gap-1 text-[10px] font-bold text-[#FF6B00] bg-[#FF6B00]/10 px-2 py-1 rounded-lg border border-[#FF6B00]/20">
-                      <span>Entrar</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Admin Accordion (For Master / Proprietário e-mail login) */}
-            <div className="bg-[#1C1C1C] border border-[#2D2D2D] rounded-2xl overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setShowAdminSection(!showAdminSection)}
-                className="w-full p-3.5 flex items-center justify-between text-xs text-[#A3A3A3] hover:text-[#F5F5F5] transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-[#A3A3A3]" />
-                  <span className="font-semibold">Área Administrativa (E-mail e Senha)</span>
-                </div>
-                {showAdminSection ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </button>
-
-              {showAdminSection && (
-                <form onSubmit={handleAdminSubmit} className="p-4 pt-0 space-y-3 border-t border-[#2D2D2D] mt-1">
-                  <div>
-                    <label className="block text-[11px] text-[#A3A3A3] mb-1">E-mail administrativo</label>
-                    <input
-                      type="email"
-                      value={adminIdentifier}
-                      onChange={e => setAdminIdentifier(e.target.value)}
-                      placeholder="ex: joao@barbeariadojoao.com.br"
-                      className="w-full bg-[#0D0D0D] border border-[#2D2D2D] rounded-xl px-3 py-2 text-xs text-[#F5F5F5] focus:outline-none focus:border-[#FF6B00]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] text-[#A3A3A3] mb-1">Senha</label>
-                    <input
-                      type="password"
-                      value={adminPassword}
-                      onChange={e => setAdminPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full bg-[#0D0D0D] border border-[#2D2D2D] rounded-xl px-3 py-2 text-xs text-[#F5F5F5] focus:outline-none focus:border-[#FF6B00]"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    className="w-full bg-[#242424] hover:bg-[#2D2D2D] text-[#F5F5F5] font-bold py-2 rounded-xl text-xs transition-colors cursor-pointer"
-                  >
-                    Entrar como Administrador
-                  </button>
-                </form>
-              )}
             </div>
           </div>
         </div>
