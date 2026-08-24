@@ -48,7 +48,9 @@ import {
   Compass,
   Store,
   ExternalLink,
-  Trash2
+  Trash2,
+  Shield,
+  Lock
 } from 'lucide-react';
 import { Service, User as UserType, GalleryWork, Promotion, Raffle, Barbershop } from '../../types';
 import { AppImage } from '../common/AppImage';
@@ -432,10 +434,34 @@ export const ClientAppView: React.FC = () => {
     setGoogleAccount(acc);
     setLoginError(null);
 
-    // Master Admin Carlos Silva path
-    if (acc.email.trim().toLowerCase() === 'carlosrs.email@gmail.com') {
-      setMasterPassword('');
-      setGoogleStep('MASTER_PASSWORD');
+    const cleanEmail = acc.email.trim().toLowerCase();
+
+    // Check if the user is Super Admin (Carlos Silva) or Team Staff (Proprietario, Gerente, Profissional)
+    const matchingAdminOrStaff = users.find(
+      u => (cleanEmail && u.email?.toLowerCase() === cleanEmail) || (acc.googleId && u.googleId === acc.googleId)
+    );
+
+    if (matchingAdminOrStaff && matchingAdminOrStaff.role !== 'CLIENTE') {
+      persistSavedAccount({
+        googleId: acc.googleId,
+        email: acc.email,
+        name: matchingAdminOrStaff.name || acc.name,
+        avatarUrl: matchingAdminOrStaff.avatarUrl || acc.avatarUrl
+      });
+
+      setShowLoginModal(false);
+      setGoogleStep('SELECT_ACCOUNT');
+      setLoginError(null);
+
+      // Authenticate directly through centralized role-based login
+      loginWithGoogle({
+        googleId: acc.googleId,
+        email: acc.email,
+        name: matchingAdminOrStaff.name || acc.name,
+        avatarUrl: matchingAdminOrStaff.avatarUrl || acc.avatarUrl,
+        whatsapp: matchingAdminOrStaff.whatsapp || '',
+        birthDate: matchingAdminOrStaff.birthDate || ''
+      });
       return;
     }
 
@@ -2335,6 +2361,18 @@ export const ClientAppView: React.FC = () => {
               </div>
             </div>
           )}
+
+          {/* Rodapé Elegante com Link para Gestão da Barbearia */}
+          <div className="pt-8 pb-14 text-center">
+            <button
+              type="button"
+              onClick={() => setViewMode('LOGIN')}
+              className="text-[11px] text-neutral-500 hover:text-orange-400 font-medium transition-colors inline-flex items-center gap-1.5 cursor-pointer py-1.5 px-3 rounded-xl hover:bg-neutral-900 border border-transparent hover:border-neutral-800"
+            >
+              <Shield className="w-3.5 h-3.5 text-neutral-500" />
+              <span>Acesso da Barbearia (Gestão & Equipe)</span>
+            </button>
+          </div>
         </div>
 
         {/* ========================================================================= */}
@@ -2881,6 +2919,21 @@ export const ClientAppView: React.FC = () => {
                       </div>
                     </form>
                   )}
+
+                  {/* Link Direto para Acesso Administrativo e Gestão */}
+                  <div className="pt-3 mt-3 border-t border-neutral-800 text-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowLoginModal(false);
+                        setViewMode('LOGIN');
+                      }}
+                      className="text-[11px] text-neutral-400 hover:text-orange-400 font-semibold transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Shield className="w-3.5 h-3.5 text-orange-400" />
+                      <span>É proprietário ou equipe? Acessar Painel de Gestão</span>
+                    </button>
+                  </div>
                 </div>
               ) : googleStep === 'MASTER_PASSWORD' ? (
                 /* Master Admin Carlos Silva Access Screen */

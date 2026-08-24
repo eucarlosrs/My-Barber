@@ -1167,7 +1167,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const cleanPhone = data.whatsapp.trim();
     const cleanEmail = data.email.trim().toLowerCase();
     
-    // Check if client already exists globally across the platform by Google ID, email, or WhatsApp
+    // 1. Check if user is Super Admin or Staff (Proprietario, Gerente, Profissional)
+    const existingStaffOrAdmin = users.find(
+      u =>
+        (cleanEmail && u.email?.toLowerCase() === cleanEmail) ||
+        (data.googleId && u.googleId === data.googleId) ||
+        (cleanPhone && u.whatsapp && cleanPhone.replace(/\D/g, '').length >= 8 && u.whatsapp.replace(/\D/g, '') === cleanPhone.replace(/\D/g, ''))
+    );
+
+    if (existingStaffOrAdmin && existingStaffOrAdmin.role !== 'CLIENTE') {
+      setCurrentUserId(existingStaffOrAdmin.id);
+      setAuthenticatedUser(existingStaffOrAdmin);
+      try {
+        localStorage.setItem('mybarber_session_user_id', existingStaffOrAdmin.id);
+      } catch {
+        // ignore
+      }
+      if (existingStaffOrAdmin.role === 'SUPER_ADMIN') {
+        setViewMode('MASTER_ADMIN');
+      } else if (existingStaffOrAdmin.role === 'PROPRIETARIO' || existingStaffOrAdmin.role === 'GERENTE') {
+        if (existingStaffOrAdmin.tenantId && existingStaffOrAdmin.tenantId !== 'platform-global') {
+          setActiveTenantId(existingStaffOrAdmin.tenantId);
+        }
+        setViewMode('WEBADMIN');
+      } else if (existingStaffOrAdmin.role === 'PROFISSIONAL') {
+        if (existingStaffOrAdmin.tenantId && existingStaffOrAdmin.tenantId !== 'platform-global') {
+          setActiveTenantId(existingStaffOrAdmin.tenantId);
+        }
+        setViewMode('PROFISSIONAL_APP');
+      }
+
+      addAuditLog({
+        actorUserId: existingStaffOrAdmin.id,
+        actorUserName: existingStaffOrAdmin.name,
+        actorRole: existingStaffOrAdmin.role,
+        action: 'LOGIN_SUCESSO',
+        targetTenantId: existingStaffOrAdmin.tenantId,
+        targetTenantName: barbershops.find(b => b.id === existingStaffOrAdmin.tenantId)?.name || 'Plataforma',
+        details: `Login autenticado com sucesso via Google. Hierarquia identificada: ${existingStaffOrAdmin.role}.`,
+        status: 'SUCESSO'
+      });
+
+      return existingStaffOrAdmin;
+    }
+
+    // 2. Check if client already exists globally across the platform by Google ID, email, or WhatsApp
     let client = users.find(
       u =>
         u.role === 'CLIENTE' &&
