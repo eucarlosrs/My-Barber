@@ -490,6 +490,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const clean = identifier.trim().toLowerCase();
     const cleanDigits = identifier.replace(/\D/g, '');
 
+    // Validação estrita de segurança para acesso Master (Carlos Silva)
+    if (clean === 'carlosrs.email@gmail.com') {
+      if (_password !== 'Ca.753268') {
+        return {
+          success: false,
+          error: 'Senha incorreta para acesso Master (Carlos Silva).'
+        };
+      }
+      const superAdmin = users.find(u => u.role === 'SUPER_ADMIN') || INITIAL_USERS[0];
+      setAuthenticatedUser(superAdmin);
+      setCurrentUserId(superAdmin.id);
+      try {
+        localStorage.setItem('mybarber_session_user_id', superAdmin.id);
+      } catch {
+        // ignore
+      }
+      setViewMode('MASTER_ADMIN');
+      addAuditLog({
+        actorUserId: superAdmin.id,
+        actorUserName: superAdmin.name,
+        actorRole: 'SUPER_ADMIN',
+        action: 'LOGIN_SUCESSO',
+        targetTenantId: 'platform-global',
+        targetTenantName: 'Plataforma My Barber',
+        details: 'Login Master autenticado com sucesso com credenciais seguras.',
+        status: 'SUCESSO'
+      });
+      return { success: true, role: 'SUPER_ADMIN', user: superAdmin };
+    }
+
     // Search matching user in users list
     let matched = users.find(u => 
       (u.email && u.email.toLowerCase() === clean) ||

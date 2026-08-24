@@ -24,7 +24,8 @@ export const AuthLoginView: React.FC = () => {
 
   const [whatsappPhone, setWhatsappPhone] = useState('(11) 99123-4567');
   const [googleEmail, setGoogleEmail] = useState('carlosrs.email@gmail.com');
-  const [googleName, setGoogleName] = useState('Carlos Eduardo');
+  const [googleName, setGoogleName] = useState('Carlos Silva');
+  const [googlePassword, setGooglePassword] = useState('');
   const [useCustomGoogleAccount, setUseCustomGoogleAccount] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -34,18 +35,8 @@ export const AuthLoginView: React.FC = () => {
   const [adminIdentifier, setAdminIdentifier] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
 
-  // Quick Demo Accounts to test each hierarchy immediately
+  // Quick Demo Accounts (Master Admin ocultado com total discrição e sigilo)
   const demoAccounts = [
-    {
-      role: 'SUPER_ADMIN' as UserRole,
-      title: 'Painel Carlos Silva (Dono da Plataforma)',
-      name: 'Carlos Silva (Painel Exclusivo)',
-      identifier: 'carlosrs.email@gmail.com',
-      badge: '👑 Painel Carlos Silva',
-      badgeColor: 'bg-[#FF6B00]/10 text-[#FF6B00] border-[#FF6B00]/30',
-      description: 'Controle geral da plataforma My Barber, barbearias, planos, usuários e auditoria.',
-      targetView: 'Painel Carlos Silva'
-    },
     {
       role: 'PROPRIETARIO' as UserRole,
       title: 'Proprietário da Barbearia',
@@ -80,6 +71,28 @@ export const AuthLoginView: React.FC = () => {
 
   const handleGoogleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanEmail = googleEmail.trim().toLowerCase();
+
+    // Verificação restrita e exclusiva para a conta Master Carlos Silva
+    if (cleanEmail === 'carlosrs.email@gmail.com') {
+      if (googlePassword !== 'Ca.753268') {
+        setErrorMsg('Senha incorreta para acesso ao Painel Carlos Silva.');
+        return;
+      }
+
+      setIsLoading(true);
+      setErrorMsg(null);
+
+      setTimeout(() => {
+        const result = loginWithCredentials('carlosrs.email@gmail.com', googlePassword);
+        setIsLoading(false);
+        if (!result.success) {
+          setErrorMsg(result.error || 'Erro ao autenticar acesso Master.');
+        }
+      }, 400);
+      return;
+    }
+
     const cleanDigits = whatsappPhone.replace(/\D/g, '');
     if (cleanDigits.length < 10) {
       setErrorMsg('Por favor, informe seu número de WhatsApp com DDD para prosseguir com o login Google.');
@@ -91,7 +104,7 @@ export const AuthLoginView: React.FC = () => {
 
     setTimeout(() => {
       loginWithGoogle({
-        email: googleEmail.trim().toLowerCase(),
+        email: cleanEmail,
         name: googleName.trim() || 'Cliente Google',
         whatsapp: whatsappPhone.trim(),
         birthDate: '1995-08-15',
@@ -244,6 +257,24 @@ export const AuthLoginView: React.FC = () => {
                       onChange={e => setGoogleEmail(e.target.value)}
                       placeholder="seu.email@gmail.com"
                       className="w-full bg-[#1C1C1C] border border-[#2D2D2D] rounded-xl px-3 py-2 text-xs text-[#F5F5F5] focus:outline-none focus:border-[#FF6B00]"
+                    />
+                  </div>
+                )}
+
+                {/* Validação de Senha quando for a conta Master Carlos Silva */}
+                {googleEmail.trim().toLowerCase() === 'carlosrs.email@gmail.com' && (
+                  <div className="mt-3 pt-3 border-t border-[#2D2D2D] space-y-1.5 animate-fade-in">
+                    <label className="block text-xs font-bold text-[#F5F5F5] flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-[#FF6B00]" />
+                      <span>Senha de Acesso</span>
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={googlePassword}
+                      onChange={e => setGooglePassword(e.target.value)}
+                      placeholder="Digite sua senha de acesso"
+                      className="w-full bg-[#1C1C1C] border border-[#2D2D2D] focus:border-[#FF6B00] rounded-xl px-3 py-2.5 text-xs text-[#F5F5F5] placeholder-[#A3A3A3]/60 focus:outline-none transition-colors"
                     />
                   </div>
                 )}
