@@ -522,6 +522,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Search matching user in users list
     let matched = users.find(u => 
+      (u.username && u.username.toLowerCase() === clean) ||
       (u.email && u.email.toLowerCase() === clean) ||
       (u.whatsapp && cleanDigits.length >= 8 && u.whatsapp.replace(/\D/g, '').endsWith(cleanDigits.slice(-8))) ||
       u.id.toLowerCase() === clean ||
@@ -547,7 +548,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!matched) {
       return {
         success: false,
-        error: 'Nenhuma conta encontrada com este e-mail ou WhatsApp. Verifique os dados ou utilize uma das contas de teste rápido.'
+        error: 'Nenhuma conta encontrada com este e-mail, WhatsApp ou usuário. Verifique os dados ou utilize uma das contas de teste rápido.'
+      };
+    }
+
+    // Se o usuário possui senha cadastrada (Proprietário, Gerente, etc.), validar a senha
+    if (matched.password && _password && matched.password !== _password) {
+      return {
+        success: false,
+        error: `Senha incorreta para o login de ${matched.name}. Verifique a senha digitada.`
       };
     }
 
@@ -1402,13 +1411,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       tenantId: newTenantId,
       role: input.managerRole,
       name: input.managerName.trim(),
+      username: input.managerUsername?.trim() || input.managerWhatsApp.trim(),
+      password: input.managerPassword?.trim() || '123456',
       email: input.managerEmail?.trim(),
       whatsapp: input.managerWhatsApp.trim(),
       avatarUrl: input.managerAvatarUrl?.trim() || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
       canViewAllProfessionals: true,
       commissionPercentage: 50,
+      createdByUserId: 'master-app-owner',
       createdAt: new Date().toISOString()
     };
+
+    // Optional additional manager (created when Owner adds a Manager during shop registration)
+    let additionalManager: User | null = null;
+    if (input.hasAdditionalManager && input.additionalManagerName && input.additionalManagerWhatsApp) {
+      additionalManager = {
+        id: `user-mgr-${Date.now() + 2}`,
+        tenantId: newTenantId,
+        role: 'GERENTE',
+        name: input.additionalManagerName.trim(),
+        username: input.additionalManagerUsername?.trim() || input.additionalManagerWhatsApp.trim(),
+        password: input.additionalManagerPassword?.trim() || '123456',
+        email: input.additionalManagerEmail?.trim(),
+        whatsapp: input.additionalManagerWhatsApp.trim(),
+        avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200',
+        canViewAllProfessionals: true,
+        commissionPercentage: 50,
+        createdByUserId: 'master-app-owner',
+        createdAt: new Date().toISOString()
+      };
+    }
 
     // Default professional (can also be the owner/manager or a barber)
     const initialBarber: User = {
@@ -1479,15 +1511,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     ];
 
+    const usersToCreate = [newManager, initialBarber];
+    if (additionalManager) {
+      usersToCreate.push(additionalManager);
+    }
+
     setBarbershops(prev => [...prev, newBarbershop]);
-    setUsers(prev => [...prev, newManager, initialBarber]);
+    setUsers(prev => [...prev, ...usersToCreate]);
     setServices(prev => [...prev, ...defaultServices]);
     setStock(prev => [...prev, ...defaultStock]);
 
     // Persist permanently to Firestore
     syncDoc('barbershops', newBarbershop.id, newBarbershop);
-    syncDoc('users', newManager.id, newManager);
-    syncDoc('users', initialBarber.id, initialBarber);
+    usersToCreate.forEach(u => syncDoc('users', u.id, u));
     defaultServices.forEach(srv => syncDoc('services', srv.id, srv));
     defaultStock.forEach(stk => syncDoc('stock', stk.id, stk));
 
@@ -1498,7 +1534,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       action: 'CADASTRO_BARBEARIA',
       targetTenantId: newTenantId,
       targetTenantName: input.name,
-      details: `Nova barbearia cadastrada com plano fixo R$ 49,90/mês. Gestor inicial: ${input.managerName} (${input.managerRole}).`,
+      details: `Nova barbearia cadastrada com plano fixo R$ 49,90/mês. Gestor inicial: ${input.managerName} (${input.managerRole})${additionalManager ? ` + Gerente: ${additionalManager.name}` : ''}.`,
       status: 'SUCESSO'
     });
 

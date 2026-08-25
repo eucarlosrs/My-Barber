@@ -38,6 +38,8 @@ export interface User {
   tenantId: string;
   role: UserRole;
   name: string;
+  username?: string; // Nome de usuário para login
+  password?: string; // Senha para acesso
   email?: string;
   whatsapp: string; // Identificador principal
   avatarUrl?: string;
@@ -128,11 +130,21 @@ export interface RegisterBarbershopInput {
   zipCode: string;
   planId: PlanId;
   commercialMode?: 'PAGO' | 'TESTE_GRATIS';
+  // Login Principal (Proprietário ou Gerente)
   managerName: string;
   managerWhatsApp: string;
   managerEmail?: string;
   managerRole: 'PROPRIETARIO' | 'GERENTE';
+  managerUsername?: string;
+  managerPassword?: string;
   managerAvatarUrl?: string;
+  // Login Adicional Opcional para Gerente (quando Proprietário adiciona Gerente)
+  hasAdditionalManager?: boolean;
+  additionalManagerName?: string;
+  additionalManagerWhatsApp?: string;
+  additionalManagerEmail?: string;
+  additionalManagerUsername?: string;
+  additionalManagerPassword?: string;
 }
 
 // ==========================================

@@ -28,7 +28,10 @@ import {
   Share2,
   Globe,
   Clock,
-  Zap
+  Zap,
+  Eye,
+  EyeOff,
+  KeyRound
 } from 'lucide-react';
 import { PlanId, MY_BARBER_PLANS, RegisterBarbershopInput, Barbershop, BarbershopStatus } from '../../types';
 import { AppImage } from '../common/AppImage';
@@ -53,13 +56,11 @@ const BANNER_PRESETS = [
 ];
 
 interface MasterAdminBarbershopsProps {
-  onOpenCreateManagerModal: (shopId: string) => void;
   showRegisterModal: boolean;
   setShowRegisterModal: (show: boolean) => void;
 }
 
 export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
-  onOpenCreateManagerModal,
   showRegisterModal,
   setShowRegisterModal
 }) => {
@@ -85,6 +86,10 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [errorToast, setErrorToast] = useState<string | null>(null);
 
+  // Senhas toggle visibility
+  const [showManagerPassword, setShowManagerPassword] = useState(false);
+  const [showAdditionalPassword, setShowAdditionalPassword] = useState(false);
+
   // Form State for new Barbershop registration
   const [formState, setFormState] = useState<RegisterBarbershopInput>({
     name: '',
@@ -108,7 +113,12 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
     managerWhatsApp: '(11) 98888-7777',
     managerEmail: '',
     managerRole: 'PROPRIETARIO',
-    managerAvatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'
+    managerPassword: '',
+    managerAvatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+    hasAdditionalManager: false,
+    additionalManagerName: '',
+    additionalManagerWhatsApp: '',
+    additionalManagerPassword: ''
   });
 
   const handleNameChange = (name: string) => {
@@ -135,8 +145,31 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
       return;
     }
     if (!formState.managerName.trim()) {
-      setErrorToast('Por favor, informe o nome do gerente ou proprietário responsável.');
+      setErrorToast('Por favor, informe o nome completo do gestor.');
       return;
+    }
+    if (!formState.managerWhatsApp.trim()) {
+      setErrorToast('Por favor, informe o WhatsApp / Login do gestor.');
+      return;
+    }
+    if (!formState.managerPassword || !formState.managerPassword.trim()) {
+      setErrorToast('Por favor, defina uma senha de acesso para o gestor.');
+      return;
+    }
+
+    if (formState.hasAdditionalManager) {
+      if (!formState.additionalManagerName || !formState.additionalManagerName.trim()) {
+        setErrorToast('Por favor, informe o nome completo do gerente adicional.');
+        return;
+      }
+      if (!formState.additionalManagerWhatsApp || !formState.additionalManagerWhatsApp.trim()) {
+        setErrorToast('Por favor, informe o WhatsApp / Login do gerente adicional.');
+        return;
+      }
+      if (!formState.additionalManagerPassword || !formState.additionalManagerPassword.trim()) {
+        setErrorToast('Por favor, defina uma senha de acesso para o gerente adicional.');
+        return;
+      }
     }
 
     const res = registerBarbershop(formState);
@@ -165,7 +198,12 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
         managerWhatsApp: '(11) 98888-7777',
         managerEmail: '',
         managerRole: 'PROPRIETARIO',
-        managerAvatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'
+        managerPassword: '',
+        managerAvatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+        hasAdditionalManager: false,
+        additionalManagerName: '',
+        additionalManagerWhatsApp: '',
+        additionalManagerPassword: ''
       });
       setTimeout(() => setSuccessToast(null), 5000);
     } else {
@@ -511,15 +549,6 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap justify-end">
-                  <button
-                    onClick={() => onOpenCreateManagerModal(shop.id)}
-                    className="px-2.5 py-1.5 bg-neutral-900 hover:bg-neutral-850 text-orange-400 border border-orange-500/30 rounded-xl text-xs font-bold flex items-center gap-1 transition-all"
-                    title="Criar novo login de Gerente ou Proprietário"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>+ Gestor</span>
-                  </button>
-
                   <button
                     onClick={() => handleOpenBarbershopApp(shop.id)}
                     className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all"
@@ -1059,38 +1088,190 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                 </div>
               </div>
 
-              {/* STEP C: GESTOR RESPONSÁVEL */}
-              <div className="space-y-3 pt-3 border-t border-neutral-800">
-                <h4 className="text-xs font-black text-orange-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5" />
-                  <span>3. Gestor Responsável da Barbearia</span>
-                </h4>
+              {/* STEP 3: LOGIN DO GESTOR / PROPRIETÁRIO */}
+              <div className="space-y-3.5 pt-4 border-t border-neutral-800">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black text-orange-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Shield className="w-3.5 h-3.5" />
+                    <span>3. Login de Acesso do Gestor da Barbearia</span>
+                  </h4>
+                  <span className="text-[10px] text-neutral-400 font-semibold">Credenciais para gerenciar a barbearia</span>
+                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="sm:col-span-2">
-                    <label className="block text-[11px] font-semibold text-neutral-300 mb-1">Nome Completo do Gestor *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ex: Carlos Eduardo Silveira"
-                      value={formState.managerName}
-                      onChange={e => setFormState(prev => ({ ...prev, managerName: e.target.value }))}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
-                    />
+                {/* Login Principal */}
+                <div className="bg-neutral-950/90 border border-neutral-800/90 rounded-2xl p-4 space-y-3.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] font-bold text-neutral-200 mb-1">Nome Completo *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ex: Carlos Eduardo Silveira"
+                        value={formState.managerName}
+                        onChange={e => setFormState(prev => ({ ...prev, managerName: e.target.value }))}
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 placeholder:text-neutral-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-200 mb-1">Cargo *</label>
+                      <select
+                        value={formState.managerRole}
+                        onChange={e => {
+                          const newRole = e.target.value as 'PROPRIETARIO' | 'GERENTE';
+                          setFormState(prev => ({
+                            ...prev,
+                            managerRole: newRole,
+                            hasAdditionalManager: newRole === 'PROPRIETARIO' ? prev.hasAdditionalManager : false
+                          }));
+                        }}
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 cursor-pointer"
+                      >
+                        <option value="PROPRIETARIO">Proprietário (Dono)</option>
+                        <option value="GERENTE">Gerente Geral</option>
+                      </select>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-semibold text-neutral-300 mb-1">Cargo</label>
-                    <select
-                      value={formState.managerRole}
-                      onChange={e => setFormState(prev => ({ ...prev, managerRole: e.target.value as 'PROPRIETARIO' | 'GERENTE' }))}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
-                    >
-                      <option value="PROPRIETARIO">Proprietário (Dono)</option>
-                      <option value="GERENTE">Gerente Geral</option>
-                    </select>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-200 mb-1">
+                        WhatsApp / Identificador de Login *
+                      </label>
+                      <div className="relative">
+                        <Smartphone className="w-3.5 h-3.5 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          required
+                          placeholder="(11) 98888-7777 ou usuario"
+                          value={formState.managerWhatsApp}
+                          onChange={e => setFormState(prev => ({ ...prev, managerWhatsApp: e.target.value }))}
+                          className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-200 mb-1">
+                        Senha de Acesso *
+                      </label>
+                      <div className="relative">
+                        <KeyRound className="w-3.5 h-3.5 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type={showManagerPassword ? 'text' : 'password'}
+                          required
+                          placeholder="Digite a senha de acesso"
+                          value={formState.managerPassword || ''}
+                          onChange={e => setFormState(prev => ({ ...prev, managerPassword: e.target.value }))}
+                          className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-9 py-2 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowManagerPassword(prev => !prev)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-200 p-1"
+                          title={showManagerPassword ? 'Ocultar senha' : 'Exibir senha'}
+                        >
+                          {showManagerPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
+
+                {/* Botão + Adicionar Gerente (Opcional - caso o cargo seja Proprietário) */}
+                {formState.managerRole === 'PROPRIETARIO' && (
+                  <div className="pt-1">
+                    {!formState.hasAdditionalManager ? (
+                      <button
+                        type="button"
+                        onClick={() => setFormState(prev => ({
+                          ...prev,
+                          hasAdditionalManager: true,
+                          additionalManagerName: prev.additionalManagerName || '',
+                          additionalManagerWhatsApp: prev.additionalManagerWhatsApp || '',
+                          additionalManagerPassword: prev.additionalManagerPassword || ''
+                        }))}
+                        className="px-4 py-2 bg-neutral-900 hover:bg-neutral-850 text-orange-400 border border-orange-500/40 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-sm"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>+ Adicionar Gerente (Opcional)</span>
+                      </button>
+                    ) : (
+                      <div className="bg-neutral-950 border border-blue-500/30 rounded-2xl p-4 space-y-3.5 relative animate-fade-in">
+                        <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+                          <div className="flex items-center gap-2 text-blue-400 text-xs font-bold">
+                            <Shield className="w-3.5 h-3.5" />
+                            <span>Login do Gerente da Barbearia</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setFormState(prev => ({ ...prev, hasAdditionalManager: false }))}
+                            className="text-neutral-500 hover:text-red-400 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            <span>Remover Gerente</span>
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className="sm:col-span-1">
+                            <label className="block text-[11px] font-bold text-neutral-200 mb-1">Nome Completo do Gerente *</label>
+                            <input
+                              type="text"
+                              required={formState.hasAdditionalManager}
+                              placeholder="Ex: Marcos Vinícius"
+                              value={formState.additionalManagerName || ''}
+                              onChange={e => setFormState(prev => ({ ...prev, additionalManagerName: e.target.value }))}
+                              className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-blue-500 placeholder:text-neutral-600"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-neutral-200 mb-1">
+                              WhatsApp / Login do Gerente *
+                            </label>
+                            <div className="relative">
+                              <Smartphone className="w-3.5 h-3.5 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                              <input
+                                type="text"
+                                required={formState.hasAdditionalManager}
+                                placeholder="(11) 97777-6666"
+                                value={formState.additionalManagerWhatsApp || ''}
+                                onChange={e => setFormState(prev => ({ ...prev, additionalManagerWhatsApp: e.target.value }))}
+                                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-blue-500 font-mono"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-neutral-200 mb-1">
+                              Senha do Gerente *
+                            </label>
+                            <div className="relative">
+                              <KeyRound className="w-3.5 h-3.5 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                              <input
+                                type={showAdditionalPassword ? 'text' : 'password'}
+                                required={formState.hasAdditionalManager}
+                                placeholder="Senha do Gerente"
+                                value={formState.additionalManagerPassword || ''}
+                                onChange={e => setFormState(prev => ({ ...prev, additionalManagerPassword: e.target.value }))}
+                                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-9 py-2 text-xs text-neutral-100 focus:outline-none focus:border-blue-500 font-mono"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowAdditionalPassword(prev => !prev)}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-200 p-1"
+                                title={showAdditionalPassword ? 'Ocultar senha' : 'Exibir senha'}
+                              >
+                                {showAdditionalPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-neutral-800">

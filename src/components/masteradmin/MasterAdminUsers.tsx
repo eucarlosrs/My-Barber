@@ -18,11 +18,7 @@ import {
 import { User, UserRole } from '../../types';
 import { AppImage } from '../common/AppImage';
 
-interface MasterAdminUsersProps {
-  onOpenCreateManagerModal: () => void;
-}
-
-export const MasterAdminUsers: React.FC<MasterAdminUsersProps> = ({ onOpenCreateManagerModal }) => {
+export const MasterAdminUsers: React.FC = () => {
   const { users, barbershops } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
@@ -104,14 +100,6 @@ export const MasterAdminUsers: React.FC<MasterAdminUsersProps> = ({ onOpenCreate
             Supervisione todos os perfis registrados: Donos de Salão, Gerentes, Barbeiros e Clientes em cada barbearia cadastrada.
           </p>
         </div>
-
-        <button
-          onClick={onOpenCreateManagerModal}
-          className="px-4 py-2.5 bg-orange-500 hover:bg-orange-400 text-neutral-950 font-black rounded-2xl text-xs flex items-center gap-2 shadow-lg shadow-orange-500/20 active:scale-95 transition-all cursor-pointer shrink-0"
-        >
-          <Plus className="w-4 h-4 stroke-[3]" />
-          <span>Criar Login Proprietário / Gerente</span>
-        </button>
       </div>
 
       {/* Filters Bar */}

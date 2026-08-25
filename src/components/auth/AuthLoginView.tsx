@@ -1,27 +1,34 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
-  Lock,
-  Phone,
   AlertCircle,
-  LogIn
+  LogIn,
+  Shield,
+  User,
+  KeyRound,
+  Eye,
+  EyeOff,
+  Sparkles,
+  Scissors,
+  Building2,
+  Lock
 } from 'lucide-react';
 import { triggerGooglePopupLogin } from '../../lib/googleAuth';
-import { formatPhoneNumber } from '../../utils/formatters';
 
 export const AuthLoginView: React.FC = () => {
-  const { loginWithCredentials, loginWithGoogle } = useApp();
+  const { loginWithCredentials, loginWithGoogle, currentBarbershop } = useApp();
 
-  const [whatsappPhone, setWhatsappPhone] = useState('(11) 99123-4567');
-  const [googleEmail, setGoogleEmail] = useState('carlosrs.email@gmail.com');
-  const [googleName, setGoogleName] = useState('Carlos Silva');
-  const [googlePassword, setGooglePassword] = useState('');
-  const [useCustomGoogleAccount, setUseCustomGoogleAccount] = useState(false);
+  const [loginMode, setLoginMode] = useState<'CLIENT' | 'STAFF'>('CLIENT');
+
+  // Staff / Gestão State
+  const [staffIdentifier, setStaffIdentifier] = useState('carlosrs.email@gmail.com');
+  const [staffPassword, setStaffPassword] = useState('Ca.753268');
+  const [showStaffPassword, setShowStaffPassword] = useState(false);
+
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const isMasterAccount = googleEmail.trim().toLowerCase() === 'carlosrs.email@gmail.com';
-
+  // Autenticação Real do Google para Clientes
   const handleRealGoogleAuth = async () => {
     setIsLoading(true);
     setErrorMsg(null);
@@ -37,59 +44,73 @@ export const AuthLoginView: React.FC = () => {
       }
 
       const { email, displayName, photoURL, uid } = result.user;
-      setGoogleEmail(email);
-      setGoogleName(displayName);
 
-      // Verificação de conta Master Carlos Silva
+      // Verificação se é a conta Master Carlos Silva
       if (email.trim().toLowerCase() === 'carlosrs.email@gmail.com') {
-        setErrorMsg('Conta Master identificada. Digite sua senha de acesso abaixo para entrar.');
+        setLoginMode('STAFF');
+        setStaffIdentifier('carlosrs.email@gmail.com');
+        setErrorMsg('Conta Master identificada. Por favor, confirme sua senha para acessar o Painel Carlos Silva.');
         return;
       }
 
-      // Cliente regular
+      // Login direto como cliente
       loginWithGoogle({
         googleId: uid,
         email,
-        name: displayName,
-        whatsapp: whatsappPhone.trim() || '(11) 99123-4567',
+        name: displayName || 'Cliente Google',
+        whatsapp: '(11) 99123-4567',
         birthDate: '1995-08-15',
         avatarUrl:
           photoURL ||
-          `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=ea580c&color=fff`
+          `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName || 'Cliente')}&background=ea580c&color=fff`
       });
     } catch (err: any) {
       setIsLoading(false);
-      setErrorMsg(err?.message || 'Falha ao autenticar com o Google.');
+      setErrorMsg(err?.message || 'Falha ao autenticar com a Conta Google.');
     }
   };
 
-  const handleGoogleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanEmail = googleEmail.trim().toLowerCase();
+  // Fallback rápido de demonstração do Google (caso o navegador bloqueie pop-up do iframe)
+  const handleQuickGoogleClient = (name: string, email: string) => {
+    setIsLoading(true);
+    setErrorMsg(null);
+    setTimeout(() => {
+      loginWithGoogle({
+        googleId: `google-${Date.now()}`,
+        email,
+        name,
+        whatsapp: '(11) 98765-4321',
+        birthDate: '1996-05-20',
+        avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=ea580c&color=fff`
+      });
+      setIsLoading(false);
+    }, 300);
+  };
 
-    // Verificação restrita e exclusiva para a conta Master Carlos Silva (apenas e-mail e senha)
-    if (cleanEmail === 'carlosrs.email@gmail.com') {
-      if (googlePassword !== 'Ca.753268') {
-        setErrorMsg('Senha incorreta para acesso ao Painel Carlos Silva.');
-        return;
+  // Função para executar login direto pelos atalhos de teste
+  const handleQuickStaffLogin = (identifier: string, pass: string) => {
+    setStaffIdentifier(identifier);
+    setStaffPassword(pass);
+    setIsLoading(true);
+    setErrorMsg(null);
+    setTimeout(() => {
+      const res = loginWithCredentials(identifier, pass);
+      setIsLoading(false);
+      if (!res.success) {
+        setErrorMsg(res.error || 'Falha ao autenticar atalho de teste.');
       }
+    }, 250);
+  };
 
-      setIsLoading(true);
-      setErrorMsg(null);
-
-      setTimeout(() => {
-        const result = loginWithCredentials('carlosrs.email@gmail.com', googlePassword);
-        setIsLoading(false);
-        if (!result.success) {
-          setErrorMsg(result.error || 'Erro ao autenticar acesso Master.');
-        }
-      }, 400);
+  // Autenticação por Credenciais para Dono, Gerente, Barbeiro e Master
+  const handleStaffSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!staffIdentifier.trim()) {
+      setErrorMsg('Por favor, informe seu usuário, WhatsApp ou e-mail cadastrado.');
       return;
     }
-
-    const cleanDigits = whatsappPhone.replace(/\D/g, '');
-    if (cleanDigits.length < 10) {
-      setErrorMsg('Por favor, informe seu número de WhatsApp com DDD para prosseguir com o login Google.');
+    if (!staffPassword.trim()) {
+      setErrorMsg('Por favor, digite sua senha de acesso.');
       return;
     }
 
@@ -97,38 +118,38 @@ export const AuthLoginView: React.FC = () => {
     setErrorMsg(null);
 
     setTimeout(() => {
-      loginWithGoogle({
-        email: cleanEmail,
-        name: googleName.trim() || 'Cliente Google',
-        whatsapp: whatsappPhone.trim(),
-        birthDate: '1995-08-15',
-        avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(googleName.trim() || 'Cliente')}&background=ea580c&color=fff`
-      });
+      const res = loginWithCredentials(staffIdentifier.trim(), staffPassword);
       setIsLoading(false);
-    }, 400);
+      if (!res.success) {
+        setErrorMsg(res.error || 'Credenciais de acesso inválidas. Verifique seu login e senha.');
+      }
+    }, 350);
   };
 
   return (
-    <div className="min-h-screen w-full bg-neutral-950 text-neutral-100 flex flex-col justify-between selection:bg-orange-500 selection:text-neutral-950">
+    <div className="min-h-screen w-full bg-[#0a0a0a] text-neutral-100 flex flex-col justify-between selection:bg-orange-500 selection:text-neutral-950 font-sans">
       {/* Subtle background ambient lights */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[650px] h-[350px] bg-[#FF6B00]/10 blur-[140px] rounded-full"></div>
-        <div className="absolute -bottom-40 right-10 w-[450px] h-[300px] bg-[#D95400]/5 blur-[120px] rounded-full"></div>
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[650px] h-[350px] bg-orange-500/10 blur-[140px] rounded-full"></div>
+        <div className="absolute -bottom-40 right-10 w-[450px] h-[300px] bg-orange-600/5 blur-[120px] rounded-full"></div>
       </div>
 
-      {/* Main Content */}
-      <div className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12 flex-1 flex flex-col justify-center">
+      {/* Main Content Container */}
+      <div className="relative z-10 w-full max-w-md mx-auto px-4 sm:px-6 py-8 sm:py-12 flex-1 flex flex-col justify-center">
         
-        {/* Top Header - Clean and Direct */}
-        <div className="text-center max-w-2xl mx-auto mb-8 flex flex-col items-center">
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-[#F5F5F5] tracking-tight font-heading">
-            MY <span className="text-[#FF6B00]">BARBER</span>
+        {/* Top Header without outer box, using smooth radial ambient shadow and glow */}
+        <div className="text-center mb-8 flex flex-col items-center relative">
+          {/* Subtle soft backdrop glow behind the logo */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-28 bg-orange-500/15 blur-3xl rounded-full pointer-events-none"></div>
+
+          <h1 className="relative text-3xl sm:text-4xl font-black text-neutral-100 tracking-tight font-heading drop-shadow-[0_4px_20px_rgba(0,0,0,0.8)]">
+            MY <span className="text-orange-500 drop-shadow-[0_0_25px_rgba(249,115,22,0.35)]">BARBER</span>
           </h1>
 
-          {/* White Mustache Badge (Identical to reference image) */}
-          <div className="mt-2.5 flex items-center justify-center">
+          {/* White Mustache Badge with Soft Organic Shadow */}
+          <div className="relative mt-2.5 flex items-center justify-center">
             <svg
-              className="w-20 h-9 sm:w-24 sm:h-11 text-[#F5F5F5] drop-shadow-[0_2px_10px_rgba(255,255,255,0.2)]"
+              className="w-18 h-8 sm:w-22 sm:h-9 text-neutral-100 drop-shadow-[0_4px_12px_rgba(255,255,255,0.3)] filter"
               viewBox="0 0 200 80"
               fill="currentColor"
               xmlns="http://www.w3.org/2000/svg"
@@ -140,162 +161,217 @@ export const AuthLoginView: React.FC = () => {
           </div>
         </div>
 
-        <div className="max-w-md mx-auto w-full">
-          {/* Main Column: Google + WhatsApp Login Form */}
-          <div className="bg-[#1C1C1C] border border-[#2D2D2D] rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
-            {/* Error Message Banner */}
-            {errorMsg && (
-              <div className="mb-5 p-3.5 bg-[#EF4444]/10 border border-[#EF4444]/30 rounded-2xl text-[#EF4444] text-xs flex items-start gap-2.5">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{errorMsg}</span>
-              </div>
-            )}
+        {/* Segmented Control / Tabs: Sou Cliente vs Equipe & Gestão (Exact Mockup Match) */}
+        <div className="grid grid-cols-2 p-1.5 bg-[#121212] border border-[#242424] rounded-2xl mb-8 shadow-lg">
+          <button
+            type="button"
+            onClick={() => {
+              setLoginMode('CLIENT');
+              setErrorMsg(null);
+            }}
+            className={`py-3 px-3 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all cursor-pointer ${
+              loginMode === 'CLIENT'
+                ? 'bg-[#222222] text-neutral-100 shadow-md border border-[#333333]'
+                : 'text-neutral-400 hover:text-neutral-200'
+            }`}
+          >
+            <User className={`w-4 h-4 ${loginMode === 'CLIENT' ? 'text-orange-500' : 'text-neutral-500'}`} />
+            <span>Sou Cliente</span>
+          </button>
 
-            {/* Official Google Pop-up Sign-in Button */}
-            <button
-              type="button"
-              disabled={isLoading}
-              onClick={handleRealGoogleAuth}
-              className="w-full mb-4 py-3.5 px-4 bg-white hover:bg-neutral-100 text-neutral-900 font-bold rounded-2xl text-xs flex items-center justify-center gap-3 shadow-lg transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 border border-neutral-200"
-            >
-              {isLoading ? (
-                <div className="w-4 h-4 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                </svg>
-              )}
-              <span>{isLoading ? 'Conectando ao Google...' : 'Entrar com Pop-up do Google'}</span>
-            </button>
+          <button
+            type="button"
+            onClick={() => {
+              setLoginMode('STAFF');
+              setErrorMsg(null);
+            }}
+            className={`py-3 px-3 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all cursor-pointer ${
+              loginMode === 'STAFF'
+                ? 'bg-[#222222] text-neutral-100 shadow-md border border-[#333333]'
+                : 'text-neutral-400 hover:text-neutral-200'
+            }`}
+          >
+            <Shield className={`w-4 h-4 ${loginMode === 'STAFF' ? 'text-orange-500' : 'text-neutral-500'}`} />
+            <span>Equipe & Gestão</span>
+          </button>
+        </div>
 
-            <div className="relative flex py-1 items-center mb-4">
-              <div className="flex-grow border-t border-[#2D2D2D]"></div>
-              <span className="flex-shrink mx-2 text-[10px] uppercase font-bold text-[#A3A3A3] tracking-wider">ou autentique via credenciais</span>
-              <div className="flex-grow border-t border-[#2D2D2D]"></div>
+        {/* Error Message Banner */}
+        {errorMsg && (
+          <div className="mb-6 p-3.5 bg-red-500/10 border border-red-500/30 rounded-2xl text-red-400 text-xs flex items-start gap-2.5 animate-fade-in">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {/* TAB 1: SOU CLIENTE (EXATAMENTE COMO NO MOCKUP) */}
+        {loginMode === 'CLIENT' && (
+          <div className="space-y-6 text-center animate-fade-in">
+            <div className="space-y-2.5">
+              <h2 className="text-lg sm:text-xl font-bold text-neutral-100">
+                Agendamento de Serviços
+              </h2>
+              <p className="text-xs sm:text-sm text-neutral-400 leading-relaxed max-w-xs mx-auto">
+                Conecte-se com sua <strong className="text-neutral-200 font-semibold">Conta Google</strong> para agendar horários, escolher seu barbeiro favorito e acompanhar seu histórico.
+              </p>
             </div>
 
-            {/* Google + WhatsApp Form */}
-            <form onSubmit={handleGoogleSubmit} className="space-y-4">
-              
-              {/* WhatsApp Input (Apenas para Clientes da barbearia) */}
-              {!isMasterAccount && (
-                <div>
-                  <label className="block text-xs font-bold text-[#F5F5F5] mb-1.5 flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5 text-[#22C55E]" />
-                    <span>WhatsApp (Obrigatório para agendamento)</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="tel"
-                      required
-                      value={whatsappPhone}
-                      onChange={e => setWhatsappPhone(formatPhoneNumber(e.target.value))}
-                      placeholder="(11) 99123-4567"
-                      className="w-full bg-[#0D0D0D] border border-[#2D2D2D] focus:border-[#FF6B00] rounded-2xl px-4 py-3 text-sm text-[#F5F5F5] placeholder-[#A3A3A3]/60 focus:outline-none transition-colors font-mono"
-                    />
-                  </div>
-                  <p className="text-[11px] text-[#A3A3A3] mt-1">
-                    Seu WhatsApp será vinculado à sua conta Google para lembretes e confirmações.
-                  </p>
-                </div>
-              )}
-
-              {/* Google Account Card */}
-              <div className="p-4 bg-[#0D0D0D] border border-[#2D2D2D] rounded-2xl">
-                <div className="flex items-center justify-between mb-2.5">
-                  <span className="text-xs font-semibold text-[#A3A3A3] flex items-center gap-1.5">
-                    <svg className="w-4 h-4" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                    </svg>
-                    <span>Conta Google</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setUseCustomGoogleAccount(!useCustomGoogleAccount)}
-                    className="text-[11px] text-[#FF6B00] hover:underline cursor-pointer font-semibold"
-                  >
-                    {useCustomGoogleAccount ? 'Usar Conta Padrão' : 'Personalizar'}
-                  </button>
-                </div>
-
-                {!useCustomGoogleAccount ? (
-                  <div className="flex items-center gap-3 bg-[#1C1C1C] p-2.5 rounded-xl border border-[#2D2D2D]">
-                    <div className="w-8 h-8 rounded-full bg-[#FF6B00] text-[#0D0D0D] font-black flex items-center justify-center text-xs shadow">
-                      {googleName.charAt(0)}
-                    </div>
-                    <div className="text-left min-w-0 flex-1">
-                      <div className="text-xs font-bold text-[#F5F5F5] truncate">{googleName}</div>
-                      <div className="text-[11px] text-[#A3A3A3] truncate">{googleEmail}</div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2 pt-1">
-                    <input
-                      type="text"
-                      value={googleName}
-                      onChange={e => setGoogleName(e.target.value)}
-                      placeholder="Nome completo"
-                      className="w-full bg-[#1C1C1C] border border-[#2D2D2D] rounded-xl px-3 py-2 text-xs text-[#F5F5F5] focus:outline-none focus:border-[#FF6B00]"
-                    />
-                    <input
-                      type="email"
-                      value={googleEmail}
-                      onChange={e => setGoogleEmail(e.target.value)}
-                      placeholder="seu.email@gmail.com"
-                      className="w-full bg-[#1C1C1C] border border-[#2D2D2D] rounded-xl px-3 py-2 text-xs text-[#F5F5F5] focus:outline-none focus:border-[#FF6B00]"
-                    />
-                  </div>
-                )}
-
-                {/* Validação de Senha Secreta quando for a conta Master Carlos Silva */}
-                {googleEmail.trim().toLowerCase() === 'carlosrs.email@gmail.com' && (
-                  <div className="mt-3 pt-3 border-t border-[#2D2D2D] space-y-1.5 animate-fade-in">
-                    <label className="block text-xs font-bold text-[#F5F5F5] flex items-center gap-1.5">
-                      <Lock className="w-3.5 h-3.5 text-[#FF6B00]" />
-                      <span>Senha de Acesso</span>
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      value={googlePassword}
-                      onChange={e => setGooglePassword(e.target.value)}
-                      placeholder="Digite sua senha de acesso"
-                      className="w-full bg-[#1C1C1C] border border-[#2D2D2D] focus:border-[#FF6B00] rounded-xl px-3 py-2.5 text-xs text-[#F5F5F5] placeholder-[#A3A3A3]/60 focus:outline-none transition-colors"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Main Submit Button */}
+            {/* Botão Oficial Exclusivo do Google em Pílula (Formato Idêntico ao Mockup) */}
+            <div className="pt-2">
               <button
-                type="submit"
+                type="button"
                 disabled={isLoading}
-                className="w-full mt-3 bg-[#FF6B00] hover:bg-[#D95400] text-[#0D0D0D] font-black py-3.5 px-4 rounded-2xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-[#FF6B00]/20 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                onClick={handleRealGoogleAuth}
+                className="w-full py-4 px-6 bg-white hover:bg-neutral-100 active:scale-[0.98] text-neutral-900 font-bold rounded-2xl text-sm flex items-center justify-center gap-3 shadow-xl transition-all cursor-pointer disabled:opacity-50 border border-neutral-200"
               >
                 {isLoading ? (
-                  <div className="w-5 h-5 border-2 border-[#0D0D0D] border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-5 h-5 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin"></div>
                 ) : (
-                  <>
-                    <LogIn className="w-4 h-4" />
-                    <span>Entrar no MY BARBER</span>
-                  </>
+                  <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                  </svg>
                 )}
+                <span>{isLoading ? 'Conectando ao Google...' : 'Continuar com o Google'}</span>
               </button>
-            </form>
+            </div>
+
+            {/* Teste Rápido de Demonstração */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => handleQuickGoogleClient('Lucas Oliveira (Cliente)', 'lucas.cliente@gmail.com')}
+                className="text-xs text-neutral-500 hover:text-orange-400 transition-colors underline cursor-pointer"
+              >
+                Entrar com conta Google de demonstração
+              </button>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* TAB 2: EQUIPE & GESTÃO (PROFISSIONAL / GERENTE / PROPRIETÁRIO) */}
+        {loginMode === 'STAFF' && (
+          <form onSubmit={handleStaffSubmit} className="space-y-5 animate-fade-in">
+            <div className="text-center space-y-1 mb-4">
+              <h2 className="text-lg sm:text-xl font-bold text-neutral-100">
+                Acesso Profissional & Gestão
+              </h2>
+              <p className="text-xs text-neutral-400">
+                Digite suas credenciais cadastradas para acessar o painel correspondente.
+              </p>
+            </div>
+
+            {/* Campo Identificador */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-neutral-300">
+                Usuário, WhatsApp ou E-mail
+              </label>
+              <div className="relative">
+                <User className="w-4 h-4 text-neutral-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  required
+                  value={staffIdentifier}
+                  onChange={e => setStaffIdentifier(e.target.value)}
+                  placeholder="Ex: (11) 98888-7777 ou usuario"
+                  className="w-full bg-[#141414] border border-[#282828] focus:border-orange-500 rounded-2xl pl-10 pr-4 py-3.5 text-sm text-neutral-100 placeholder-neutral-600 focus:outline-none transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* Campo Senha */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-neutral-300">
+                Senha de Acesso
+              </label>
+              <div className="relative">
+                <KeyRound className="w-4 h-4 text-neutral-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type={showStaffPassword ? 'text' : 'password'}
+                  required
+                  value={staffPassword}
+                  onChange={e => setStaffPassword(e.target.value)}
+                  placeholder="Digite sua senha"
+                  className="w-full bg-[#141414] border border-[#282828] focus:border-orange-500 rounded-2xl pl-10 pr-11 py-3.5 text-sm text-neutral-100 placeholder-neutral-600 focus:outline-none transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowStaffPassword(prev => !prev)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-200 p-1 cursor-pointer"
+                  title={showStaffPassword ? 'Ocultar senha' : 'Exibir senha'}
+                >
+                  {showStaffPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Botão Entrar no Painel */}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-4 px-6 bg-orange-500 hover:bg-orange-400 active:scale-[0.98] text-neutral-950 font-black rounded-2xl text-sm flex items-center justify-center gap-2 shadow-xl shadow-orange-500/20 transition-all cursor-pointer disabled:opacity-50 mt-2"
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-neutral-950 border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <>
+                  <LogIn className="w-4 h-4" />
+                  <span>Entrar no Painel</span>
+                </>
+              )}
+            </button>
+
+            {/* Atalhos Rápidos para Teste dos Perfis */}
+            <div className="pt-3 border-t border-[#222222]">
+              <span className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider block mb-2 text-center">
+                Atalhos de teste:
+              </span>
+              <div className="grid grid-cols-3 gap-1.5 text-[10px]">
+                <button
+                  type="button"
+                  onClick={() => handleQuickStaffLogin('carlosrs.email@gmail.com', 'Ca.753268')}
+                  className="p-2 bg-[#141414] hover:bg-[#1f1f1f] border border-[#282828] hover:border-orange-500/40 rounded-xl text-neutral-300 transition-colors flex flex-col items-center text-center cursor-pointer active:scale-95"
+                  title="Acessar Painel Carlos Silva (Master)"
+                >
+                  <Shield className="w-3.5 h-3.5 text-orange-400 mb-0.5" />
+                  <span className="font-bold">Carlos Silva</span>
+                  <span className="text-[9px] text-neutral-500">Painel Master</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickStaffLogin('(11) 98888-1111', '123456')}
+                  className="p-2 bg-[#141414] hover:bg-[#1f1f1f] border border-[#282828] hover:border-orange-500/40 rounded-xl text-neutral-300 transition-colors flex flex-col items-center text-center cursor-pointer active:scale-95"
+                  title="Acessar WebAdmin do Proprietário"
+                >
+                  <Building2 className="w-3.5 h-3.5 text-orange-400 mb-0.5" />
+                  <span className="font-bold">Proprietário</span>
+                  <span className="text-[9px] text-neutral-500">Dono da Barbearia</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickStaffLogin('(11) 98888-3333', '123456')}
+                  className="p-2 bg-[#141414] hover:bg-[#1f1f1f] border border-[#282828] hover:border-orange-500/40 rounded-xl text-neutral-300 transition-colors flex flex-col items-center text-center cursor-pointer active:scale-95"
+                  title="Acessar Área do Barbeiro / Profissional"
+                >
+                  <Scissors className="w-3.5 h-3.5 text-orange-400 mb-0.5" />
+                  <span className="font-bold">Barbeiro</span>
+                  <span className="text-[9px] text-neutral-500">Área do Barbeiro</span>
+                </button>
+              </div>
+            </div>
+          </form>
+        )}
       </div>
 
-      {/* Footer */}
-      <footer className="relative z-10 w-full py-4 border-t border-[#2D2D2D] text-center text-xs text-[#A3A3A3]">
-        <p>MY BARBER. Todos os direitos reservados.</p>
+      {/* Footer (Identical to mockup) */}
+      <footer className="relative z-10 w-full py-4 border-t border-[#181818] text-center text-xs text-neutral-600">
+        <p>MY BARBER &copy; 2026. Todos os direitos reservados.</p>
       </footer>
     </div>
   );
 };
+
