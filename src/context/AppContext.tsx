@@ -1348,6 +1348,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const registerBarbershop = (input: RegisterBarbershopInput) => {
     const newTenantId = `tenant-${Date.now()}`;
+    const now = new Date();
+    const isTrial = input.commercialMode === 'TESTE_GRATIS';
+    const trialStartedAt = isTrial ? now.toISOString() : undefined;
+    // Validade estrita de 3 dias (72 horas)
+    const trialExpiresAt = isTrial 
+      ? new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString() 
+      : undefined;
+
     const newBarbershop: Barbershop = {
       id: newTenantId,
       name: input.name.trim(),
@@ -1376,12 +1384,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         facebook: input.name
       },
       planId: input.planId,
+      status: isTrial ? 'TESTE' : 'ATIVA',
+      commercialMode: isTrial ? 'TESTE_GRATIS' : 'PAGO',
+      trialStartedAt,
+      trialExpiresAt,
       reminderConfig: {
         advanceMinutes: 60,
         enabled: true,
         whatsappTemplate: `Olá {cliente}! Lembrete do seu agendamento na ${input.name} hoje às {horario} com {profissional}.`
       },
-      createdAt: new Date().toISOString()
+      createdAt: now.toISOString()
     };
 
     // Create the designated Manager or Owner

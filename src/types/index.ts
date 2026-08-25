@@ -83,6 +83,8 @@ export interface BarbershopCoordinates {
   longitude: number;
 }
 
+export type BarbershopStatus = 'ATIVA' | 'TESTE' | 'TESTE_EXPIRADO' | 'INATIVA';
+
 export interface Barbershop {
   id: string;
   name: string; // Ex: "Barbearia do João"
@@ -100,8 +102,10 @@ export interface Barbershop {
   planId: PlanId;
   reminderConfig: BarbershopReminderConfig;
   primaryColor?: string;
-  status?: 'ATIVA' | 'INATIVA';
-  isCommercialDemo?: boolean; // Flag de isolamento para Demonstração Comercial
+  status?: BarbershopStatus | 'ACTIVE' | 'INACTIVE';
+  commercialMode?: 'PAGO' | 'TESTE_GRATIS';
+  trialStartedAt?: string; // Data e hora de início do teste grátis (ISO)
+  trialExpiresAt?: string; // Data e hora de expiração do teste (ISO - 3 dias)
   createdAt: string;
 }
 
@@ -123,6 +127,7 @@ export interface RegisterBarbershopInput {
   state: string;
   zipCode: string;
   planId: PlanId;
+  commercialMode?: 'PAGO' | 'TESTE_GRATIS';
   managerName: string;
   managerWhatsApp: string;
   managerEmail?: string;

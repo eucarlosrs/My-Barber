@@ -17,7 +17,6 @@ import {
 } from '../types';
 import { APP_ASSETS } from './assets';
 import { REALISTIC_BARBERSHOP_ASSETS } from '../lib/storage';
-import { DEMO_COMMERCIAL_PRESETS } from './demoPresets';
 
 export const INITIAL_BARBERSHOPS: Barbershop[] = [
   {
@@ -99,9 +98,7 @@ export const INITIAL_BARBERSHOPS: Barbershop[] = [
       whatsappTemplate: 'Fala {cliente}! Tudo pronto para seu atendimento na {barbearia} às {horario}. Te esperamos!'
     },
     createdAt: '2026-02-01T09:00:00Z'
-  },
-  // Barbearia de Demonstração Comercial Exclusiva (Isolada para Apresentações de Vendas)
-  (DEMO_COMMERCIAL_PRESETS[0].barbershop as Barbershop)
+  }
 ];
 
 export const INITIAL_USERS: User[] = [
@@ -216,38 +213,10 @@ export const INITIAL_USERS: User[] = [
     avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&auto=format&fit=crop&q=80',
     birthDate: '1998-08-25', // Aniversariante neste mês!
     createdAt: '2026-04-12T16:00:00Z'
-  },
-  // Profissionais da Barbearia de Demonstração Comercial
-  ...(DEMO_COMMERCIAL_PRESETS[0].professionals.map((p, idx) => ({
-    id: p.id || `demo-prof-${idx + 1}`,
-    tenantId: 'barbershop-commercial-demo',
-    role: p.role,
-    name: p.name,
-    email: p.email,
-    whatsapp: p.whatsapp,
-    avatarUrl: p.avatarUrl,
-    specialties: p.specialties,
-    canViewAllProfessionals: p.canViewAllProfessionals,
-    commissionPercentage: p.commissionPercentage,
-    birthDate: p.birthDate || '1990-01-01',
-    createdAt: '2026-01-01T00:00:00Z'
-  })) as User[])
+  }
 ];
 
 export const INITIAL_SERVICES: Service[] = [
-  // Serviços da Barbearia de Demonstração Comercial
-  ...(DEMO_COMMERCIAL_PRESETS[0].services.map((s, idx) => ({
-    id: s.id || `demo-srv-${idx + 1}`,
-    tenantId: 'barbershop-commercial-demo',
-    name: s.name,
-    description: s.description,
-    durationMinutes: s.durationMinutes,
-    price: s.price,
-    category: s.category,
-    imageUrl: s.imageUrl,
-    returnReminderDays: s.returnReminderDays || 20,
-    active: s.active !== false
-  })) as Service[]),
   {
     id: 'srv-corte-cabelo',
     tenantId: 'tenant-barbearia-do-joao',
@@ -407,46 +376,6 @@ export const INITIAL_SCHEDULES: ProfessionalScheduleConfig[] = [
         dayOfWeek: 6, dayName: 'Sábado', enabled: true,
         shifts: [{ start: '09:00', end: '19:00' }]
       }
-    ],
-    periodOverrides: []
-  },
-  // Agendas dos Profissionais da Barbearia de Demonstração Comercial
-  {
-    professionalId: 'demo-prof-joao',
-    weeklySchedule: [
-      { dayOfWeek: 0, dayName: 'Domingo', enabled: false, shifts: [] },
-      { dayOfWeek: 1, dayName: 'Segunda-feira', enabled: true, shifts: [{ start: '09:00', end: '19:00' }] },
-      { dayOfWeek: 2, dayName: 'Terça-feira', enabled: true, shifts: [{ start: '09:00', end: '19:00' }] },
-      { dayOfWeek: 3, dayName: 'Quarta-feira', enabled: true, shifts: [{ start: '09:00', end: '19:00' }] },
-      { dayOfWeek: 4, dayName: 'Quinta-feira', enabled: true, shifts: [{ start: '09:00', end: '20:00' }] },
-      { dayOfWeek: 5, dayName: 'Sexta-feira', enabled: true, shifts: [{ start: '08:30', end: '20:30' }] },
-      { dayOfWeek: 6, dayName: 'Sábado', enabled: true, shifts: [{ start: '08:00', end: '19:00' }] }
-    ],
-    periodOverrides: []
-  },
-  {
-    professionalId: 'demo-prof-carlos-fade',
-    weeklySchedule: [
-      { dayOfWeek: 0, dayName: 'Domingo', enabled: false, shifts: [] },
-      { dayOfWeek: 1, dayName: 'Segunda-feira', enabled: false, shifts: [] },
-      { dayOfWeek: 2, dayName: 'Terça-feira', enabled: true, shifts: [{ start: '10:00', end: '20:00' }] },
-      { dayOfWeek: 3, dayName: 'Quarta-feira', enabled: true, shifts: [{ start: '10:00', end: '20:00' }] },
-      { dayOfWeek: 4, dayName: 'Quinta-feira', enabled: true, shifts: [{ start: '10:00', end: '20:00' }] },
-      { dayOfWeek: 5, dayName: 'Sexta-feira', enabled: true, shifts: [{ start: '09:00', end: '20:00' }] },
-      { dayOfWeek: 6, dayName: 'Sábado', enabled: true, shifts: [{ start: '08:30', end: '19:00' }] }
-    ],
-    periodOverrides: []
-  },
-  {
-    professionalId: 'demo-prof-matheus-barba',
-    weeklySchedule: [
-      { dayOfWeek: 0, dayName: 'Domingo', enabled: false, shifts: [] },
-      { dayOfWeek: 1, dayName: 'Segunda-feira', enabled: true, shifts: [{ start: '11:00', end: '20:00' }] },
-      { dayOfWeek: 2, dayName: 'Terça-feira', enabled: true, shifts: [{ start: '11:00', end: '20:00' }] },
-      { dayOfWeek: 3, dayName: 'Quarta-feira', enabled: true, shifts: [{ start: '11:00', end: '20:00' }] },
-      { dayOfWeek: 4, dayName: 'Quinta-feira', enabled: true, shifts: [{ start: '11:00', end: '20:00' }] },
-      { dayOfWeek: 5, dayName: 'Sexta-feira', enabled: true, shifts: [{ start: '10:00', end: '20:00' }] },
-      { dayOfWeek: 6, dayName: 'Sábado', enabled: true, shifts: [{ start: '09:00', end: '19:00' }] }
     ],
     periodOverrides: []
   }

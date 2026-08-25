@@ -89,11 +89,6 @@ export const BarbershopDiscoveryView: React.FC = () => {
   const filteredBarbershops = useMemo(() => {
     return barbershops
       .filter(barbershop => {
-        // Excluir barbearia de demonstração comercial da busca pública
-        if (barbershop.isCommercialDemo || barbershop.id === 'barbershop-commercial-demo') {
-          return false;
-        }
-
         // Name and address search
         const term = searchTerm.toLowerCase().trim();
         const matchesSearch =

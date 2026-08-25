@@ -26,11 +26,14 @@ import {
   Image as ImageIcon,
   Sparkles,
   Share2,
-  Globe
+  Globe,
+  Clock,
+  Zap
 } from 'lucide-react';
-import { PlanId, MY_BARBER_PLANS, RegisterBarbershopInput, Barbershop } from '../../types';
+import { PlanId, MY_BARBER_PLANS, RegisterBarbershopInput, Barbershop, BarbershopStatus } from '../../types';
 import { AppImage } from '../common/AppImage';
 import { ImageEditModal } from '../common/ImageEditModal';
+import { getBarbershopEffectiveStatus, getTrialStatusInfo } from '../../utils/formatters';
 
 // Curated high quality presets for quick logo & banner selection
 const LOGO_PRESETS = [
@@ -100,6 +103,7 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
     state: 'SP',
     zipCode: '01310-100',
     planId: 'PLANO_UNICO',
+    commercialMode: 'PAGO',
     managerName: '',
     managerWhatsApp: '(11) 98888-7777',
     managerEmail: '',
@@ -156,6 +160,7 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
         state: 'SP',
         zipCode: '01001-000',
         planId: 'PLANO_UNICO',
+        commercialMode: 'PAGO',
         managerName: '',
         managerWhatsApp: '(11) 98888-7777',
         managerEmail: '',
@@ -261,13 +266,25 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
           const shopUsers = users.filter(u => u.tenantId === shop.id);
           const manager = shopUsers.find(u => u.role === 'PROPRIETARIO' || u.role === 'GERENTE') || shopUsers[0];
           const profsCount = shopUsers.filter(u => u.role === 'PROFISSIONAL').length;
-          const isActive = shop.status !== 'INACTIVE';
+          
+          const effectiveStatus = getBarbershopEffectiveStatus(shop);
+          const trialInfo = getTrialStatusInfo(shop);
+          const isActive = effectiveStatus === 'ATIVA';
+          const isTrial = effectiveStatus === 'TESTE';
+          const isExpired = effectiveStatus === 'TESTE_EXPIRADO';
+          const isInactive = effectiveStatus === 'INATIVA';
 
           return (
             <div
               key={shop.id}
               className={`bg-neutral-900 border rounded-3xl overflow-hidden shadow-xl transition-all flex flex-col justify-between ${
-                isActive ? 'border-neutral-800 hover:border-neutral-700' : 'border-red-900/50 opacity-80'
+                isInactive 
+                  ? 'border-red-900/50 opacity-80' 
+                  : isExpired
+                  ? 'border-rose-700/60 shadow-rose-950/20'
+                  : isTrial
+                  ? 'border-amber-500/50 shadow-amber-950/20'
+                  : 'border-neutral-800 hover:border-neutral-700'
               }`}
             >
               {/* Banner with logo & status badge */}
@@ -281,22 +298,52 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                 <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/30 to-transparent"></div>
 
                 {/* Status & Plan Badges */}
-                <div className="absolute top-3 right-3 flex items-center gap-1.5">
-                  <button
-                    onClick={() => toggleBarbershopStatus(shop.id, !isActive)}
-                    className={`px-2.5 py-1 rounded-full text-[10px] font-black flex items-center gap-1 shadow-lg transition-all cursor-pointer ${
-                      isActive
-                        ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-900'
-                        : 'bg-red-950/90 text-red-300 border border-red-500/50 hover:bg-red-900'
-                    }`}
-                    title={isActive ? 'Clique para desativar barbearia' : 'Clique para ativar barbearia'}
-                  >
-                    <Power className="w-3 h-3" />
-                    <span>{isActive ? 'ATIVA' : 'DESATIVADA'}</span>
-                  </button>
+                <div className="absolute top-3 right-3 flex items-center gap-1.5 flex-wrap justify-end">
+                  {/* Status Badge */}
+                  {isActive && (
+                    <button
+                      onClick={() => toggleBarbershopStatus(shop.id, false)}
+                      className="bg-emerald-950/90 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-900 px-2.5 py-1 rounded-full text-[10px] font-black flex items-center gap-1 shadow-lg transition-all cursor-pointer"
+                      title="Barbearia Ativa no Plano Pago. Clique para desativar."
+                    >
+                      <Power className="w-3 h-3" />
+                      <span>ATIVA</span>
+                    </button>
+                  )}
+
+                  {isTrial && (
+                    <div 
+                      className="bg-amber-950/90 text-amber-300 border border-amber-500/60 px-2.5 py-1 rounded-full text-[10px] font-black flex items-center gap-1 shadow-lg backdrop-blur-md"
+                      title="Modalidade: Teste Grátis de 3 dias (72h) com acesso total"
+                    >
+                      <Clock className="w-3 h-3 text-amber-400" />
+                      <span>TESTE ({trialInfo.remainingText})</span>
+                    </div>
+                  )}
+
+                  {isExpired && (
+                    <div 
+                      className="bg-rose-950/90 text-rose-300 border border-rose-500/60 px-2.5 py-1 rounded-full text-[10px] font-black flex items-center gap-1 shadow-lg backdrop-blur-md"
+                      title="O período de 3 dias de teste grátis expirou"
+                    >
+                      <AlertCircle className="w-3 h-3 text-rose-400" />
+                      <span>TESTE EXPIRADO</span>
+                    </div>
+                  )}
+
+                  {isInactive && (
+                    <button
+                      onClick={() => toggleBarbershopStatus(shop.id, true)}
+                      className="bg-red-950/90 text-red-300 border border-red-500/50 hover:bg-red-900 px-2.5 py-1 rounded-full text-[10px] font-black flex items-center gap-1 shadow-lg transition-all cursor-pointer"
+                      title="Clique para reativar barbearia"
+                    >
+                      <Power className="w-3 h-3" />
+                      <span>DESATIVADA</span>
+                    </button>
+                  )}
 
                   <div className="bg-neutral-950/90 backdrop-blur-md border border-orange-500/50 text-orange-300 px-2.5 py-1 rounded-full text-[11px] font-black shadow-lg">
-                    {plan.name} • R$ {plan.priceMonthly.toFixed(2).replace('.', ',')}/mês
+                    {isTrial || isExpired ? 'Teste 3 Dias' : plan.name} • {isTrial || isExpired ? 'Gratuito' : `R$ ${plan.priceMonthly.toFixed(2).replace('.', ',')}/mês`}
                   </div>
                 </div>
 
@@ -322,6 +369,48 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
 
               {/* Shop Details */}
               <div className="p-4 space-y-3 flex-1">
+                {/* Trial Expiration / Conversion Alert Banner */}
+                {(isTrial || isExpired) && (
+                  <div className={`p-3 rounded-2xl border flex items-center justify-between gap-3 ${
+                    isExpired 
+                      ? 'bg-rose-950/50 border-rose-500/50 text-neutral-100' 
+                      : 'bg-amber-950/40 border-amber-500/50 text-neutral-100'
+                  }`}>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 text-xs font-black">
+                        <Sparkles className={`w-3.5 h-3.5 shrink-0 ${isExpired ? 'text-rose-400' : 'text-amber-400'}`} />
+                        <span className={isExpired ? 'text-rose-300' : 'text-amber-300'}>
+                          {isExpired ? 'Período de Teste Concluído' : 'Modalidade: Teste Grátis — 3 Dias'}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-neutral-300 mt-0.5">
+                        {isExpired 
+                          ? `${trialInfo.expiredText || 'Prazo de 72h encerrado.'} Clique ao lado para contratar mantendo todos os dados intactos!`
+                          : `${trialInfo.remainingText}. Funcionalidades completas liberadas (Proprietário, Barbeiros, Clientes e Agenda).`
+                        }
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateBarbershop({
+                          status: 'ATIVA',
+                          commercialMode: 'PAGO',
+                          trialExpiresAt: undefined
+                        }, shop.id);
+                        setSuccessToast(`Barbearia "${shop.name}" ativada no Plano Pago com sucesso! 100% dos dados foram preservados.`);
+                        setTimeout(() => setSuccessToast(null), 5000);
+                      }}
+                      className="px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-neutral-950 font-black rounded-xl text-xs flex items-center gap-1.5 shrink-0 shadow-lg cursor-pointer transition-all active:scale-95 whitespace-nowrap"
+                      title="Contratar plano e transformar status TESTE em ATIVA sem criar nova barbearia"
+                    >
+                      <Zap className="w-3.5 h-3.5 fill-current" />
+                      <span>TESTE → ATIVA</span>
+                    </button>
+                  </div>
+                )}
+
                 {/* Exclusive Subdomain & Link Card */}
                 <div className="bg-neutral-950 p-2.5 rounded-xl border border-neutral-800 space-y-2">
                   <div className="flex items-center justify-between gap-2">
@@ -551,21 +640,72 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                 </p>
               </div>
 
+              {/* Status e Modalidade Comercial */}
               <div>
-                <label className="block text-xs font-bold text-neutral-300 mb-1">Status da Barbearia</label>
+                <label className="block text-xs font-bold text-neutral-300 mb-1">Status Comercial da Barbearia</label>
                 <select
-                  value={editingShop.status || 'ACTIVE'}
+                  value={editingShop.status === 'INACTIVE' ? 'INATIVA' : (editingShop.status || 'ATIVA')}
                   onChange={e => {
-                    const newStatus = e.target.value as 'ACTIVE' | 'INACTIVE';
-                    toggleBarbershopStatus(editingShop.id, newStatus === 'ACTIVE');
-                    setEditingShop(prev => prev ? { ...prev, status: newStatus } : null);
+                    const newStatus = e.target.value as BarbershopStatus;
+                    const isCommercialTrial = newStatus === 'TESTE';
+                    const isPaid = newStatus === 'ATIVA';
+                    const updatePayload: Partial<Barbershop> = {
+                      status: newStatus,
+                      commercialMode: isCommercialTrial ? 'TESTE_GRATIS' : (isPaid ? 'PAGO' : editingShop.commercialMode)
+                    };
+                    if (isCommercialTrial && !editingShop.trialExpiresAt) {
+                      updatePayload.trialStartedAt = new Date().toISOString();
+                      updatePayload.trialExpiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+                    }
+                    if (isPaid) {
+                      updatePayload.trialExpiresAt = undefined;
+                    }
+                    updateBarbershop(updatePayload, editingShop.id);
+                    setEditingShop(prev => prev ? { ...prev, ...updatePayload } : null);
+                    setSuccessToast(`Status de "${editingShop.name}" alterado para ${newStatus}.`);
+                    setTimeout(() => setSuccessToast(null), 3000);
                   }}
                   className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
                 >
-                  <option value="ACTIVE">Ativa (Operação normal liberada)</option>
-                  <option value="INACTIVE">Desativada (Acesso temporariamente bloqueado)</option>
+                  <option value="ATIVA">ATIVA (Plano Pago — Operação Normal Liberada)</option>
+                  <option value="TESTE">TESTE (Período de Teste Grátis — 3 Dias)</option>
+                  <option value="TESTE_EXPIRADO">TESTE EXPIRADO (Período de 3 dias finalizado)</option>
+                  <option value="INATIVA">INATIVA / DESATIVADA (Acesso temporariamente bloqueado)</option>
                 </select>
               </div>
+
+              {/* Botão de conversão rápida TESTE -> ATIVA dentro do modal */}
+              {(editingShop.status === 'TESTE' || editingShop.status === 'TESTE_EXPIRADO' || editingShop.commercialMode === 'TESTE_GRATIS') && (
+                <div className="p-3 bg-gradient-to-r from-emerald-950/50 to-teal-950/50 border border-emerald-500/50 rounded-2xl flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span>Ativar Barbearia (TESTE → ATIVA)</span>
+                    </div>
+                    <p className="text-[10px] text-neutral-400 mt-0.5">
+                      Contratar plano pago e ativar imediatamente preservando 100% de cadastros, serviços e equipe.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updatePayload: Partial<Barbershop> = {
+                        status: 'ATIVA',
+                        commercialMode: 'PAGO',
+                        trialExpiresAt: undefined
+                      };
+                      updateBarbershop(updatePayload, editingShop.id);
+                      setEditingShop(prev => prev ? { ...prev, ...updatePayload } : null);
+                      setSuccessToast(`Barbearia "${editingShop.name}" ativada no Plano Pago com sucesso!`);
+                      setTimeout(() => setSuccessToast(null), 4000);
+                    }}
+                    className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-black rounded-xl text-xs flex items-center gap-1.5 shrink-0 shadow-lg cursor-pointer transition-all active:scale-95 whitespace-nowrap"
+                  >
+                    <Zap className="w-3.5 h-3.5 fill-current" />
+                    <span>TESTE → ATIVA</span>
+                  </button>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-neutral-300 mb-1">Plano Oficial</label>
@@ -833,38 +973,89 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                 </div>
               </div>
 
-              {/* STEP B: PLANO */}
+              {/* STEP B: MODALIDADE COMERCIAL / PLANO */}
               <div className="space-y-3 pt-3 border-t border-neutral-800">
                 <h4 className="text-xs font-black text-orange-400 uppercase tracking-wider flex items-center gap-1.5">
                   <CreditCard className="w-3.5 h-3.5" />
-                  <span>2. Plano Contratado</span>
+                  <span>2. Modalidade de Contratação & Plano</span>
                 </h4>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {(Object.keys(MY_BARBER_PLANS) as PlanId[]).map(pk => {
-                    const p = MY_BARBER_PLANS[pk];
-                    const isSelected = formState.planId === pk;
-                    return (
-                      <div
-                        key={pk}
-                        onClick={() => setFormState(prev => ({ ...prev, planId: pk }))}
-                        className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
-                          isSelected
-                            ? 'bg-orange-500/15 border-orange-500 text-neutral-100 shadow-lg'
-                            : 'bg-neutral-950 border-neutral-800 hover:border-neutral-700 text-neutral-400'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-bold">{p.name}</span>
-                          {isSelected && <Check className="w-4 h-4 text-orange-400" />}
-                        </div>
-                        <div className="text-base font-black text-neutral-100 font-mono">
-                          R$ {p.priceMonthly.toFixed(2).replace('.', ',')}/mês
-                        </div>
-                        <p className="text-[10px] text-neutral-400 mt-1">{p.description}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* OPÇÃO 1: PLANO PAGO */}
+                  <div
+                    onClick={() => setFormState(prev => ({ ...prev, commercialMode: 'PAGO', planId: 'PLANO_UNICO' }))}
+                    className={`p-4 rounded-2xl border cursor-pointer transition-all relative ${
+                      formState.commercialMode !== 'TESTE_GRATIS'
+                        ? 'bg-orange-500/15 border-orange-500 text-neutral-100 shadow-xl ring-1 ring-orange-500/50'
+                        : 'bg-neutral-950 border-neutral-800 hover:border-neutral-700 text-neutral-400'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <Crown className={`w-4 h-4 ${formState.commercialMode !== 'TESTE_GRATIS' ? 'text-orange-400' : 'text-neutral-500'}`} />
+                        <span className="text-sm font-black tracking-wide">PLANO PAGO</span>
                       </div>
-                    );
-                  })}
+                      {formState.commercialMode !== 'TESTE_GRATIS' ? (
+                        <div className="w-5 h-5 rounded-full bg-orange-500 text-neutral-950 flex items-center justify-center">
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        </div>
+                      ) : (
+                        <div className="w-5 h-5 rounded-full border border-neutral-700" />
+                      )}
+                    </div>
+
+                    <div className="text-lg font-black text-neutral-100 font-mono">
+                      R$ 49,90<span className="text-xs font-normal text-neutral-400">/mês</span>
+                    </div>
+
+                    <div className="mt-2.5 space-y-1.5 text-[11px]">
+                      <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                        <span>Status inicial: <strong className="text-emerald-300 font-black">ATIVA</strong></span>
+                      </div>
+                      <p className="text-neutral-400 text-[10px] leading-relaxed">
+                        Ativação imediata e integral. Até 10 profissionais (proprietário, gerente e barbeiros) e agendamentos ilimitados.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* OPÇÃO 2: TESTE GRÁTIS — 3 DIAS */}
+                  <div
+                    onClick={() => setFormState(prev => ({ ...prev, commercialMode: 'TESTE_GRATIS', planId: 'PLANO_UNICO' }))}
+                    className={`p-4 rounded-2xl border cursor-pointer transition-all relative ${
+                      formState.commercialMode === 'TESTE_GRATIS'
+                        ? 'bg-amber-500/15 border-amber-500 text-neutral-100 shadow-xl ring-1 ring-amber-500/50'
+                        : 'bg-neutral-950 border-neutral-800 hover:border-neutral-700 text-neutral-400'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className={`w-4 h-4 ${formState.commercialMode === 'TESTE_GRATIS' ? 'text-amber-400' : 'text-neutral-500'}`} />
+                        <span className="text-sm font-black tracking-wide text-amber-300">TESTE GRÁTIS — 3 DIAS</span>
+                      </div>
+                      {formState.commercialMode === 'TESTE_GRATIS' ? (
+                        <div className="w-5 h-5 rounded-full bg-amber-400 text-neutral-950 flex items-center justify-center">
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        </div>
+                      ) : (
+                        <div className="w-5 h-5 rounded-full border border-neutral-700" />
+                      )}
+                    </div>
+
+                    <div className="text-lg font-black text-amber-300 font-mono">
+                      Gratuito <span className="text-xs font-normal text-amber-400/80">(Validade: 3 dias)</span>
+                    </div>
+
+                    <div className="mt-2.5 space-y-1.5 text-[11px]">
+                      <div className="flex items-center gap-1.5 text-amber-300 font-semibold">
+                        <Clock className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+                        <span>Status inicial: <strong className="text-amber-200 font-black">TESTE</strong></span>
+                      </div>
+                      <p className="text-neutral-400 text-[10px] leading-relaxed">
+                        Mesma estrutura real e completa: Proprietário, Barbeiros, Clientes, Agenda, Serviços, Imagens e Link Exclusivo.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
