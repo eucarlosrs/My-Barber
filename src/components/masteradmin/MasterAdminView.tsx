@@ -15,7 +15,9 @@ import {
   Check,
   X,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Sparkles,
+  Smartphone
 } from 'lucide-react';
 import { MY_BARBER_PLANS } from '../../types';
 import { MasterAdminBarbershops } from './MasterAdminBarbershops';
@@ -23,8 +25,9 @@ import { MasterAdminUsers } from './MasterAdminUsers';
 import { MasterAdminServicesAppointments } from './MasterAdminServicesAppointments';
 import { MasterAdminAuditLogs } from './MasterAdminAuditLogs';
 import { MasterAdminImpersonate } from './MasterAdminImpersonate';
+import { MasterAdminCommercialDemo } from './MasterAdminCommercialDemo';
 
-export type MasterAdminTab = 'overview' | 'barbershops' | 'users' | 'services_appointments' | 'audit' | 'impersonate';
+export type MasterAdminTab = 'overview' | 'commercial_demo' | 'barbershops' | 'users' | 'services_appointments' | 'audit' | 'impersonate';
 
 export const MasterAdminView: React.FC = () => {
   const {
@@ -213,6 +216,21 @@ export const MasterAdminView: React.FC = () => {
         </button>
 
         <button
+          onClick={() => setActiveTab('commercial_demo')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer whitespace-nowrap border ${
+            activeTab === 'commercial_demo'
+              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-neutral-950 border-amber-400 shadow-md shadow-orange-500/25'
+              : 'text-amber-400 bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20 hover:text-amber-300'
+          }`}
+        >
+          <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />
+          <span>Demonstração Comercial</span>
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-neutral-950/80 text-amber-300 font-bold ml-0.5">
+            NOVO
+          </span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('barbershops')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
             activeTab === 'barbershops'
@@ -329,6 +347,10 @@ export const MasterAdminView: React.FC = () => {
             setShowRegisterModal={setShowRegisterModal}
           />
         </div>
+      )}
+
+      {activeTab === 'commercial_demo' && (
+        <MasterAdminCommercialDemo />
       )}
 
       {activeTab === 'barbershops' && (

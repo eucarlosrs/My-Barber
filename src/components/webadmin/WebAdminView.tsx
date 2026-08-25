@@ -138,7 +138,7 @@ export const WebAdminView: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-amber-500 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-              WebAdmin • Gestão da Barbearia
+              Proprietário / Gerente • Gestão da Barbearia
             </span>
             <span className="text-xs text-neutral-400">Usuário: <strong>{currentUser.name}</strong> ({currentUser.role})</span>
           </div>

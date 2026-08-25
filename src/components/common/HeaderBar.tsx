@@ -78,6 +78,32 @@ export const HeaderBar: React.FC = () => {
         </div>
       )}
 
+      {/* Commercial Demo Presentation Banner */}
+      {(currentBarbershop.isCommercialDemo || activeTenantId === 'barbershop-commercial-demo') && viewMode !== 'MASTER_ADMIN' && !isImpersonating && (
+        <div className="bg-gradient-to-r from-amber-600 via-orange-500 to-amber-600 text-neutral-950 px-4 py-2 text-xs font-bold shadow-lg flex items-center justify-between border-b border-amber-300/40">
+          <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="bg-neutral-950 text-amber-400 text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full font-black flex items-center gap-1.5 shadow-sm">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                DEMONSTRAÇÃO COMERCIAL ATIVA
+              </span>
+              <span className="hidden sm:inline text-neutral-950 font-semibold">
+                Apresentação comercial com dados fictícios para <strong className="underline decoration-neutral-950">{currentBarbershop.name}</strong> (App Oficial)
+              </span>
+            </div>
+
+            <button
+              onClick={() => setViewMode('MASTER_ADMIN')}
+              className="bg-neutral-950 hover:bg-neutral-900 text-amber-400 hover:text-white px-3.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md transition-all active:scale-95 border border-amber-400/40 shrink-0 cursor-pointer"
+              title="Voltar para a área de Demonstração Comercial no Painel Carlos Silva"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Voltar ao Painel Carlos Silva</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between py-2.5 gap-3 border-b border-[#2D2D2D] text-xs">
@@ -193,7 +219,7 @@ export const HeaderBar: React.FC = () => {
                 }`}
               >
                 <Shield className="w-4 h-4" />
-                <span>WebAdmin ({currentBarbershop.name})</span>
+                <span>Proprietário / Gerente ({currentBarbershop.name})</span>
               </button>
 
               <button
@@ -206,7 +232,7 @@ export const HeaderBar: React.FC = () => {
                 }`}
               >
                 <Smartphone className="w-4 h-4" />
-                <span>App Cliente ({currentBarbershop.name})</span>
+                <span>Área do Cliente ({currentBarbershop.name})</span>
               </button>
 
               <button
@@ -219,7 +245,7 @@ export const HeaderBar: React.FC = () => {
                 }`}
               >
                 <Scissors className="w-4 h-4" />
-                <span>App Profissional</span>
+                <span>Barbeiros / Profissionais</span>
               </button>
 
               <button

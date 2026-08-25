@@ -101,6 +101,7 @@ export interface Barbershop {
   reminderConfig: BarbershopReminderConfig;
   primaryColor?: string;
   status?: 'ATIVA' | 'INATIVA';
+  isCommercialDemo?: boolean; // Flag de isolamento para Demonstração Comercial
   createdAt: string;
 }
 

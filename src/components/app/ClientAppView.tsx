@@ -1992,42 +1992,40 @@ export const ClientAppView: React.FC = () => {
 
                       <p className="text-xs text-neutral-300 leading-relaxed">{promo.description}</p>
 
-                      {promo.voucherCode && (
-                        <div className="bg-neutral-950 p-2.5 rounded-xl border border-dashed border-amber-500/40 flex items-center justify-between">
-                          <div>
-                            <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Cupom de Desconto:</span>
-                            <span className="text-xs font-mono font-bold text-amber-400">{promo.voucherCode}</span>
+                      {/* Direct Automatic Discount Indicator & Action */}
+                      <div className="bg-neutral-950 p-2.5 rounded-xl border border-neutral-800 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                            <Sparkles className="w-3.5 h-3.5" />
                           </div>
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(promo.voucherCode || '');
-                              setCopiedCoupon(promo.voucherCode || null);
-                              setTimeout(() => setCopiedCoupon(null), 3000);
-                            }}
-                            className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors"
-                          >
-                            {copiedCoupon === promo.voucherCode ? (
-                              <>
-                                <Check className="w-3.5 h-3.5" />
-                                <span>Copiado!</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3.5 h-3.5" />
-                                <span>Copiar</span>
-                              </>
-                            )}
-                          </button>
+                          <div>
+                            <span className="text-[10px] text-neutral-400 uppercase font-semibold block">Benefício:</span>
+                            <span className="text-xs font-bold text-neutral-200">Desconto Direto no Horário</span>
+                          </div>
                         </div>
-                      )}
+                        <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                          Sem cupom
+                        </span>
+                      </div>
 
                       <div className="flex items-center justify-between text-[11px] text-neutral-400 pt-2 border-t border-neutral-800">
                         <span>Válido até: <strong className="text-neutral-200">{promo.validUntil.split('-').reverse().join('/')}</strong></span>
                         <button
-                          onClick={() => setActiveTab('BOOKING')}
-                          className="text-amber-400 hover:text-amber-300 font-bold"
+                          onClick={() => {
+                            const matchingService = services.find(s => 
+                              (promo.serviceId && s.id === promo.serviceId) ||
+                              (promo.serviceCategory && s.category?.toLowerCase() === promo.serviceCategory.toLowerCase()) ||
+                              (promo.title && s.name.toLowerCase().includes(promo.title.toLowerCase()))
+                            );
+                            if (matchingService) {
+                              setSelectedService(matchingService);
+                            }
+                            setActiveTab('BOOKING');
+                          }}
+                          className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-neutral-950 font-black rounded-xl text-xs flex items-center gap-1.5 shadow active:scale-95 transition-all"
                         >
-                          Usar no Agendamento →
+                          <Scissors className="w-3.5 h-3.5" />
+                          <span>Agendar com Desconto</span>
                         </button>
                       </div>
                     </div>
@@ -2616,46 +2614,39 @@ export const ClientAppView: React.FC = () => {
                   </p>
                 </div>
 
-                {selectedHighlightPromo.code && (
-                  <div className="bg-neutral-900 p-3 rounded-2xl border border-dashed border-orange-500/50 flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] text-neutral-400 font-bold block uppercase">Cupom da Promoção:</span>
-                      <span className="text-xs font-mono font-black text-orange-400 tracking-wider">
-                        {selectedHighlightPromo.code}
-                      </span>
+                {/* Automatic Direct Benefit indicator */}
+                <div className="bg-neutral-900 p-3 rounded-2xl border border-orange-500/30 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-xl bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-400">
+                      <Sparkles className="w-4 h-4" />
                     </div>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard?.writeText(selectedHighlightPromo.code || '');
-                        setCopiedCoupon(selectedHighlightPromo.code || null);
-                        setTimeout(() => setCopiedCoupon(null), 2500);
-                      }}
-                      className="px-3 py-1.5 bg-orange-500/20 hover:bg-orange-500 text-orange-400 hover:text-neutral-950 rounded-xl text-xs font-bold transition-all flex items-center gap-1"
-                    >
-                      {copiedCoupon === selectedHighlightPromo.code ? (
-                        <>
-                          <Check className="w-3.5 h-3.5" />
-                          <span>Copiado!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" />
-                          <span>Copiar</span>
-                        </>
-                      )}
-                    </button>
+                    <div>
+                      <span className="text-[10px] text-neutral-400 font-bold block uppercase">Condição Especial:</span>
+                      <span className="text-xs font-bold text-neutral-200">Desconto Aplicado no Agendamento</span>
+                    </div>
                   </div>
-                )}
+                  <span className="text-[10px] text-emerald-400 font-black bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-lg">
+                    Sem cupom
+                  </span>
+                </div>
 
                 <button
                   onClick={() => {
+                    const matchingService = services.find(s => 
+                      (selectedHighlightPromo.serviceId && s.id === selectedHighlightPromo.serviceId) ||
+                      (selectedHighlightPromo.serviceName && s.name.toLowerCase() === selectedHighlightPromo.serviceName.toLowerCase()) ||
+                      (selectedHighlightPromo.title && s.name.toLowerCase().includes(selectedHighlightPromo.title.toLowerCase()))
+                    );
+                    if (matchingService) {
+                      setSelectedService(matchingService);
+                    }
                     setSelectedHighlightPromo(null);
                     setActiveTab('BOOKING');
                   }}
-                  className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-neutral-950 font-black rounded-xl text-xs transition-all shadow-lg flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-neutral-950 font-black rounded-xl text-xs transition-all shadow-lg flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
                 >
                   <Scissors className="w-4 h-4" />
-                  <span>Aproveitar e Agendar Agora</span>
+                  <span>Aproveitar e Agendar com Desconto</span>
                 </button>
               </div>
             </div>

@@ -113,7 +113,7 @@ export const MasterAdminImpersonate: React.FC = () => {
                 Proprietário
               </div>
               <p className="text-[11px] text-neutral-400 mt-1.5 leading-relaxed">
-                Painel WebAdmin completo: relatórios de faturamento, comissões, gestão de equipe, serviços, combos e estoque do salão.
+                Painel Proprietário / Gerente: relatórios de faturamento, comissões, gestão de equipe, serviços, combos e estoque do salão.
               </p>
             </div>
             <div className="mt-4 pt-3 border-t border-neutral-900 flex items-center justify-between text-xs font-bold text-amber-400 group-hover:translate-x-0.5 transition-transform">
