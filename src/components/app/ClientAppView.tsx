@@ -729,17 +729,6 @@ export const ClientAppView: React.FC = () => {
                   <Share2 className="w-3.5 h-3.5" />
                 )}
               </button>
-
-              {/* WhatsApp Action Button */}
-              <a
-                href={`https://wa.me/55${currentBarbershop.whatsapp.replace(/\D/g, '')}`}
-                target="_blank"
-                rel="noreferrer"
-                className="bg-emerald-500 hover:bg-emerald-400 text-neutral-950 p-2 rounded-full shadow-lg transition-transform active:scale-95"
-                title="Conversar no WhatsApp da Barbearia"
-              >
-                <Phone className="w-3.5 h-3.5" />
-              </a>
             </div>
           </div>
 
@@ -754,20 +743,22 @@ export const ClientAppView: React.FC = () => {
                   className="w-16 h-16 rounded-2xl object-cover border-2 border-orange-500/60 shadow-2xl bg-neutral-900 shrink-0"
                 />
                 <div>
-                  <h1 className="text-base sm:text-lg font-bold text-neutral-100 leading-tight">
-                    {currentBarbershop.name}
-                  </h1>
-                  <button
-                    type="button"
-                    onClick={() => setShowAddressModal(true)}
-                    className="flex items-center gap-1 text-xs text-neutral-400 hover:text-orange-400 mt-0.5 group cursor-pointer transition-colors text-left"
-                    title="Clique para ver o endereço completo"
-                  >
-                    <MapPin className="w-3.5 h-3.5 text-orange-500 shrink-0 group-hover:scale-110 transition-transform" />
-                    <span className="line-clamp-1 group-hover:underline underline-offset-2">
-                      {currentBarbershop.address.neighborhood}, {currentBarbershop.address.city}
-                    </span>
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <h1 className="text-base sm:text-lg font-bold text-neutral-100 leading-tight">
+                      {currentBarbershop.name}
+                    </h1>
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                        `${currentBarbershop.name}, ${currentBarbershop.address.street}, ${currentBarbershop.address.number}, ${currentBarbershop.address.neighborhood}, ${currentBarbershop.address.city} - ${currentBarbershop.address.state}`
+                      )}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-1 text-orange-500 hover:text-orange-400 hover:bg-neutral-800/80 rounded-lg transition-colors cursor-pointer inline-flex items-center"
+                      title="Abrir no Google Maps"
+                    >
+                      <MapPin className="w-4 h-4 text-orange-500 shrink-0 hover:scale-110 transition-transform" />
+                    </a>
+                  </div>
                 </div>
               </div>
 
@@ -973,95 +964,6 @@ export const ClientAppView: React.FC = () => {
                   </div>
                   <span className="text-xs text-neutral-400">{services.length} disponíveis</span>
                 </div>
-
-                {/* Atalho Rápido para Serviços Essenciais (Cabelo e Barba) */}
-                {(hairServices.length > 0 || beardServices.length > 0) && (
-                  <div className="grid grid-cols-2 gap-2 mb-3">
-                    {/* Botão Rápido Cabelo */}
-                    {hairServices.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (hairServices.length === 1) {
-                            // Valor fixo padrão: seleciona direto e avança para escolha do profissional
-                            handleSelectServiceAndProceed(hairServices[0]);
-                          } else {
-                            // Possui variações (degradê, navalhado, etc.): filtra a categoria para o cliente escolher o tipo
-                            setSelectedCategory('Cabelo');
-                          }
-                        }}
-                        className={`p-3 rounded-2xl border text-left transition-all relative overflow-hidden group cursor-pointer active:scale-[0.98] ${
-                          selectedService && hairServices.some(h => h.id === selectedService.id)
-                            ? 'bg-orange-500/15 border-orange-500 shadow-md shadow-orange-500/10'
-                            : 'bg-neutral-900/90 border-neutral-800 hover:border-neutral-700'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="w-8 h-8 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center">
-                            <Scissors className="w-4 h-4" />
-                          </div>
-                          <span className="text-xs font-bold font-mono text-emerald-400">
-                            {hairServices.length === 1 
-                              ? `R$ ${hairServices[0].price.toFixed(2).replace('.', ',')}`
-                              : `a partir R$ ${Math.min(...hairServices.map(h => h.price)).toFixed(2).replace('.', ',')}`}
-                          </span>
-                        </div>
-                        <div className="mt-2">
-                          <div className="text-xs font-bold text-neutral-100 group-hover:text-orange-400 transition-colors">
-                            Corte de Cabelo
-                          </div>
-                          <div className="text-[10px] text-neutral-400 mt-0.5">
-                            {hairServices.length === 1 
-                              ? 'Valor fixo • Seleção direta' 
-                              : `${hairServices.length} tipos cadastrados`}
-                          </div>
-                        </div>
-                      </button>
-                    )}
-
-                    {/* Botão Rápido Barba */}
-                    {beardServices.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (beardServices.length === 1) {
-                            // Valor fixo padrão: seleciona direto e avança para escolha do profissional
-                            handleSelectServiceAndProceed(beardServices[0]);
-                          } else {
-                            // Possui variações: filtra para o cliente escolher o tipo
-                            setSelectedCategory('Barba');
-                          }
-                        }}
-                        className={`p-3 rounded-2xl border text-left transition-all relative overflow-hidden group cursor-pointer active:scale-[0.98] ${
-                          selectedService && beardServices.some(b => b.id === selectedService.id)
-                            ? 'bg-orange-500/15 border-orange-500 shadow-md shadow-orange-500/10'
-                            : 'bg-neutral-900/90 border-neutral-800 hover:border-neutral-700'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
-                            <Sparkles className="w-4 h-4" />
-                          </div>
-                          <span className="text-xs font-bold font-mono text-emerald-400">
-                            {beardServices.length === 1 
-                              ? `R$ ${beardServices[0].price.toFixed(2).replace('.', ',')}`
-                              : `a partir R$ ${Math.min(...beardServices.map(b => b.price)).toFixed(2).replace('.', ',')}`}
-                          </span>
-                        </div>
-                        <div className="mt-2">
-                          <div className="text-xs font-bold text-neutral-100 group-hover:text-amber-400 transition-colors">
-                            Barba / Barboterapia
-                          </div>
-                          <div className="text-[10px] text-neutral-400 mt-0.5">
-                            {beardServices.length === 1 
-                              ? 'Valor fixo • Seleção direta' 
-                              : `${beardServices.length} tipos cadastrados`}
-                          </div>
-                        </div>
-                      </button>
-                    )}
-                  </div>
-                )}
 
                 {/* Category Filter Chips */}
                 {categories.length > 1 && (
@@ -1412,19 +1314,19 @@ export const ClientAppView: React.FC = () => {
 
               {/* Sticky Booking Summary Sheet */}
               <div className="bg-neutral-900 border-2 border-orange-500/40 rounded-2xl p-4 shadow-xl space-y-3">
-                <div className="flex items-center justify-between text-xs pb-2 border-b border-neutral-800">
-                  <div>
+                <div className="flex items-center justify-between text-xs pb-2 border-b border-neutral-800 gap-2">
+                  <div className="min-w-0 flex-1">
                     <span className="text-[10px] text-neutral-400 uppercase font-bold block">Resumo do Horário</span>
-                    <div className="font-extrabold text-neutral-100 text-xs mt-0.5">
+                    <div className="font-extrabold text-neutral-100 text-xs mt-0.5 truncate">
                       {selectedService?.name || 'Selecione o serviço'}
                     </div>
-                    <div className="text-[11px] text-orange-400 font-semibold">
+                    <div className="text-[11px] text-orange-400 font-semibold truncate">
                       Com {selectedProfessional?.name || 'Barbeiro'} • {selectedDate.split('-').reverse().join('/')} às {selectedTime}
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right shrink-0">
                     <span className="text-[10px] text-neutral-400 block">Total</span>
-                    <span className="text-base font-black text-emerald-400 font-mono">
+                    <span className="text-xs xs:text-sm sm:text-base font-black text-emerald-400 font-mono whitespace-nowrap inline-block">
                       R$ {selectedService ? selectedService.price.toFixed(2).replace('.', ',') : '0,00'}
                     </span>
                   </div>
@@ -2413,14 +2315,14 @@ export const ClientAppView: React.FC = () => {
         {/* ========================================================================= */}
         {/* 3. NATIVE APP BOTTOM NAVIGATION BAR (FIXED WITH BARBER POLE THEMED EFFECT) */}
         {/* ========================================================================= */}
-        <div className="fixed bottom-0 inset-x-0 z-40 flex justify-center pointer-events-none px-2 pb-2">
+        <div className="fixed bottom-0 inset-x-0 z-40 flex justify-center pointer-events-none px-2 pb-2 bg-gradient-to-t from-neutral-950 via-neutral-950/90 to-transparent pt-4">
           <div className="w-full max-w-4xl pointer-events-auto">
             <nav
               aria-label="Navegação da barbearia"
-              className="relative overflow-hidden rounded-2xl bg-neutral-950/95 backdrop-blur-xl border border-neutral-800/90 shadow-[0_-8px_30px_rgba(0,0,0,0.8),0_0_20px_rgba(249,115,22,0.1)] px-1 pt-1 pb-1.5"
+              className="relative overflow-hidden rounded-2xl bg-neutral-950 border border-neutral-800 shadow-[0_-12px_36px_rgba(0,0,0,0.95),0_0_24px_rgba(0,0,0,0.8)] px-1 pt-1 pb-1.5"
             >
               {/* Efeito Barber Pole Temático no Topo do Menu */}
-              <div className="h-1 w-full barber-pole-stripe rounded-full opacity-85 shadow-[0_1px_6px_rgba(239,68,68,0.4)] mb-1" />
+              <div className="h-1 w-full barber-pole-stripe rounded-full opacity-90 shadow-[0_1px_6px_rgba(239,68,68,0.4)] mb-1" />
 
               <div className="flex items-center justify-around">
                 {[
