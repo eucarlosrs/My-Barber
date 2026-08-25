@@ -197,6 +197,7 @@ interface AppContextType {
   usePackageItem: (customerPackageId: string, itemId: string) => boolean;
   addService: (service: Omit<Service, 'id'>) => void;
   updateService: (serviceId: string, data: Partial<Service>) => void;
+  updateUser: (userId: string, data: Partial<User>) => void;
   addProfessional: (user: Omit<User, 'id' | 'createdAt'>) => { success: boolean; error?: string };
   updateProfessional: (profId: string, data: Partial<User>) => void;
   deleteProfessional: (profId: string) => { success: boolean; error?: string };
@@ -985,6 +986,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deletePromotion = (promoId: string) => {
     setPromotions(prev => prev.filter(p => p.id !== promoId));
+  };
+
+  const updateUser = (userId: string, data: Partial<User>) => {
+    const target = users.find(u => u.id === userId);
+    if (target) {
+      const merged = { ...target, ...data };
+      syncDoc('users', userId, merged);
+      setUsers(prev => prev.map(u => (u.id === userId ? merged : u)));
+      if (authenticatedUser?.id === userId) {
+        setAuthenticatedUser(merged);
+      }
+    }
   };
 
   const updateProfessional = (profId: string, data: Partial<User>) => {
@@ -1777,6 +1790,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         usePackageItem,
         addService,
         updateService,
+        updateUser,
         addProfessional,
         updateProfessional,
         deleteProfessional,

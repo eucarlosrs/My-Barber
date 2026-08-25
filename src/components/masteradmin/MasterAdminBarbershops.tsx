@@ -75,20 +75,55 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
     users,
     setCurrentUserId,
     getBarbershopDirectUrl,
-    getBarbershopExclusiveDomain
+    getBarbershopExclusiveDomain,
+    updateUser,
+    createManagerAccess
   } = useApp();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [editingShop, setEditingShop] = useState<Barbershop | null>(null);
+  const [shopToDelete, setShopToDelete] = useState<Barbershop | null>(null);
   const [showLogoEditModal, setShowLogoEditModal] = useState(false);
   const [showBannerEditModal, setShowBannerEditModal] = useState(false);
   const [copiedDirectLinkShopId, setCopiedDirectLinkShopId] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [errorToast, setErrorToast] = useState<string | null>(null);
 
-  // Senhas toggle visibility
+  // Senhas toggle visibility (Cadastro)
   const [showManagerPassword, setShowManagerPassword] = useState(false);
   const [showAdditionalPassword, setShowAdditionalPassword] = useState(false);
+
+  // Estados de edição do Proprietário / Gerente
+  const [editManagerForm, setEditManagerForm] = useState<{
+    id: string;
+    name: string;
+    role: 'PROPRIETARIO' | 'GERENTE';
+    whatsapp: string;
+    password: string;
+  }>({
+    id: '',
+    name: '',
+    role: 'PROPRIETARIO',
+    whatsapp: '',
+    password: ''
+  });
+
+  const [editAdditionalManagerForm, setEditAdditionalManagerForm] = useState<{
+    id: string;
+    hasManager: boolean;
+    name: string;
+    whatsapp: string;
+    password: string;
+  }>({
+    id: '',
+    hasManager: false,
+    name: '',
+    whatsapp: '',
+    password: ''
+  });
+
+  const [showEditManagerPassword, setShowEditManagerPassword] = useState(false);
+  const [showEditAdditionalPassword, setShowEditAdditionalPassword] = useState(false);
 
   // Form State for new Barbershop registration
   const [formState, setFormState] = useState<RegisterBarbershopInput>({
@@ -225,16 +260,112 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
     setViewMode('CLIENT_APP');
   };
 
-  const handleDeleteShop = (shop: Barbershop) => {
-    if (window.confirm(`Tem certeza que deseja remover o cadastro da barbearia "${shop.name}"?`)) {
-      const res = deleteBarbershop(shop.id);
-      if (res.success) {
-        setSuccessToast(`Barbearia "${shop.name}" removida com sucesso.`);
-        setTimeout(() => setSuccessToast(null), 4000);
+  const handleStartEdit = (shop: Barbershop) => {
+    setEditingShop(shop);
+    const shopUsers = users.filter(u => u.tenantId === shop.id);
+    const primaryMgr = shopUsers.find(u => u.role === 'PROPRIETARIO') || shopUsers.find(u => u.role === 'GERENTE');
+    const secondMgr = shopUsers.find(u => u.role === 'GERENTE' && u.id !== primaryMgr?.id);
+
+    if (primaryMgr) {
+      setEditManagerForm({
+        id: primaryMgr.id,
+        name: primaryMgr.name || '',
+        role: primaryMgr.role === 'GERENTE' ? 'GERENTE' : 'PROPRIETARIO',
+        whatsapp: primaryMgr.whatsapp || primaryMgr.username || '',
+        password: primaryMgr.password || '123456'
+      });
+    } else {
+      setEditManagerForm({
+        id: '',
+        name: '',
+        role: 'PROPRIETARIO',
+        whatsapp: shop.whatsapp || '',
+        password: '123456'
+      });
+    }
+
+    if (secondMgr) {
+      setEditAdditionalManagerForm({
+        id: secondMgr.id,
+        hasManager: true,
+        name: secondMgr.name || '',
+        whatsapp: secondMgr.whatsapp || secondMgr.username || '',
+        password: secondMgr.password || '123456'
+      });
+    } else {
+      setEditAdditionalManagerForm({
+        id: '',
+        hasManager: false,
+        name: '',
+        whatsapp: '',
+        password: ''
+      });
+    }
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingShop) return;
+
+    // 1. Atualizar dados cadastrais da barbearia
+    updateBarbershop({
+      name: editingShop.name,
+      whatsapp: editingShop.whatsapp,
+      slug: editingShop.slug,
+      customDomain: editingShop.customDomain,
+      status: editingShop.status,
+      commercialMode: editingShop.commercialMode,
+      planId: editingShop.planId,
+      logoUrl: editingShop.logoUrl,
+      bannerUrl: editingShop.bannerUrl,
+      trialStartedAt: editingShop.trialStartedAt,
+      trialExpiresAt: editingShop.trialExpiresAt
+    }, editingShop.id);
+
+    // 2. Atualizar ou criar credenciais de login do gestor principal
+    if (editManagerForm.name.trim()) {
+      if (editManagerForm.id) {
+        updateUser(editManagerForm.id, {
+          name: editManagerForm.name.trim(),
+          role: editManagerForm.role,
+          whatsapp: editManagerForm.whatsapp.trim(),
+          username: editManagerForm.whatsapp.trim(),
+          password: editManagerForm.password?.trim() || '123456'
+        });
       } else {
-        setErrorToast(res.error || 'Erro ao remover barbearia.');
+        createManagerAccess({
+          tenantId: editingShop.id,
+          name: editManagerForm.name.trim(),
+          email: `${editManagerForm.whatsapp.replace(/\D/g, '') || 'gestor'}@mybarber.com.br`,
+          whatsapp: editManagerForm.whatsapp.trim(),
+          role: editManagerForm.role
+        });
       }
     }
+
+    // 3. Atualizar ou criar credenciais do segundo gerente se ativado
+    if (editAdditionalManagerForm.hasManager && editAdditionalManagerForm.name.trim()) {
+      if (editAdditionalManagerForm.id) {
+        updateUser(editAdditionalManagerForm.id, {
+          name: editAdditionalManagerForm.name.trim(),
+          role: 'GERENTE',
+          whatsapp: editAdditionalManagerForm.whatsapp.trim(),
+          username: editAdditionalManagerForm.whatsapp.trim(),
+          password: editAdditionalManagerForm.password?.trim() || '123456'
+        });
+      } else {
+        createManagerAccess({
+          tenantId: editingShop.id,
+          name: editAdditionalManagerForm.name.trim(),
+          email: `${editAdditionalManagerForm.whatsapp.replace(/\D/g, '') || 'gerente'}@mybarber.com.br`,
+          whatsapp: editAdditionalManagerForm.whatsapp.trim(),
+          role: 'GERENTE'
+        });
+      }
+    }
+
+    setEditingShop(null);
+    setSuccessToast(`Dados da barbearia "${editingShop.name}" e credenciais de login atualizados com sucesso!`);
+    setTimeout(() => setSuccessToast(null), 3500);
   };
 
   const filteredShops = barbershops.filter(b =>
@@ -531,21 +662,19 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
               <div className="px-4 py-3 bg-neutral-950 border-t border-neutral-800 flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-1.5">
                   <button
-                    onClick={() => setEditingShop(shop)}
-                    className="p-2 rounded-xl text-neutral-400 hover:text-orange-400 hover:bg-neutral-900 transition-colors"
-                    title="Editar Informações da Barbearia"
+                    onClick={() => handleStartEdit(shop)}
+                    className="p-2 rounded-xl text-neutral-400 hover:text-orange-400 hover:bg-neutral-900 transition-colors cursor-pointer"
+                    title="Editar Informações e Credenciais de Login"
                   >
                     <Edit3 className="w-4 h-4" />
                   </button>
-                  {barbershops.length > 1 && (
-                    <button
-                      onClick={() => handleDeleteShop(shop)}
-                      className="p-2 rounded-xl text-neutral-500 hover:text-red-400 hover:bg-neutral-900 transition-colors"
-                      title="Remover Barbearia"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setShopToDelete(shop)}
+                    className="p-2 rounded-xl text-neutral-500 hover:text-red-400 hover:bg-neutral-900 transition-colors cursor-pointer"
+                    title="Excluir Barbearia"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -573,274 +702,467 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
         })}
       </div>
 
-      {/* Modal: Editar Barbearia */}
+      {/* Modal: Editar Barbearia & Credenciais de Login */}
       {editingShop && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl max-w-lg w-full p-6 text-neutral-100 shadow-2xl animate-fade-in max-h-[90vh] overflow-y-auto">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl max-w-2xl w-full p-6 text-neutral-100 shadow-2xl animate-fade-in max-h-[90vh] overflow-y-auto custom-scrollbar">
             <div className="flex items-start justify-between pb-4 border-b border-neutral-800">
               <div>
-                <h3 className="text-base font-black font-heading text-neutral-100">
-                  Editar {editingShop.name}
+                <h3 className="text-base font-black font-heading text-neutral-100 flex items-center gap-2">
+                  <Edit3 className="w-4 h-4 text-orange-400" />
+                  <span>Editar {editingShop.name}</span>
                 </h3>
-                <p className="text-xs text-neutral-400">
-                  Ajuste plano, status, logotipo e banner da barbearia parceira.
+                <p className="text-xs text-neutral-400 mt-0.5">
+                  Ajuste informações da barbearia, plano, status, mídias e dados de login do proprietário/gerente.
                 </p>
               </div>
               <button
                 onClick={() => setEditingShop(null)}
-                className="text-neutral-400 hover:text-white p-1"
+                className="text-neutral-400 hover:text-white p-1 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-4 pt-4">
-              <div>
-                <label className="block text-xs font-bold text-neutral-300 mb-1">Nome da Barbearia</label>
-                <input
-                  type="text"
-                  value={editingShop.name}
-                  onChange={e => {
-                    const newName = e.target.value;
-                    updateBarbershop({ name: newName }, editingShop.id);
-                    setEditingShop(prev => prev ? { ...prev, name: newName } : null);
-                  }}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
-                />
-              </div>
+            <div className="space-y-5 pt-4">
+              {/* Seção 1: Dados Gerais da Barbearia */}
+              <div className="space-y-3.5">
+                <div className="text-xs font-black uppercase text-orange-400 tracking-wider flex items-center gap-1.5 border-b border-neutral-800 pb-1.5">
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span>1. Dados Oficiais da Barbearia</span>
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-neutral-300 mb-1">WhatsApp de Atendimento</label>
+                  <label className="block text-xs font-bold text-neutral-300 mb-1">Nome da Barbearia</label>
                   <input
                     type="text"
-                    value={editingShop.whatsapp}
+                    value={editingShop.name}
                     onChange={e => {
-                      const newWa = e.target.value;
-                      updateBarbershop({ whatsapp: newWa }, editingShop.id);
-                      setEditingShop(prev => prev ? { ...prev, whatsapp: newWa } : null);
+                      const newName = e.target.value;
+                      setEditingShop(prev => prev ? { ...prev, name: newName } : null);
                     }}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-neutral-300 mb-1">Identificador Exclusivo (Slug)</label>
-                  <input
-                    type="text"
-                    value={editingShop.slug}
-                    onChange={e => {
-                      const cleanSlug = e.target.value
-                        .toLowerCase()
-                        .normalize('NFD')
-                        .replace(/[\u0300-\u036f]/g, '')
-                        .replace(/[^a-z0-9-]+/g, '');
-                      const newDomain = `${cleanSlug}.mybarberbr.com.br`;
-                      updateBarbershop({ slug: cleanSlug, customDomain: newDomain }, editingShop.id);
-                      setEditingShop(prev => prev ? { ...prev, slug: cleanSlug, customDomain: newDomain } : null);
-                    }}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
-                  />
-                </div>
-              </div>
 
-              {/* Endereço Exclusivo da Barbearia */}
-              <div className="p-3 bg-neutral-950 rounded-2xl border border-orange-500/30 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-neutral-400">Endereço Exclusivo no My Barber:</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const url = `https://${editingShop.slug}.mybarberbr.com.br`;
-                      navigator.clipboard.writeText(url);
-                      setSuccessToast(`Endereço copiado: ${url}`);
-                      setTimeout(() => setSuccessToast(null), 3000);
-                    }}
-                    className="text-[10px] text-orange-400 hover:text-orange-300 font-bold flex items-center gap-1 cursor-pointer"
-                  >
-                    <Share2 className="w-3 h-3" />
-                    <span>Copiar Link Exclusivo</span>
-                  </button>
-                </div>
-                <div className="font-mono text-xs text-orange-400 font-bold bg-neutral-900 px-3 py-2 rounded-xl border border-neutral-800 break-all">
-                  https://{editingShop.slug}.mybarberbr.com.br
-                </div>
-                <p className="text-[10px] text-neutral-500">
-                  Ao abrir este link, o cliente é direcionado diretamente para a página exclusiva da sua barbearia.
-                </p>
-              </div>
-
-              {/* Status e Modalidade Comercial */}
-              <div>
-                <label className="block text-xs font-bold text-neutral-300 mb-1">Status Comercial da Barbearia</label>
-                <select
-                  value={editingShop.status === 'INACTIVE' ? 'INATIVA' : (editingShop.status || 'ATIVA')}
-                  onChange={e => {
-                    const newStatus = e.target.value as BarbershopStatus;
-                    const isCommercialTrial = newStatus === 'TESTE';
-                    const isPaid = newStatus === 'ATIVA';
-                    const updatePayload: Partial<Barbershop> = {
-                      status: newStatus,
-                      commercialMode: isCommercialTrial ? 'TESTE_GRATIS' : (isPaid ? 'PAGO' : editingShop.commercialMode)
-                    };
-                    if (isCommercialTrial && !editingShop.trialExpiresAt) {
-                      updatePayload.trialStartedAt = new Date().toISOString();
-                      updatePayload.trialExpiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
-                    }
-                    if (isPaid) {
-                      updatePayload.trialExpiresAt = undefined;
-                    }
-                    updateBarbershop(updatePayload, editingShop.id);
-                    setEditingShop(prev => prev ? { ...prev, ...updatePayload } : null);
-                    setSuccessToast(`Status de "${editingShop.name}" alterado para ${newStatus}.`);
-                    setTimeout(() => setSuccessToast(null), 3000);
-                  }}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
-                >
-                  <option value="ATIVA">ATIVA (Plano Pago — Operação Normal Liberada)</option>
-                  <option value="TESTE">TESTE (Período de Teste Grátis — 3 Dias)</option>
-                  <option value="TESTE_EXPIRADO">TESTE EXPIRADO (Período de 3 dias finalizado)</option>
-                  <option value="INATIVA">INATIVA / DESATIVADA (Acesso temporariamente bloqueado)</option>
-                </select>
-              </div>
-
-              {/* Botão de conversão rápida TESTE -> ATIVA dentro do modal */}
-              {(editingShop.status === 'TESTE' || editingShop.status === 'TESTE_EXPIRADO' || editingShop.commercialMode === 'TESTE_GRATIS') && (
-                <div className="p-3 bg-gradient-to-r from-emerald-950/50 to-teal-950/50 border border-emerald-500/50 rounded-2xl flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      <span>Ativar Barbearia (TESTE → ATIVA)</span>
-                    </div>
-                    <p className="text-[10px] text-neutral-400 mt-0.5">
-                      Contratar plano pago e ativar imediatamente preservando 100% de cadastros, serviços e equipe.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const updatePayload: Partial<Barbershop> = {
-                        status: 'ATIVA',
-                        commercialMode: 'PAGO',
-                        trialExpiresAt: undefined
-                      };
-                      updateBarbershop(updatePayload, editingShop.id);
-                      setEditingShop(prev => prev ? { ...prev, ...updatePayload } : null);
-                      setSuccessToast(`Barbearia "${editingShop.name}" ativada no Plano Pago com sucesso!`);
-                      setTimeout(() => setSuccessToast(null), 4000);
-                    }}
-                    className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-black rounded-xl text-xs flex items-center gap-1.5 shrink-0 shadow-lg cursor-pointer transition-all active:scale-95 whitespace-nowrap"
-                  >
-                    <Zap className="w-3.5 h-3.5 fill-current" />
-                    <span>TESTE → ATIVA</span>
-                  </button>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-bold text-neutral-300 mb-1">Plano Oficial</label>
-                <select
-                  value={editingShop.planId}
-                  onChange={e => {
-                    const newPlan = e.target.value as PlanId;
-                    updateBarbershop({ planId: newPlan }, editingShop.id);
-                    setEditingShop(prev => prev ? { ...prev, planId: newPlan } : null);
-                  }}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
-                >
-                  {(Object.keys(MY_BARBER_PLANS) as PlanId[]).map(pk => (
-                    <option key={pk} value={pk}>
-                      {MY_BARBER_PLANS[pk].name} — R$ {MY_BARBER_PLANS[pk].priceMonthly.toFixed(2).replace('.', ',')}/mês
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Logotipo com Editor Visual */}
-              <div className="p-3.5 bg-neutral-950/80 border border-neutral-800 rounded-2xl space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-neutral-200 flex items-center gap-1.5">
-                    <Camera className="w-3.5 h-3.5 text-orange-400" />
-                    <span>Logotipo da Barbearia</span>
-                  </label>
-                  <span className="text-[10px] text-neutral-400">Ajuste de Zoom, Posição e Upload</span>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-2xl overflow-hidden border border-neutral-700 bg-neutral-900 shrink-0 flex items-center justify-center">
-                    <AppImage
-                      src={editingShop.logoUrl}
-                      alt="Logo"
-                      fallbackType="logo"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex-1 space-y-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setShowLogoEditModal(true)}
-                      className="w-full py-2 px-3 bg-gradient-to-r from-orange-500/20 to-amber-500/20 hover:from-orange-500/30 hover:to-amber-500/30 border border-orange-500/40 hover:border-orange-500 text-orange-300 hover:text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
-                    >
-                      <SlidersHorizontal className="w-3.5 h-3.5 text-orange-400" />
-                      <span>Abrir Editor Visual do Logo</span>
-                    </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-300 mb-1">WhatsApp de Atendimento</label>
                     <input
-                      type="url"
-                      placeholder="Ou cole a URL direta da imagem..."
-                      value={editingShop.logoUrl}
+                      type="text"
+                      value={editingShop.whatsapp}
                       onChange={e => {
-                        const newLogo = e.target.value;
-                        updateBarbershop({ logoUrl: newLogo }, editingShop.id);
-                        setEditingShop(prev => prev ? { ...prev, logoUrl: newLogo } : null);
+                        const newWa = e.target.value;
+                        setEditingShop(prev => prev ? { ...prev, whatsapp: newWa } : null);
                       }}
-                      className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-2.5 py-1 text-[11px] text-neutral-300 focus:outline-none focus:border-orange-500 font-mono"
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
                     />
                   </div>
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-300 mb-1">Identificador Exclusivo (Slug)</label>
+                    <input
+                      type="text"
+                      value={editingShop.slug}
+                      onChange={e => {
+                        const cleanSlug = e.target.value
+                          .toLowerCase()
+                          .normalize('NFD')
+                          .replace(/[\u0300-\u036f]/g, '')
+                          .replace(/[^a-z0-9-]+/g, '');
+                        const newDomain = `${cleanSlug}.mybarberbr.com.br`;
+                        setEditingShop(prev => prev ? { ...prev, slug: cleanSlug, customDomain: newDomain } : null);
+                      }}
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Endereço Exclusivo da Barbearia */}
+                <div className="p-3 bg-neutral-950 rounded-2xl border border-orange-500/30 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-neutral-400">Endereço Exclusivo no My Barber:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = `https://${editingShop.slug}.mybarberbr.com.br`;
+                        navigator.clipboard.writeText(url);
+                        setSuccessToast(`Endereço copiado: ${url}`);
+                        setTimeout(() => setSuccessToast(null), 3000);
+                      }}
+                      className="text-[10px] text-orange-400 hover:text-orange-300 font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Share2 className="w-3 h-3" />
+                      <span>Copiar Link Exclusivo</span>
+                    </button>
+                  </div>
+                  <div className="font-mono text-xs text-orange-400 font-bold bg-neutral-900 px-3 py-2 rounded-xl border border-neutral-800 break-all">
+                    https://{editingShop.slug}.mybarberbr.com.br
+                  </div>
+                  <p className="text-[10px] text-neutral-500">
+                    Ao abrir este link, o cliente é direcionado diretamente para a página exclusiva da sua barbearia.
+                  </p>
+                </div>
+
+                {/* Status e Modalidade Comercial */}
+                <div>
+                  <label className="block text-xs font-bold text-neutral-300 mb-1">Status Comercial da Barbearia</label>
+                  <select
+                    value={editingShop.status === 'INACTIVE' ? 'INATIVA' : (editingShop.status || 'ATIVA')}
+                    onChange={e => {
+                      const newStatus = e.target.value as BarbershopStatus;
+                      const isCommercialTrial = newStatus === 'TESTE';
+                      const isPaid = newStatus === 'ATIVA';
+                      const updatePayload: Partial<Barbershop> = {
+                        status: newStatus,
+                        commercialMode: isCommercialTrial ? 'TESTE_GRATIS' : (isPaid ? 'PAGO' : editingShop.commercialMode)
+                      };
+                      if (isCommercialTrial && !editingShop.trialExpiresAt) {
+                        updatePayload.trialStartedAt = new Date().toISOString();
+                        updatePayload.trialExpiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+                      }
+                      if (isPaid) {
+                        updatePayload.trialExpiresAt = undefined;
+                      }
+                      setEditingShop(prev => prev ? { ...prev, ...updatePayload } : null);
+                    }}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
+                  >
+                    <option value="ATIVA">ATIVA (Plano Pago — Operação Normal Liberada)</option>
+                    <option value="TESTE">TESTE (Período de Teste Grátis — 3 Dias)</option>
+                    <option value="TESTE_EXPIRADO">TESTE EXPIRADO (Período de 3 dias finalizado)</option>
+                    <option value="INATIVA">INATIVA / DESATIVADA (Acesso temporariamente bloqueado)</option>
+                  </select>
+                </div>
+
+                {/* Botão de conversão rápida TESTE -> ATIVA dentro do modal */}
+                {(editingShop.status === 'TESTE' || editingShop.status === 'TESTE_EXPIRADO' || editingShop.commercialMode === 'TESTE_GRATIS') && (
+                  <div className="p-3 bg-gradient-to-r from-emerald-950/50 to-teal-950/50 border border-emerald-500/50 rounded-2xl flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span>Ativar Barbearia (TESTE → ATIVA)</span>
+                      </div>
+                      <p className="text-[10px] text-neutral-400 mt-0.5">
+                        Contratar plano pago e ativar imediatamente preservando 100% de cadastros, serviços e equipe.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updatePayload: Partial<Barbershop> = {
+                          status: 'ATIVA',
+                          commercialMode: 'PAGO',
+                          trialExpiresAt: undefined
+                        };
+                        setEditingShop(prev => prev ? { ...prev, ...updatePayload } : null);
+                        setSuccessToast(`Barbearia "${editingShop.name}" ativada no Plano Pago.`);
+                        setTimeout(() => setSuccessToast(null), 3000);
+                      }}
+                      className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-black rounded-xl text-xs flex items-center gap-1.5 shrink-0 shadow-lg cursor-pointer transition-all active:scale-95 whitespace-nowrap"
+                    >
+                      <Zap className="w-3.5 h-3.5 fill-current" />
+                      <span>TESTE → ATIVA</span>
+                    </button>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-bold text-neutral-300 mb-1">Plano Oficial</label>
+                  <select
+                    value={editingShop.planId}
+                    onChange={e => {
+                      const newPlan = e.target.value as PlanId;
+                      setEditingShop(prev => prev ? { ...prev, planId: newPlan } : null);
+                    }}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
+                  >
+                    {(Object.keys(MY_BARBER_PLANS) as PlanId[]).map(pk => (
+                      <option key={pk} value={pk}>
+                        {MY_BARBER_PLANS[pk].name} — R$ {MY_BARBER_PLANS[pk].priceMonthly.toFixed(2).replace('.', ',')}/mês
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
-              {/* Banner com Editor Visual */}
-              <div className="p-3.5 bg-neutral-950/80 border border-neutral-800 rounded-2xl space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-neutral-200 flex items-center gap-1.5">
-                    <ImageIcon className="w-3.5 h-3.5 text-orange-400" />
-                    <span>Banner / Capa Principal</span>
-                  </label>
-                  <span className="text-[10px] text-neutral-400">Ajuste Panorâmico</span>
+              {/* Seção 2: Dados de Login do Proprietário / Gerente */}
+              <div className="p-4 bg-neutral-950 rounded-2xl border border-neutral-800 space-y-3.5">
+                <div className="text-xs font-black uppercase text-amber-400 tracking-wider flex items-center gap-1.5 border-b border-neutral-800 pb-2">
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span>2. Dados de Login do Responsável (Proprietário / Gerente)</span>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="w-full h-20 rounded-xl overflow-hidden border border-neutral-700 bg-neutral-900">
-                    <AppImage
-                      src={editingShop.bannerUrl || editingShop.salonImages[0] || ''}
-                      alt="Banner"
-                      fallbackType="banner"
-                      className="w-full h-full object-cover"
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-300 mb-1">Cargo do Gestor</label>
+                    <select
+                      value={editManagerForm.role}
+                      onChange={e => setEditManagerForm(prev => ({ ...prev, role: e.target.value as 'PROPRIETARIO' | 'GERENTE' }))}
+                      className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
+                    >
+                      <option value="PROPRIETARIO">Proprietário (Acesso Geral)</option>
+                      <option value="GERENTE">Gerente do Estabelecimento</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-300 mb-1">Nome Completo do Gestor</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Carlos Eduardo"
+                      value={editManagerForm.name}
+                      onChange={e => setEditManagerForm(prev => ({ ...prev, name: e.target.value }))}
+                      className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
                     />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowBannerEditModal(true)}
-                      className="flex-1 py-2 px-3 bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 hover:border-neutral-600 text-neutral-200 hover:text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
-                    >
-                      <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Abrir Editor Visual do Banner</span>
-                    </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-300 mb-1">WhatsApp / Login do Gestor</label>
+                    <input
+                      type="text"
+                      placeholder="(11) 98888-7777 ou usuario"
+                      value={editManagerForm.whatsapp}
+                      onChange={e => setEditManagerForm(prev => ({ ...prev, whatsapp: e.target.value }))}
+                      className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
+                    />
+                    <span className="text-[10px] text-neutral-500 mt-0.5 block">Identificador digitado na tela de login</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-300 mb-1">Senha de Acesso</label>
+                    <div className="relative">
+                      <input
+                        type={showEditManagerPassword ? 'text' : 'password'}
+                        placeholder="Nova senha ou mantenha a atual"
+                        value={editManagerForm.password}
+                        onChange={e => setEditManagerForm(prev => ({ ...prev, password: e.target.value }))}
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 pr-9 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowEditManagerPassword(!showEditManagerPassword)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300 cursor-pointer"
+                        title={showEditManagerPassword ? 'Ocultar senha' : 'Exibir senha'}
+                      >
+                        {showEditManagerPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                    <span className="text-[10px] text-neutral-500 mt-0.5 block">Senha para entrar na área de gestão</span>
+                  </div>
+                </div>
+
+                {/* Gerente Adicional Opcional */}
+                <div className="pt-2 border-t border-neutral-800/80">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={editAdditionalManagerForm.hasManager}
+                      onChange={e => setEditAdditionalManagerForm(prev => ({ ...prev, hasManager: e.target.checked }))}
+                      className="w-4 h-4 rounded text-orange-500 focus:ring-0 bg-neutral-900 border-neutral-700"
+                    />
+                    <span className="text-xs font-bold text-neutral-300">
+                      Cadastrar / Gerenciar 2º Gerente Adicional para esta barbearia
+                    </span>
+                  </label>
+
+                  {editAdditionalManagerForm.hasManager && (
+                    <div className="mt-3 p-3 bg-neutral-900/90 rounded-xl border border-neutral-800 space-y-3 animate-fade-in">
+                      <div>
+                        <label className="block text-xs font-bold text-neutral-300 mb-1">Nome Completo do 2º Gerente</label>
+                        <input
+                          type="text"
+                          placeholder="Ex: Roberto Lima"
+                          value={editAdditionalManagerForm.name}
+                          onChange={e => setEditAdditionalManagerForm(prev => ({ ...prev, name: e.target.value }))}
+                          className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-neutral-300 mb-1">WhatsApp / Login</label>
+                          <input
+                            type="text"
+                            placeholder="(11) 97777-6666"
+                            value={editAdditionalManagerForm.whatsapp}
+                            onChange={e => setEditAdditionalManagerForm(prev => ({ ...prev, whatsapp: e.target.value }))}
+                            className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-neutral-300 mb-1">Senha de Acesso</label>
+                          <div className="relative">
+                            <input
+                              type={showEditAdditionalPassword ? 'text' : 'password'}
+                              placeholder="Senha do 2º gerente"
+                              value={editAdditionalManagerForm.password}
+                              onChange={e => setEditAdditionalManagerForm(prev => ({ ...prev, password: e.target.value }))}
+                              className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 pr-9 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowEditAdditionalPassword(!showEditAdditionalPassword)}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300 cursor-pointer"
+                            >
+                              {showEditAdditionalPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Seção 3: Imagens e Identidade Visual */}
+              <div className="space-y-3">
+                <div className="text-xs font-black uppercase text-orange-400 tracking-wider flex items-center gap-1.5 border-b border-neutral-800 pb-1.5">
+                  <ImageIcon className="w-3.5 h-3.5" />
+                  <span>3. Identidade Visual & Mídias</span>
+                </div>
+
+                {/* Logotipo com Editor Visual */}
+                <div className="p-3.5 bg-neutral-950/80 border border-neutral-800 rounded-2xl space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-neutral-200 flex items-center gap-1.5">
+                      <Camera className="w-3.5 h-3.5 text-orange-400" />
+                      <span>Logotipo da Barbearia</span>
+                    </label>
+                    <span className="text-[10px] text-neutral-400">Ajuste de Zoom, Posição e Upload</span>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="w-14 h-14 rounded-2xl overflow-hidden border border-neutral-700 bg-neutral-900 shrink-0 flex items-center justify-center">
+                      <AppImage
+                        src={editingShop.logoUrl}
+                        alt="Logo"
+                        fallbackType="logo"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 space-y-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setShowLogoEditModal(true)}
+                        className="w-full py-2 px-3 bg-gradient-to-r from-orange-500/20 to-amber-500/20 hover:from-orange-500/30 hover:to-amber-500/30 border border-orange-500/40 hover:border-orange-500 text-orange-300 hover:text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
+                      >
+                        <SlidersHorizontal className="w-3.5 h-3.5 text-orange-400" />
+                        <span>Abrir Editor Visual do Logo</span>
+                      </button>
+                      <input
+                        type="url"
+                        placeholder="Ou cole a URL direta da imagem..."
+                        value={editingShop.logoUrl}
+                        onChange={e => {
+                          const newLogo = e.target.value;
+                          setEditingShop(prev => prev ? { ...prev, logoUrl: newLogo } : null);
+                        }}
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-2.5 py-1 text-[11px] text-neutral-300 focus:outline-none focus:border-orange-500 font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Banner com Editor Visual */}
+                <div className="p-3.5 bg-neutral-950/80 border border-neutral-800 rounded-2xl space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-neutral-200 flex items-center gap-1.5">
+                      <ImageIcon className="w-3.5 h-3.5 text-orange-400" />
+                      <span>Banner / Capa Principal</span>
+                    </label>
+                    <span className="text-[10px] text-neutral-400">Ajuste Panorâmico</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="w-full h-20 rounded-xl overflow-hidden border border-neutral-700 bg-neutral-900">
+                      <AppImage
+                        src={editingShop.bannerUrl || editingShop.salonImages[0] || ''}
+                        alt="Banner"
+                        fallbackType="banner"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowBannerEditModal(true)}
+                        className="flex-1 py-2 px-3 bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 hover:border-neutral-600 text-neutral-200 hover:text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
+                      >
+                        <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Abrir Editor Visual do Banner</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end pt-4 border-t border-neutral-800 mt-4">
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-neutral-800 mt-6">
               <button
-                onClick={() => {
-                  setEditingShop(null);
-                  setSuccessToast('Dados da barbearia atualizados com sucesso!');
-                  setTimeout(() => setSuccessToast(null), 3000);
-                }}
-                className="px-5 py-2.5 bg-orange-500 hover:bg-orange-400 text-neutral-950 font-black rounded-xl text-xs shadow-lg shadow-orange-500/20 cursor-pointer"
+                type="button"
+                onClick={() => setEditingShop(null)}
+                className="px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold rounded-xl text-xs transition-all cursor-pointer"
               >
-                Concluir Alterações
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEdit}
+                className="px-6 py-2.5 bg-orange-500 hover:bg-orange-400 text-neutral-950 font-black rounded-xl text-xs shadow-lg shadow-orange-500/25 transition-all cursor-pointer active:scale-95 flex items-center gap-2"
+              >
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>Salvar Todas as Alterações</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Confirmar Exclusão de Barbearia */}
+      {shopToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-neutral-900 border border-red-500/30 rounded-3xl max-w-md w-full p-6 text-neutral-100 shadow-2xl animate-fade-in space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+
+            <div className="text-center space-y-2">
+              <h3 className="text-base font-black text-neutral-100">
+                Confirmar Exclusão da Barbearia
+              </h3>
+              <p className="text-xs text-neutral-300">
+                Tem certeza que deseja excluir permanentemente o cadastro da barbearia{' '}
+                <strong className="text-white font-bold">"{shopToDelete.name}"</strong>?
+              </p>
+              <p className="text-[11px] text-red-400 bg-red-950/40 p-2.5 rounded-xl border border-red-500/20">
+                ⚠️ Esta ação removerá a barbearia, equipe vinculada, serviços e agendamentos associados.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShopToDelete(null)}
+                className="flex-1 py-2.5 px-4 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold rounded-xl text-xs transition-all cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const res = deleteBarbershop(shopToDelete.id);
+                  if (res.success) {
+                    setSuccessToast(`Barbearia "${shopToDelete.name}" excluída com sucesso.`);
+                    setTimeout(() => setSuccessToast(null), 4000);
+                  } else {
+                    setErrorToast(res.error || 'Erro ao remover barbearia.');
+                  }
+                  setShopToDelete(null);
+                }}
+                className="flex-1 py-2.5 px-4 bg-red-600 hover:bg-red-500 text-white font-black rounded-xl text-xs shadow-lg shadow-red-600/30 transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Sim, Excluir</span>
               </button>
             </div>
           </div>
