@@ -5,7 +5,6 @@
 
 import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
-import { HeaderBar } from './components/common/HeaderBar';
 import { ArchitectureView } from './components/architecture/ArchitectureView';
 import { MasterAdminView } from './components/masteradmin/MasterAdminView';
 import { WebAdminView } from './components/webadmin/WebAdminView';
@@ -69,7 +68,6 @@ export default function App() {
   return (
     <AppProvider>
       <div className="min-h-screen bg-[#0D0D0D] text-[#F5F5F5] flex flex-col font-sans selection:bg-[#FF6B00] selection:text-[#0D0D0D]">
-        <HeaderBar />
         <main className="flex-1">
           <MainContent />
         </main>
