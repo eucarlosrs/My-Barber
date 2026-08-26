@@ -21,7 +21,9 @@ import {
   INITIAL_COMMUNICATIONS,
   INITIAL_STOCK,
   INITIAL_RETURN_MESSAGES,
-  INITIAL_GALLERY_WORKS
+  INITIAL_GALLERY_WORKS,
+  INITIAL_SUBSCRIPTIONS,
+  INITIAL_SUBSCRIPTION_PAYMENTS
 } from '../data/initialData';
 
 /**
@@ -103,6 +105,16 @@ export async function seedFirestoreIfEmpty() {
       // Seed Gallery Works
       for (const item of INITIAL_GALLERY_WORKS) {
         await setDoc(doc(db, 'gallery', item.id), item);
+      }
+
+      // Seed Subscriptions
+      for (const item of INITIAL_SUBSCRIPTIONS) {
+        await setDoc(doc(db, 'subscriptions', item.id), item);
+      }
+
+      // Seed Subscription Payments
+      for (const item of INITIAL_SUBSCRIPTION_PAYMENTS) {
+        await setDoc(doc(db, 'subscription_payments', item.id), item);
       }
 
       console.log('Firebase Firestore seeding complete.');

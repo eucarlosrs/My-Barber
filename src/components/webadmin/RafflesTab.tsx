@@ -12,7 +12,8 @@ import {
   Trash2,
   Clock,
   Camera,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Sparkles
 } from 'lucide-react';
 import { Raffle } from '../../types';
 import { AppImage } from '../common/AppImage';

@@ -15,7 +15,8 @@ import {
   Camera,
   Scissors,
   Copy,
-  Check
+  Check,
+  Sparkles
 } from 'lucide-react';
 import { Promotion } from '../../types';
 import { AppImage } from '../common/AppImage';

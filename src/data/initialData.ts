@@ -902,3 +902,136 @@ export const INITIAL_AUDIT_LOGS: AuditLog[] = [
   }
 ];
 
+export const INITIAL_SUBSCRIPTIONS: import('../types').Subscription[] = [
+  {
+    id: 'sub-barbearia-rodrigues',
+    barbershopId: 'tenant-barbearia-do-joao',
+    barbershopName: 'Barbearia Rodrigues',
+    payerEmail: 'carlos.rodrigues@barbeariarodrigues.com.br',
+    payerName: 'Carlos Rodrigues',
+    payerPhone: '(11) 98765-4321',
+    mercadopagoSubscriptionId: 'mp-sub-2c9380848a90b1',
+    mercadopagoCustomerId: 'mp-cust-99881122',
+    status: 'ACTIVE',
+    plan: 'Plano MY BARBER',
+    currentPrice: 49.90,
+    billingCycle: 'MONTHLY',
+    trialOrLaunchPeriod: true,
+    billingCount: 2,
+    nextBillingDate: '2026-09-15',
+    initPointUrl: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_id=2c9380848a90b1',
+    toleranceDays: 7,
+    createdAt: '2026-01-15T10:00:00Z',
+    updatedAt: '2026-02-15T10:00:00Z'
+  },
+  {
+    id: 'sub-barbearia-vintage',
+    barbershopId: 'tenant-barbearia-vintage-club',
+    barbershopName: 'Barbearia Vintage Club',
+    payerEmail: 'marcos.vintage@vintageclub.com.br',
+    payerName: 'Marcos Vinicius',
+    payerPhone: '(21) 99887-7665',
+    mercadopagoSubscriptionId: 'mp-sub-2c9380848a90b2',
+    mercadopagoCustomerId: 'mp-cust-44556677',
+    status: 'ACTIVE',
+    plan: 'Plano MY BARBER',
+    currentPrice: 69.90,
+    billingCycle: 'MONTHLY',
+    trialOrLaunchPeriod: false,
+    billingCount: 4,
+    nextBillingDate: '2026-09-20',
+    initPointUrl: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_id=2c9380848a90b2',
+    toleranceDays: 7,
+    createdAt: '2025-11-20T10:00:00Z',
+    updatedAt: '2026-02-20T10:00:00Z'
+  }
+];
+
+export const INITIAL_SUBSCRIPTION_PAYMENTS: import('../types').SubscriptionPaymentRecord[] = [
+  {
+    id: 'pay-rod-1',
+    subscriptionId: 'sub-barbearia-rodrigues',
+    barbershopId: 'tenant-barbearia-do-joao',
+    barbershopName: 'Barbearia Rodrigues',
+    mercadopagoPaymentId: 'mp-pay-1001',
+    amount: 49.90,
+    status: 'APPROVED',
+    statusDetail: 'accredited',
+    paymentDate: '2026-01-15',
+    billingNumber: 1,
+    paymentMethod: 'Cartão de Crédito (Mastercard)',
+    createdAt: '2026-01-15T10:05:00Z'
+  },
+  {
+    id: 'pay-rod-2',
+    subscriptionId: 'sub-barbearia-rodrigues',
+    barbershopId: 'tenant-barbearia-do-joao',
+    barbershopName: 'Barbearia Rodrigues',
+    mercadopagoPaymentId: 'mp-pay-1002',
+    amount: 49.90,
+    status: 'APPROVED',
+    statusDetail: 'accredited',
+    paymentDate: '2026-02-15',
+    billingNumber: 2,
+    paymentMethod: 'Cartão de Crédito (Mastercard)',
+    createdAt: '2026-02-15T10:00:00Z'
+  },
+  {
+    id: 'pay-vint-1',
+    subscriptionId: 'sub-barbearia-vintage',
+    barbershopId: 'tenant-barbearia-vintage-club',
+    barbershopName: 'Barbearia Vintage Club',
+    mercadopagoPaymentId: 'mp-pay-2001',
+    amount: 49.90,
+    status: 'APPROVED',
+    statusDetail: 'accredited',
+    paymentDate: '2025-11-20',
+    billingNumber: 1,
+    paymentMethod: 'Cartão de Crédito (Visa)',
+    createdAt: '2025-11-20T10:00:00Z'
+  },
+  {
+    id: 'pay-vint-2',
+    subscriptionId: 'sub-barbearia-vintage',
+    barbershopId: 'tenant-barbearia-vintage-club',
+    barbershopName: 'Barbearia Vintage Club',
+    mercadopagoPaymentId: 'mp-pay-2002',
+    amount: 49.90,
+    status: 'APPROVED',
+    statusDetail: 'accredited',
+    paymentDate: '2025-12-20',
+    billingNumber: 2,
+    paymentMethod: 'Cartão de Crédito (Visa)',
+    createdAt: '2025-12-20T10:00:00Z'
+  },
+  {
+    id: 'pay-vint-3',
+    subscriptionId: 'sub-barbearia-vintage',
+    barbershopId: 'tenant-barbearia-vintage-club',
+    barbershopName: 'Barbearia Vintage Club',
+    mercadopagoPaymentId: 'mp-pay-2003',
+    amount: 49.90,
+    status: 'APPROVED',
+    statusDetail: 'accredited',
+    paymentDate: '2026-01-20',
+    billingNumber: 3,
+    paymentMethod: 'Cartão de Crédito (Visa)',
+    createdAt: '2026-01-20T10:00:00Z'
+  },
+  {
+    id: 'pay-vint-4',
+    subscriptionId: 'sub-barbearia-vintage',
+    barbershopId: 'tenant-barbearia-vintage-club',
+    barbershopName: 'Barbearia Vintage Club',
+    mercadopagoPaymentId: 'mp-pay-2004',
+    amount: 69.90,
+    status: 'APPROVED',
+    statusDetail: 'accredited',
+    paymentDate: '2026-02-20',
+    billingNumber: 4,
+    paymentMethod: 'Cartão de Crédito (Visa)',
+    createdAt: '2026-02-20T10:00:00Z'
+  }
+];
+
+

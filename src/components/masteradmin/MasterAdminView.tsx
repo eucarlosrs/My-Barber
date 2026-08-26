@@ -23,8 +23,9 @@ import { MasterAdminUsers } from './MasterAdminUsers';
 import { MasterAdminServicesAppointments } from './MasterAdminServicesAppointments';
 import { MasterAdminAuditLogs } from './MasterAdminAuditLogs';
 import { MasterAdminImpersonate } from './MasterAdminImpersonate';
+import { MasterAdminSubscriptions } from './MasterAdminSubscriptions';
 
-export type MasterAdminTab = 'overview' | 'barbershops' | 'users' | 'services_appointments' | 'audit' | 'impersonate';
+export type MasterAdminTab = 'overview' | 'subscriptions' | 'barbershops' | 'users' | 'services_appointments' | 'audit' | 'impersonate';
 
 export const MasterAdminView: React.FC = () => {
   const {
@@ -156,8 +157,20 @@ export const MasterAdminView: React.FC = () => {
               : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
           }`}
         >
+          <Building2 className="w-4 h-4" />
+          <span>Visão Geral & Barbearias</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('subscriptions')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === 'subscriptions'
+              ? 'bg-orange-500 text-neutral-950 shadow-md shadow-orange-500/20'
+              : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+          }`}
+        >
           <CreditCard className="w-4 h-4" />
-          <span>Visão Geral & Planos</span>
+          <span>Assinaturas & MRR</span>
         </button>
 
         <button
@@ -169,7 +182,7 @@ export const MasterAdminView: React.FC = () => {
           }`}
         >
           <Building2 className="w-4 h-4" />
-          <span>Barbearias ({barbershops.length})</span>
+          <span>Todas Barbearias ({barbershops.length})</span>
         </button>
 
         <button
@@ -276,6 +289,10 @@ export const MasterAdminView: React.FC = () => {
             setShowRegisterModal={setShowRegisterModal}
           />
         </div>
+      )}
+
+      {activeTab === 'subscriptions' && (
+        <MasterAdminSubscriptions />
       )}
 
       {activeTab === 'barbershops' && (

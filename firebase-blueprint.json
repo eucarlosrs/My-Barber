@@ -54,6 +54,21 @@
       "title": "Auditoria de Ações Administrativas",
       "description": "Histórico seguro e imutável de ações executadas pelo Super/Master Admin e gestores",
       "type": "object"
+    },
+    "subscriptions": {
+      "title": "Assinaturas Recorrentes Mercado Pago",
+      "description": "Assinaturas mensais vinculadas ao barbershopId com controle de cobranças, período de tolerância e sincronização oficial",
+      "type": "object"
+    },
+    "subscription_payments": {
+      "title": "Histórico de Pagamentos de Assinatura",
+      "description": "Registros de faturas e mensalidades pagas via Mercado Pago",
+      "type": "object"
+    },
+    "webhook_events": {
+      "title": "Eventos de Webhook Mercado Pago",
+      "description": "Trilha de idempotência e processamento de eventos do Mercado Pago",
+      "type": "object"
     }
   }
 }

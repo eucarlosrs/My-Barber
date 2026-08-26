@@ -49,7 +49,8 @@ import {
   ExternalLink,
   Trash2,
   Shield,
-  Lock
+  Lock,
+  Sparkles
 } from 'lucide-react';
 import { Service, User as UserType, GalleryWork, Promotion, Raffle, Barbershop } from '../../types';
 import { AppImage } from '../common/AppImage';

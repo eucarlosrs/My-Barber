@@ -19,7 +19,10 @@ import {
   MY_BARBER_PLANS,
   RegisterBarbershopInput,
   GalleryWork,
-  AuditLog
+  AuditLog,
+  Subscription,
+  SubscriptionPaymentRecord,
+  SubscriptionStatus
 } from '../types';
 import {
   INITIAL_BARBERSHOPS,
@@ -36,7 +39,9 @@ import {
   INITIAL_STOCK,
   INITIAL_RETURN_MESSAGES,
   INITIAL_GALLERY_WORKS,
-  INITIAL_AUDIT_LOGS
+  INITIAL_AUDIT_LOGS,
+  INITIAL_SUBSCRIPTIONS,
+  INITIAL_SUBSCRIPTION_PAYMENTS
 } from '../data/initialData';
 import { isTimeSlotAvailable, timeToMinutes, minutesToTime } from '../utils/scheduleEngine';
 import {
@@ -222,6 +227,18 @@ interface AppContextType {
   impersonationOriginUserId: string | null;
   startImpersonation: (targetRole: UserRole, targetTenantId?: string, specificUserId?: string) => void;
   stopImpersonation: () => void;
+
+  // Recurring Subscriptions (Mercado Pago)
+  subscriptions: Subscription[];
+  subscriptionPayments: SubscriptionPaymentRecord[];
+  currentSubscription?: Subscription;
+  isPastDue: boolean;
+  isSuspended: boolean;
+  toleranceDaysRemaining: number;
+  createSubscription: (data: { barbershopId: string; barbershopName?: string; payerEmail: string; payerName?: string; payerPhone?: string }) => Promise<{ success: boolean; subscription?: Subscription; initPointUrl?: string; error?: string }>;
+  cancelSubscription: (barbershopId: string, reason?: string) => Promise<{ success: boolean; error?: string }>;
+  syncSubscription: (barbershopId: string) => Promise<{ success: boolean; subscription?: Subscription; error?: string }>;
+  simulateSubscriptionAction: (barbershopId: string, action: 'CONFIRM_PAYMENT' | 'TRIGGER_PAST_DUE' | 'TRIGGER_SUSPEND' | 'REGULARIZE' | 'CANCEL' | 'STEP_BILLING_COUNT') => Promise<{ success: boolean; subscription?: Subscription; message?: string; error?: string }>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -323,6 +340,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [returnMessages, setReturnMessages] = useState<ReturnMessage[]>(INITIAL_RETURN_MESSAGES);
   const [galleryWorks, setGalleryWorks] = useState<GalleryWork[]>(INITIAL_GALLERY_WORKS);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>(INITIAL_SUBSCRIPTIONS);
+  const [subscriptionPayments, setSubscriptionPayments] = useState<SubscriptionPaymentRecord[]>(INITIAL_SUBSCRIPTION_PAYMENTS);
   const [whatsappLoginPhone, setWhatsappLoginPhone] = useState<string>('');
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
 
@@ -358,6 +377,121 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const tenantReturnMessages = returnMessages.filter(r => r.tenantId === activeTenantId);
   const tenantGalleryWorks = galleryWorks.filter(g => g.tenantId === activeTenantId);
 
+  // Subscription status for the active tenant
+  const currentSubscription = useMemo(() => {
+    return subscriptions.find(s => s.barbershopId === activeTenantId);
+  }, [subscriptions, activeTenantId]);
+
+  const isPastDue = currentSubscription?.status === 'PAST_DUE';
+  const isSuspended = currentSubscription?.status === 'SUSPENDED';
+
+  const toleranceDaysRemaining = useMemo(() => {
+    if (!currentSubscription || currentSubscription.status !== 'PAST_DUE' || !currentSubscription.pastDueSince) {
+      return 7;
+    }
+    const pastDueDate = new Date(currentSubscription.pastDueSince).getTime();
+    const elapsedDays = Math.floor((Date.now() - pastDueDate) / (1000 * 60 * 60 * 24));
+    return Math.max(0, (currentSubscription.toleranceDays || 7) - elapsedDays);
+  }, [currentSubscription]);
+
+  const createSubscription = async (data: {
+    barbershopId: string;
+    barbershopName?: string;
+    payerEmail: string;
+    payerName?: string;
+    payerPhone?: string;
+  }) => {
+    try {
+      const res = await fetch('/api/subscriptions/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      const result = await res.json();
+      if (result.success && result.subscription) {
+        setSubscriptions(prev => {
+          const filtered = prev.filter(s => s.barbershopId !== data.barbershopId);
+          return [result.subscription, ...filtered];
+        });
+        syncDoc('subscriptions', result.subscription.id, result.subscription);
+      }
+      return result;
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Erro ao conectar ao servidor de assinaturas' };
+    }
+  };
+
+  const cancelSubscription = async (barbershopId: string, reason?: string) => {
+    try {
+      const res = await fetch('/api/subscriptions/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ barbershopId, reason })
+      });
+      const result = await res.json();
+      if (result.success && result.subscription) {
+        setSubscriptions(prev => prev.map(s => s.barbershopId === barbershopId ? result.subscription : s));
+        syncDoc('subscriptions', result.subscription.id, result.subscription);
+      }
+      return result;
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Erro ao cancelar assinatura' };
+    }
+  };
+
+  const syncSubscription = async (barbershopId: string) => {
+    try {
+      const res = await fetch(`/api/subscriptions/sync/${barbershopId}`, { method: 'POST' });
+      const result = await res.json();
+      if (result.success && result.subscription) {
+        setSubscriptions(prev => prev.map(s => s.barbershopId === barbershopId ? result.subscription : s));
+        syncDoc('subscriptions', result.subscription.id, result.subscription);
+      }
+      return result;
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Erro ao sincronizar com Mercado Pago' };
+    }
+  };
+
+  const simulateSubscriptionAction = async (
+    barbershopId: string,
+    action: 'CONFIRM_PAYMENT' | 'TRIGGER_PAST_DUE' | 'TRIGGER_SUSPEND' | 'REGULARIZE' | 'CANCEL' | 'STEP_BILLING_COUNT'
+  ) => {
+    try {
+      const res = await fetch('/api/subscriptions/simulate-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ barbershopId, action })
+      });
+      const result = await res.json();
+      if (result.success && result.subscription) {
+        setSubscriptions(prev => {
+          const exists = prev.some(s => s.barbershopId === barbershopId);
+          if (exists) {
+            return prev.map(s => s.barbershopId === barbershopId ? result.subscription : s);
+          }
+          return [result.subscription, ...prev];
+        });
+        syncDoc('subscriptions', result.subscription.id, result.subscription);
+
+        // Fetch refreshed payments
+        try {
+          const payRes = await fetch(`/api/subscriptions/status/${barbershopId}`);
+          const payData = await payRes.json();
+          if (payData.payments) {
+            setSubscriptionPayments(payData.payments);
+            payData.payments.forEach((p: any) => syncDoc('subscription_payments', p.id, p));
+          }
+        } catch {
+          // ignore
+        }
+      }
+      return result;
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Erro ao executar simulação' };
+    }
+  };
+
   // Real-time Firestore synchronization and initial seeding
   useEffect(() => {
     seedFirestoreIfEmpty();
@@ -391,6 +525,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubReturnMessages = subscribeCollection<ReturnMessage>('returnMessages', setReturnMessages, INITIAL_RETURN_MESSAGES);
     const unsubGallery = subscribeCollection<GalleryWork>('gallery', setGalleryWorks, INITIAL_GALLERY_WORKS);
     const unsubAuditLogs = subscribeCollection<AuditLog>('audit_logs', setAuditLogs, INITIAL_AUDIT_LOGS);
+    const unsubSubscriptions = subscribeCollection<Subscription>('subscriptions', setSubscriptions, INITIAL_SUBSCRIPTIONS);
+    const unsubSubscriptionPayments = subscribeCollection<SubscriptionPaymentRecord>('subscription_payments', setSubscriptionPayments, INITIAL_SUBSCRIPTION_PAYMENTS);
 
     return () => {
       clearTimeout(safetyTimeout);
@@ -409,6 +545,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubReturnMessages();
       unsubGallery();
       unsubAuditLogs();
+      unsubSubscriptions();
+      unsubSubscriptionPayments();
     };
   }, []);
 
@@ -1540,6 +1678,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     defaultServices.forEach(srv => syncDoc('services', srv.id, srv));
     defaultStock.forEach(stk => syncDoc('stock', stk.id, stk));
 
+    // Initialize Mercado Pago Recurring Subscription
+    const initialSubscription: Subscription = {
+      id: `sub-${newTenantId}`,
+      barbershopId: newTenantId,
+      barbershopName: input.name,
+      payerEmail: input.managerEmail || `${input.slug}@mybarber.com.br`,
+      payerName: input.managerName,
+      payerPhone: input.managerWhatsApp,
+      mercadopagoSubscriptionId: `mp-sub-${Date.now()}`,
+      status: 'PENDING',
+      plan: 'Plano MY BARBER',
+      currentPrice: 49.90,
+      billingCycle: 'MONTHLY',
+      trialOrLaunchPeriod: true,
+      billingCount: 0,
+      nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      initPointUrl: `https://www.mercadopago.com.br/subscriptions/checkout?preapproval_id=mp-sub-${Date.now()}`,
+      toleranceDays: 7,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString()
+    };
+    setSubscriptions(prev => [initialSubscription, ...prev]);
+    syncDoc('subscriptions', initialSubscription.id, initialSubscription);
+
+    // Call backend asynchronously to create on Mercado Pago
+    createSubscription({
+      barbershopId: newTenantId,
+      barbershopName: input.name,
+      payerEmail: input.managerEmail || `${input.slug}@mybarber.com.br`,
+      payerName: input.managerName,
+      payerPhone: input.managerWhatsApp
+    }).catch(e => console.warn('Background subscription creation:', e));
+
     addAuditLog({
       actorUserId: currentUser.id,
       actorUserName: currentUser.name,
@@ -1547,11 +1718,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       action: 'CADASTRO_BARBEARIA',
       targetTenantId: newTenantId,
       targetTenantName: input.name,
-      details: `Nova barbearia cadastrada com plano fixo R$ 49,90/mês. Gestor inicial: ${input.managerName} (${input.managerRole})${additionalManager ? ` + Gerente: ${additionalManager.name}` : ''}.`,
+      details: `Nova barbearia cadastrada com assinatura recorrente Mercado Pago (R$ 49,90/mês nos 3 primeiros meses, R$ 69,90 após). Gestor: ${input.managerName}.`,
       status: 'SUCESSO'
     });
 
-    return { success: true, barbershopId: newTenantId };
+    return {
+      success: true,
+      barbershopId: newTenantId,
+      subscription: initialSubscription,
+      initPointUrl: initialSubscription.initPointUrl
+    };
   };
 
   const deleteBarbershop = (barbershopId: string) => {
@@ -1807,7 +1983,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isImpersonating,
         impersonationOriginUserId,
         startImpersonation,
-        stopImpersonation
+        stopImpersonation,
+        // Recurring Subscriptions
+        subscriptions,
+        subscriptionPayments,
+        currentSubscription,
+        isPastDue,
+        isSuspended,
+        toleranceDaysRemaining,
+        createSubscription,
+        cancelSubscription,
+        syncSubscription,
+        simulateSubscriptionAction
       }}
     >
       {children}

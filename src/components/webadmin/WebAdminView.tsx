@@ -28,7 +28,8 @@ import {
   Camera,
   Upload,
   Pencil,
-  Image as ImageIcon
+  Image as ImageIcon,
+  CreditCard
 } from 'lucide-react';
 import { MY_BARBER_PLANS, UserRole, Service } from '../../types';
 import { ProfessionalsTab } from './ProfessionalsTab';
@@ -36,6 +37,7 @@ import { AppointmentsTab } from './AppointmentsTab';
 import { RafflesTab } from './RafflesTab';
 import { PromotionsTab } from './PromotionsTab';
 import { GalleryTab } from './GalleryTab';
+import { MySubscriptionView } from '../subscription/MySubscriptionView';
 import { AppImage } from '../common/AppImage';
 import { ImageEditModal, ImagePreset } from '../common/ImageEditModal';
 
@@ -60,11 +62,14 @@ export const WebAdminView: React.FC = () => {
     galleryWorks,
     uploadMedia,
     getBarbershopDirectUrl,
-    setViewMode
+    setViewMode,
+    isPastDue,
+    isSuspended,
+    toleranceDaysRemaining
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<
-    'DASHBOARD' | 'APPOINTMENTS' | 'GALLERY' | 'PROFESSIONALS' | 'RAFFLES' | 'PROMOTIONS' | 'SERVICES' | 'CLIENTS' | 'FINANCIAL' | 'SETTINGS'
+    'DASHBOARD' | 'APPOINTMENTS' | 'GALLERY' | 'PROFESSIONALS' | 'RAFFLES' | 'PROMOTIONS' | 'SERVICES' | 'CLIENTS' | 'FINANCIAL' | 'SUBSCRIPTION' | 'SETTINGS'
   >('DASHBOARD');
 
   const [copiedLink, setCopiedLink] = useState(false);
@@ -233,6 +238,7 @@ export const WebAdminView: React.FC = () => {
       <div className="flex items-center gap-1.5 sm:gap-2 my-6 overflow-x-auto border-b border-neutral-800 pb-2">
         {[
           { id: 'DASHBOARD', label: 'Visão Geral', icon: Building2 },
+          { id: 'SUBSCRIPTION', label: 'Minha Assinatura', icon: CreditCard, highlight: isPastDue || isSuspended },
           { id: 'SETTINGS', label: 'Identidade & Fotos', icon: Settings },
           { id: 'APPOINTMENTS', label: `Agendamentos (${appointments.length})`, icon: CalendarCheck },
           { id: 'GALLERY', label: `Galeria & Portfólio (${galleryWorks.length})`, icon: Camera },
@@ -252,6 +258,8 @@ export const WebAdminView: React.FC = () => {
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors ${
                 isActive
                   ? 'bg-neutral-800 text-amber-400 border border-neutral-700'
+                  : tab.highlight
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
                   : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900'
               }`}
             >
@@ -1008,6 +1016,13 @@ export const WebAdminView: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* MINHA ASSINATURA */}
+      {activeTab === 'SUBSCRIPTION' && (
+        <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-xl">
+          <MySubscriptionView />
         </div>
       )}
 

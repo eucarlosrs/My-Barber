@@ -467,3 +467,63 @@ export interface AuditLog {
   status: 'SUCESSO' | 'ERRO' | 'AVISO';
 }
 
+// ==========================================
+// 15. ASSINATURAS RECORRENTES MERCADO PAGO
+// ==========================================
+export type SubscriptionStatus = 'PENDING' | 'ACTIVE' | 'PAST_DUE' | 'SUSPENDED' | 'CANCELED';
+
+export interface Subscription {
+  id: string;
+  barbershopId: string;
+  barbershopName: string;
+  payerEmail: string;
+  payerName?: string;
+  payerPhone?: string;
+  mercadopagoSubscriptionId: string;
+  mercadopagoCustomerId?: string;
+  status: SubscriptionStatus;
+  plan: string; // 'Plano MY BARBER'
+  currentPrice: number; // R$ 49.90 (meses 1 a 3) ou R$ 69.90 (a partir do mês 4)
+  billingCycle: 'MONTHLY';
+  trialOrLaunchPeriod: boolean; // true para os 3 primeiros meses
+  billingCount: number; // Quantidade de cobranças confirmadas e faturadas
+  nextBillingDate: string; // Formato YYYY-MM-DD
+  initPointUrl?: string; // Link de checkout/autorização do Mercado Pago
+  pastDueSince?: string; // Data em que ficou inadimplente (para contagem dos 7 dias de tolerância)
+  toleranceDays: number; // 7 dias
+  createdAt: string;
+  updatedAt: string;
+  canceledAt?: string;
+}
+
+export type PaymentRecordStatus = 'APPROVED' | 'PENDING' | 'REJECTED' | 'REFUNDED';
+
+export interface SubscriptionPaymentRecord {
+  id: string;
+  subscriptionId: string;
+  barbershopId: string;
+  barbershopName?: string;
+  mercadopagoPaymentId: string;
+  amount: number;
+  status: PaymentRecordStatus;
+  statusDetail?: string;
+  paymentDate: string; // YYYY-MM-DD ou ISO
+  billingNumber: number; // 1, 2, 3, 4...
+  paymentMethod?: string;
+  createdAt: string;
+}
+
+export interface WebhookEventLog {
+  id: string;
+  eventId: string;
+  type: string;
+  source: 'MERCADO_PAGO';
+  processed: boolean;
+  receivedAt: string;
+  processedAt?: string;
+  payload?: any;
+  status: 'SUCCESS' | 'IGNORED' | 'ERROR';
+  error?: string;
+}
+
+

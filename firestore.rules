@@ -205,5 +205,42 @@ service cloud.firestore {
       allow create: if isSuperAdmin();
       allow update, delete: if false; // Logs de auditoria são imutáveis
     }
+
+    // ----------------------------------------------------
+    // 11. ASSINATURAS MERCADO PAGO (SUBSCRIPTIONS)
+    // ----------------------------------------------------
+    match /subscriptions/{subscriptionId} {
+      // Leitura: Super Admin ou Proprietário da respectiva barbearia
+      allow read: if isSuperAdmin() || (
+        isAuthenticated() && (
+          resource.data.barbershopId == getUserData().tenantId
+        )
+      );
+      // Escrita financeira direta pelo cliente é bloqueada (gerenciado pelo Backend / Admin SDK)
+      allow write: if isSuperAdmin();
+    }
+
+    // ----------------------------------------------------
+    // 12. HISTÓRICO DE PAGAMENTOS (SUBSCRIPTION PAYMENTS)
+    // ----------------------------------------------------
+    match /subscription_payments/{paymentId} {
+      // Leitura: Super Admin ou Proprietário da respectiva barbearia
+      allow read: if isSuperAdmin() || (
+        isAuthenticated() && (
+          resource.data.barbershopId == getUserData().tenantId
+        )
+      );
+      // Escrita estritamente via Backend / Admin SDK / Super Admin
+      allow write: if isSuperAdmin();
+    }
+
+    // ----------------------------------------------------
+    // 13. WEBHOOK EVENTS LOGS
+    // ----------------------------------------------------
+    match /webhook_events/{eventId} {
+      allow read: if isSuperAdmin();
+      allow write: if isSuperAdmin();
+    }
   }
 }
+
