@@ -15,7 +15,6 @@ import {
   CheckCircle2,
   Gift,
   Package,
-  Sparkles,
   Phone,
   Instagram,
   MapPin,
@@ -743,7 +742,7 @@ export const ClientAppView: React.FC = () => {
                   className="w-16 h-16 rounded-2xl object-cover border-2 border-orange-500/60 shadow-2xl bg-neutral-900 shrink-0"
                 />
                 <div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-0.5">
                     <h1 className="text-base sm:text-lg font-bold text-neutral-100 leading-tight">
                       {currentBarbershop.name}
                     </h1>
@@ -753,10 +752,10 @@ export const ClientAppView: React.FC = () => {
                       )}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="p-1 text-orange-500 hover:text-orange-400 hover:bg-neutral-800/80 rounded-lg transition-colors cursor-pointer inline-flex items-center"
+                      className="p-0.5 text-orange-500 hover:text-orange-400 hover:bg-neutral-800/80 rounded-lg transition-colors cursor-pointer inline-flex items-center"
                       title="Abrir no Google Maps"
                     >
-                      <MapPin className="w-4 h-4 text-orange-500 shrink-0 hover:scale-110 transition-transform" />
+                      <MapPin className="w-3.5 h-3.5 text-orange-500 shrink-0 hover:scale-110 transition-transform" />
                     </a>
                   </div>
                 </div>
@@ -844,7 +843,7 @@ export const ClientAppView: React.FC = () => {
               <div className="mt-3.5 pt-3 border-t border-neutral-800/80">
                 <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-2 flex items-center justify-between">
                   <span className="flex items-center gap-1.5 text-neutral-300">
-                    <Sparkles className="w-3 h-3 text-amber-400" />
+                    <Flame className="w-3.5 h-3.5 text-amber-400" />
                     Destaques & Novidades da Barbearia
                   </span>
                   <span className="text-[9px] text-orange-400/90 font-medium">Toque para ver</span>
@@ -1898,16 +1897,13 @@ export const ClientAppView: React.FC = () => {
                       <div className="bg-neutral-950 p-2.5 rounded-xl border border-neutral-800 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div className="w-6 h-6 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
-                            <Sparkles className="w-3.5 h-3.5" />
+                            <Tag className="w-3.5 h-3.5" />
                           </div>
                           <div>
                             <span className="text-[10px] text-neutral-400 uppercase font-semibold block">Benefício:</span>
                             <span className="text-xs font-bold text-neutral-200">Desconto Direto no Horário</span>
                           </div>
                         </div>
-                        <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                          Sem cupom
-                        </span>
                       </div>
 
                       <div className="flex items-center justify-between text-[11px] text-neutral-400 pt-2 border-t border-neutral-800">
@@ -2294,18 +2290,18 @@ export const ClientAppView: React.FC = () => {
         {/* 2.5 FLOATING ACTION BUTTON (AGENDAR) - FOLLOWS CLIENT ACROSS ALL TABS */}
         {/* ========================================================================= */}
         {activeTab !== 'BOOKING' && (
-          <div className="fixed bottom-20 right-3 sm:right-5 md:right-6 z-40 pointer-events-auto">
+          <div className="fixed bottom-24 right-3.5 sm:right-5 md:right-6 z-40 pointer-events-auto">
             <button
               type="button"
               onClick={() => {
                 setActiveTab('BOOKING');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className="group flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-neutral-950 font-bold rounded-full shadow-[0_4px_18px_rgba(249,115,22,0.5)] hover:shadow-[0_6px_24px_rgba(249,115,22,0.7)] border border-orange-300/40 transition-all duration-200 transform active:scale-95 cursor-pointer backdrop-blur-sm"
+              className="group flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900/90 hover:bg-neutral-800 text-orange-400 hover:text-orange-300 font-bold rounded-full shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-orange-500/30 hover:border-orange-500/60 transition-all duration-200 transform active:scale-95 cursor-pointer backdrop-blur-md"
               title="Agendar horário na barbearia agora"
             >
-              <Scissors className="w-4 h-4 text-neutral-950 stroke-[2.4] group-hover:rotate-12 transition-transform duration-200 shrink-0" />
-              <span className="text-xs font-black uppercase tracking-wide font-heading">
+              <Scissors className="w-3.5 h-3.5 text-orange-400 stroke-[2.2] shrink-0 animate-scissor-snip" />
+              <span className="text-[11px] font-extrabold uppercase tracking-wide font-heading">
                 Agendar
               </span>
             </button>

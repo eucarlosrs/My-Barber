@@ -171,24 +171,24 @@ export const WebAdminView: React.FC = () => {
       </div>
 
       {/* Link de Divulgação Exclusivo da Barbearia no My Barber */}
-      <div className="my-4 bg-gradient-to-r from-orange-500/15 via-neutral-900 to-neutral-900 border border-orange-500/40 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
-        <div className="flex items-center gap-3.5 min-w-0 flex-1">
+      <div className="my-4 bg-gradient-to-r from-orange-500/15 via-neutral-900 to-neutral-900 border border-orange-500/40 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl overflow-hidden">
+        <div className="flex items-center gap-3.5 min-w-0 w-full sm:w-auto flex-1">
           <div className="w-11 h-11 rounded-2xl bg-orange-500/20 text-orange-400 border border-orange-500/30 flex items-center justify-center shrink-0 shadow-md">
             <Share2 className="w-5 h-5" />
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs sm:text-sm font-black text-neutral-100 uppercase tracking-wider font-heading">
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs sm:text-sm font-black text-neutral-100 uppercase tracking-wider font-heading truncate">
                 Endereço Exclusivo no My Barber
               </span>
-              <span className="bg-orange-500 text-neutral-950 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+              <span className="bg-orange-500 text-neutral-950 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shrink-0">
                 Exclusivo
               </span>
             </div>
-            <p className="text-xs text-neutral-300 mt-0.5">
+            <p className="text-xs text-neutral-300 mt-0.5 break-words">
               Seus clientes entram direto na sua página, carregando somente seus serviços, profissionais e fotos.
             </p>
-            <div className="text-xs sm:text-sm font-mono text-orange-400 font-extrabold mt-1.5 truncate select-all bg-neutral-950/80 px-3 py-1.5 rounded-xl border border-neutral-800 w-fit">
+            <div className="text-xs sm:text-sm font-mono text-orange-400 font-extrabold mt-1.5 select-all bg-neutral-950/80 px-3 py-1.5 rounded-xl border border-neutral-800 break-all max-w-full inline-block">
               https://{currentBarbershop.slug}.mybarberbr.com.br
             </div>
           </div>

@@ -109,3 +109,27 @@
   animation: barberPoleMove 2.5s linear infinite;
 }
 
+@keyframes scissorSnip {
+  0%, 100% {
+    transform: rotate(0deg) scale(1);
+  }
+  15% {
+    transform: rotate(-24deg) scale(1.1);
+  }
+  30% {
+    transform: rotate(18deg) scale(0.95);
+  }
+  45% {
+    transform: rotate(-20deg) scale(1.08);
+  }
+  60% {
+    transform: rotate(0deg) scale(1);
+  }
+  /* 60% até 100% é a pausa antes do próximo ciclo */
+}
+
+.animate-scissor-snip {
+  animation: scissorSnip 2.6s ease-in-out infinite;
+  transform-origin: center center;
+}
+

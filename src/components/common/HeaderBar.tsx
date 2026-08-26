@@ -8,7 +8,6 @@ import {
   Layers,
   UserCheck,
   Globe,
-  Sparkles,
   ChevronDown,
   Crown,
   Eye,

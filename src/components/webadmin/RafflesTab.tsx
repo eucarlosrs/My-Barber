@@ -8,7 +8,6 @@ import {
   AlertCircle,
   Trophy,
   Users,
-  Sparkles,
   Phone,
   Trash2,
   Clock,
@@ -195,7 +194,7 @@ export const RafflesTab: React.FC = () => {
                     </div>
                     {raffle.showInHighlights && (
                       <span className="bg-amber-400 text-neutral-950 font-black text-[9px] px-2 py-0.5 rounded-lg flex items-center gap-0.5 shadow">
-                        <Sparkles className="w-2.5 h-2.5" />
+                        <Trophy className="w-2.5 h-2.5" />
                         NO DESTAQUE
                       </span>
                     )}
@@ -433,7 +432,7 @@ export const RafflesTab: React.FC = () => {
               <div className="bg-neutral-950 p-3.5 rounded-2xl border border-neutral-800/90 space-y-3">
                 <label className="flex items-center justify-between cursor-pointer">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    <Trophy className="w-4 h-4 text-amber-400" />
                     <div>
                       <div className="text-xs font-bold text-neutral-200">Exibir nos Destaques do App</div>
                       <div className="text-[11px] text-neutral-400">Aparecer na vitrine de propaganda do cliente</div>

@@ -9,7 +9,7 @@ import {
   XCircle,
   Trash2,
   Edit2,
-  Sparkles,
+  Flame,
   ToggleLeft,
   ToggleRight,
   Camera,
@@ -199,7 +199,7 @@ export const PromotionsTab: React.FC = () => {
 
                     {promo.showInHighlights && (
                       <span className="bg-amber-400 text-neutral-950 font-black text-[9px] px-2 py-0.5 rounded-lg flex items-center gap-0.5 shadow">
-                        <Sparkles className="w-2.5 h-2.5" />
+                        <Flame className="w-2.5 h-2.5" />
                         NO DESTAQUE
                       </span>
                     )}
@@ -238,7 +238,7 @@ export const PromotionsTab: React.FC = () => {
                     <div className="bg-neutral-950 p-2.5 rounded-xl border border-neutral-800 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="w-5 h-5 rounded-md bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-400">
-                          <Sparkles className="w-3 h-3" />
+                          <Tag className="w-3 h-3" />
                         </div>
                         <div>
                           <span className="text-[9px] uppercase font-bold text-neutral-500 block">Aplicação:</span>
@@ -439,7 +439,7 @@ export const PromotionsTab: React.FC = () => {
               <div className="bg-neutral-950 p-3.5 rounded-2xl border border-neutral-800/90 space-y-3">
                 <label className="flex items-center justify-between cursor-pointer">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    <Flame className="w-4 h-4 text-amber-400" />
                     <div>
                       <div className="text-xs font-bold text-neutral-200">Exibir nos Destaques do App</div>
                       <div className="text-[11px] text-neutral-400">Aparecer na vitrine superior para todos os clientes</div>

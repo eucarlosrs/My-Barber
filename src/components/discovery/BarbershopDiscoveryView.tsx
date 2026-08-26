@@ -8,7 +8,6 @@ import {
   Scissors,
   Phone,
   ChevronRight,
-  Sparkles,
   Building2,
   CheckCircle2,
   Clock,

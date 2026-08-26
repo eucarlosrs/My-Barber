@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Upload,
   Link as LinkIcon,
-  Sparkles,
   CheckCircle2,
   AlertCircle,
   X,
@@ -725,7 +724,7 @@ export const ImageEditModal: React.FC<ImageEditModalProps> = ({
                   : 'text-neutral-400 hover:text-neutral-200'
               }`}
             >
-              <Sparkles className="w-3.5 h-3.5" />
+              <ImageIcon className="w-3.5 h-3.5" />
               <span>Sugestões</span>
             </button>
           )}
