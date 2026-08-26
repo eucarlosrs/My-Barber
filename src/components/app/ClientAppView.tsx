@@ -228,6 +228,14 @@ export const ClientAppView: React.FC = () => {
   const [bookingSuccessMsg, setBookingSuccessMsg] = useState<string | null>(null);
   const [bookingErrorMsg, setBookingErrorMsg] = useState<string | null>(null);
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string, boolean>>({});
+  const [showCelebrationModal, setShowCelebrationModal] = useState<boolean>(false);
+  const [celebrationDetails, setCelebrationDetails] = useState<{
+    serviceName: string;
+    professionalName: string;
+    date: string;
+    time: string;
+    price: number;
+  } | null>(null);
 
   // Waitlist form
   const [waitlistDate, setWaitlistDate] = useState(todayStr);
@@ -336,7 +344,7 @@ export const ClientAppView: React.FC = () => {
     });
   }, [services]);
 
-  // Função para seleção rápida e rolagem suave para seleção de profissional
+  // Funções para seleção e rolagem suave automática passo a passo
   const handleSelectServiceAndProceed = (srv: Service) => {
     setSelectedService(srv);
     setTimeout(() => {
@@ -344,7 +352,32 @@ export const ClientAppView: React.FC = () => {
       if (profSection) {
         profSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
-    }, 100);
+    }, 120);
+  };
+
+  const handleSelectProfessionalAndProceed = (prof: UserType) => {
+    setSelectedProfessional(prof);
+    setTimeout(() => {
+      const dateTimeSection = document.getElementById('step-3-datetime');
+      if (dateTimeSection) {
+        dateTimeSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 120);
+  };
+
+  const handleSelectDateAndProceed = (dateStr: string) => {
+    setSelectedDate(dateStr);
+  };
+
+  const handleSelectTimeAndProceed = (timeStr: string) => {
+    setSelectedTime(timeStr);
+    setBookingErrorMsg(null);
+    setTimeout(() => {
+      const confirmSection = document.getElementById('step-4-confirm');
+      if (confirmSection) {
+        confirmSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 120);
   };
 
   // Garante que o serviço selecionado pertença aos serviços cadastrados da barbearia
@@ -392,8 +425,15 @@ export const ClientAppView: React.FC = () => {
     });
 
     if (res.success) {
+      setCelebrationDetails({
+        serviceName: selectedService.name,
+        professionalName: selectedProfessional.name,
+        date: selectedDate,
+        time: selectedTime,
+        price: selectedService.price
+      });
+      setShowCelebrationModal(true);
       setBookingSuccessMsg(`Agendamento confirmado para ${selectedDate.split('-').reverse().join('/')} às ${selectedTime}! Lembrete via WhatsApp ativado.`);
-      setActiveTab('MY_APPOINTMENTS');
     } else {
       setBookingErrorMsg(res.error || 'Erro ao agendar.');
     }
@@ -670,7 +710,7 @@ export const ClientAppView: React.FC = () => {
       {/* ========================================================================= */}
         <div className="relative bg-neutral-900 border-b border-neutral-800/80">
           {/* Cover photo banner */}
-          <div className="h-32 w-full overflow-hidden relative">
+          <div className="h-36 sm:h-44 w-full overflow-hidden relative">
             <AppImage
               src={currentBarbershop.bannerUrl || currentBarbershop.salonImages[0] || APP_ASSETS.banner}
               alt="Salão da Barbearia"
@@ -681,7 +721,7 @@ export const ClientAppView: React.FC = () => {
             
             {/* Real-time Verified Open/Closed Status Tag */}
             <div
-              className={`absolute top-3 left-3 bg-neutral-950/90 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-extrabold flex items-center gap-1.5 shadow-lg border transition-all ${
+              className={`absolute top-3.5 left-3.5 bg-neutral-950/90 backdrop-blur-md px-3 py-1.5 rounded-full text-[10px] font-extrabold flex items-center gap-1.5 shadow-lg border transition-all ${
                 realOpenStatus.isOpen
                   ? 'border-emerald-500/40 text-emerald-400'
                   : 'border-amber-500/40 text-amber-400'
@@ -702,7 +742,7 @@ export const ClientAppView: React.FC = () => {
             </div>
 
             {/* Top Right Quick Actions */}
-            <div className="absolute top-3 right-3 flex items-center gap-1.5">
+            <div className="absolute top-3.5 right-3.5 flex items-center gap-1.5">
               {/* Copy Exclusive Link Button */}
               <button
                 type="button"
@@ -1119,7 +1159,7 @@ export const ClientAppView: React.FC = () => {
                     return (
                       <button
                         key={prof.id}
-                        onClick={() => setSelectedProfessional(prof)}
+                        onClick={() => handleSelectProfessionalAndProceed(prof)}
                         className={`p-3 rounded-2xl border text-left transition-all flex flex-col items-center text-center active:scale-[0.98] ${
                           isSelected
                             ? 'bg-orange-500/10 border-orange-500 ring-1 ring-orange-500/50 shadow-md'
@@ -1151,7 +1191,7 @@ export const ClientAppView: React.FC = () => {
               </div>
 
               {/* Step 3: Select Date Strip & Time Slots */}
-              <div>
+              <div id="step-3-datetime">
                 <div className="flex items-center gap-2 mb-2.5">
                   <span className="w-5 h-5 rounded-full bg-orange-500 text-neutral-950 font-bold text-[11px] flex items-center justify-center">
                     3
@@ -1168,7 +1208,7 @@ export const ClientAppView: React.FC = () => {
                     return (
                       <button
                         key={d.date}
-                        onClick={() => setSelectedDate(d.date)}
+                        onClick={() => handleSelectDateAndProceed(d.date)}
                         className={`flex flex-col items-center py-2 px-3 rounded-2xl border min-w-[58px] transition-all active:scale-95 ${
                           isSelected
                             ? 'bg-orange-500 text-neutral-950 border-orange-500 shadow-md font-bold'
@@ -1215,8 +1255,7 @@ export const ClientAppView: React.FC = () => {
                                   title={slot.reason || (slot.available ? 'Disponível' : 'Indisponível')}
                                   onClick={() => {
                                     if (slot.available) {
-                                      setSelectedTime(slot.time);
-                                      setBookingErrorMsg(null);
+                                      handleSelectTimeAndProceed(slot.time);
                                     }
                                   }}
                                   className={`py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center relative ${
@@ -1251,8 +1290,7 @@ export const ClientAppView: React.FC = () => {
                                   title={slot.reason || (slot.available ? 'Disponível' : 'Indisponível')}
                                   onClick={() => {
                                     if (slot.available) {
-                                      setSelectedTime(slot.time);
-                                      setBookingErrorMsg(null);
+                                      handleSelectTimeAndProceed(slot.time);
                                     }
                                   }}
                                   className={`py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center relative ${
@@ -1287,8 +1325,7 @@ export const ClientAppView: React.FC = () => {
                                   title={slot.reason || (slot.available ? 'Disponível' : 'Indisponível')}
                                   onClick={() => {
                                     if (slot.available) {
-                                      setSelectedTime(slot.time);
-                                      setBookingErrorMsg(null);
+                                      handleSelectTimeAndProceed(slot.time);
                                     }
                                   }}
                                   className={`py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center relative ${
@@ -1312,7 +1349,7 @@ export const ClientAppView: React.FC = () => {
               </div>
 
               {/* Sticky Booking Summary Sheet */}
-              <div className="bg-neutral-900 border-2 border-orange-500/40 rounded-2xl p-4 shadow-xl space-y-3">
+              <div id="step-4-confirm" className="bg-neutral-900 border-2 border-orange-500/40 rounded-2xl p-4 shadow-xl space-y-3">
                 <div className="flex items-center justify-between text-xs pb-2 border-b border-neutral-800 gap-2">
                   <div className="min-w-0 flex-1">
                     <span className="text-[10px] text-neutral-400 uppercase font-bold block">Resumo do Horário</span>
@@ -3088,6 +3125,83 @@ export const ClientAppView: React.FC = () => {
                   Fechar
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* 4.6 BOOKING SUCCESS CELEBRATION MODAL (FESTIVE CONFETTI & CONFIRMATION) */}
+        {/* ========================================================================= */}
+        {showCelebrationModal && celebrationDetails && (
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-neutral-950 border-2 border-orange-500/50 rounded-3xl max-w-sm w-full p-6 text-center text-neutral-100 shadow-[0_0_50px_rgba(249,115,22,0.3)] relative overflow-hidden">
+              {/* Decorative Barber Pole Line */}
+              <div className="absolute top-0 left-0 right-0 h-1.5 barber-pole-stripe" />
+
+              {/* Animated Floating Confetti / Sparks */}
+              <div className="absolute -top-3 left-1/4 w-2 h-2 rounded-full bg-orange-400 animate-ping opacity-75" />
+              <div className="absolute top-8 right-8 w-2 h-2 rounded-full bg-amber-300 animate-ping opacity-60" />
+              <div className="absolute bottom-10 left-6 w-2 h-2 rounded-full bg-emerald-400 animate-pulse opacity-70" />
+
+              {/* Animated Success Badge with Scissors & Checkmark */}
+              <div className="relative my-4 inline-flex items-center justify-center">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-orange-500 to-amber-400 p-0.5 shadow-lg shadow-orange-500/30 animate-bounce">
+                  <div className="w-full h-full rounded-full bg-neutral-950 flex items-center justify-center text-orange-400">
+                    <CheckCircle2 className="w-10 h-10 text-orange-400 stroke-[2.5]" />
+                  </div>
+                </div>
+                <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-neutral-950 rounded-full p-1.5 shadow-md">
+                  <Scissors className="w-4 h-4 text-neutral-950" />
+                </div>
+              </div>
+
+              <h3 className="text-xl font-black text-neutral-100 font-heading tracking-tight">
+                Horário Confirmado!
+              </h3>
+              <p className="text-xs text-orange-400 font-bold uppercase tracking-wider mt-1">
+                Seu agendamento foi realizado com sucesso
+              </p>
+
+              {/* Appointment Ticket Card */}
+              <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 my-5 text-left space-y-2.5 shadow-inner">
+                <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+                  <span className="text-[11px] font-semibold text-neutral-400">Serviço</span>
+                  <span className="text-xs font-black text-neutral-100">{celebrationDetails.serviceName}</span>
+                </div>
+                <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+                  <span className="text-[11px] font-semibold text-neutral-400">Profissional</span>
+                  <span className="text-xs font-bold text-orange-400">{celebrationDetails.professionalName}</span>
+                </div>
+                <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+                  <span className="text-[11px] font-semibold text-neutral-400">Data e Horário</span>
+                  <span className="text-xs font-bold text-emerald-400">
+                    {celebrationDetails.date.split('-').reverse().join('/')} às {celebrationDetails.time}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-neutral-400">Valor</span>
+                  <span className="text-sm font-black text-neutral-100 font-mono">
+                    R$ {celebrationDetails.price.toFixed(2).replace('.', ',')}
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-neutral-400 mb-5 leading-relaxed">
+                Você pode acompanhar e gerenciar seus horários na aba <strong>Meus Agendamentos</strong>.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCelebrationModal(false);
+                  setActiveTab('MY_APPOINTMENTS');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="w-full py-3.5 px-4 bg-orange-500 hover:bg-orange-400 text-neutral-950 rounded-2xl text-xs sm:text-sm font-black tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-orange-500/25 transition-all cursor-pointer active:scale-95"
+              >
+                <span>VER MEUS AGENDAMENTOS</span>
+                <ChevronRight className="w-4 h-4 stroke-[3]" />
+              </button>
             </div>
           </div>
         )}

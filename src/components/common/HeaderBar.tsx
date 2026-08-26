@@ -78,28 +78,28 @@ export const HeaderBar: React.FC = () => {
       )}
 
       {/* Main Bar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between py-2.5 gap-3 border-b border-[#2D2D2D] text-xs">
+      <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between py-2 sm:py-2.5 gap-2 text-xs">
           
           {/* Logo & Establishment Info */}
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="font-bold tracking-wider text-[#FF6B00] uppercase flex items-center gap-1.5 font-heading text-sm">
-                <Scissors className="w-4 h-4 text-[#FF6B00] shrink-0" />
-                MY BARBER
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="font-bold tracking-wider text-[#FF6B00] uppercase flex items-center gap-1 font-heading text-xs sm:text-sm">
+                <Scissors className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#FF6B00] shrink-0" />
+                <span className="font-black">MY BARBER</span>
               </span>
             </div>
 
             {/* Super Admin Tenant Switcher vs Owner/Prof Fixed Barbershop Name */}
             {isSuperAdmin ? (
-              <div className="flex items-center gap-1.5 bg-[#0D0D0D] px-2.5 py-1.5 rounded-xl border border-[#2D2D2D] max-w-full sm:max-w-xs">
+              <div className="flex items-center gap-1 bg-[#0D0D0D] px-2 py-1 rounded-xl border border-[#2D2D2D] min-w-0 max-w-[120px] xs:max-w-[160px] sm:max-w-xs">
                 <Building2 className="w-3.5 h-3.5 text-[#FF6B00] shrink-0" />
                 <label htmlFor="tenant-select" className="text-[#A3A3A3] sr-only">Estabelecimento Ativo</label>
                 <select
                   id="tenant-select"
                   value={activeTenantId}
                   onChange={(e) => setActiveTenantId(e.target.value)}
-                  className="bg-transparent text-[#F5F5F5] font-semibold focus:outline-none cursor-pointer pr-2 text-xs truncate max-w-[150px] sm:max-w-[200px]"
+                  className="bg-transparent text-[#F5F5F5] font-semibold focus:outline-none cursor-pointer pr-1 text-[11px] sm:text-xs truncate w-full"
                 >
                   {barbershops.map((b) => (
                     <option key={b.id} value={b.id} className="bg-[#1C1C1C] text-[#F5F5F5]">
@@ -109,9 +109,9 @@ export const HeaderBar: React.FC = () => {
                 </select>
               </div>
             ) : (
-              <div className="flex items-center gap-2 bg-[#0D0D0D] px-3 py-1 rounded-xl border border-[#2D2D2D] text-[#A3A3A3]">
+              <div className="flex items-center gap-1.5 bg-[#0D0D0D] px-2.5 py-1 rounded-xl border border-[#2D2D2D] text-[#A3A3A3] min-w-0 max-w-[120px] xs:max-w-[160px] sm:max-w-xs">
                 <Building2 className="w-3.5 h-3.5 text-[#FF6B00] shrink-0" />
-                <span className="font-bold text-[#F5F5F5] truncate text-xs">{currentBarbershop.name}</span>
+                <span className="font-bold text-[#F5F5F5] truncate text-[11px] sm:text-xs">{currentBarbershop.name}</span>
               </div>
             )}
 
@@ -125,9 +125,9 @@ export const HeaderBar: React.FC = () => {
           </div>
 
           {/* Right Area: User Badge & Logout */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             {/* User Info Badge */}
-            <div className="flex items-center gap-2 bg-[#0D0D0D] px-3 py-1.5 rounded-xl border border-[#2D2D2D]">
+            <div className="flex items-center gap-2 bg-[#0D0D0D] p-1.5 sm:px-3 sm:py-1.5 rounded-xl border border-[#2D2D2D]">
               <div className="w-6 h-6 rounded-full bg-[#1C1C1C] flex items-center justify-center overflow-hidden shrink-0 border border-[#2D2D2D]">
                 {currentUser.avatarUrl ? (
                   <AppImage
@@ -156,7 +156,7 @@ export const HeaderBar: React.FC = () => {
             {/* Logout button */}
             <button
               onClick={logout}
-              className="flex items-center gap-1.5 bg-[#1C1C1C] hover:bg-[#EF4444]/20 text-[#A3A3A3] hover:text-[#EF4444] border border-[#2D2D2D] hover:border-[#EF4444]/40 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+              className="flex items-center gap-1.5 bg-[#1C1C1C] hover:bg-[#EF4444]/20 text-[#A3A3A3] hover:text-[#EF4444] border border-[#2D2D2D] hover:border-[#EF4444]/40 p-2 sm:px-3 sm:py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer"
               title="Encerrar sessão e voltar para a tela de login inicial"
             >
               <LogOut className="w-3.5 h-3.5" />
