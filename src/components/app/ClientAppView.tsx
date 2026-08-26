@@ -715,16 +715,17 @@ export const ClientAppView: React.FC = () => {
               src={currentBarbershop.bannerUrl || currentBarbershop.salonImages[0] || APP_ASSETS.banner}
               alt="Salão da Barbearia"
               fallbackType="banner"
-              className="w-full h-full object-cover opacity-75 scale-105"
+              className="w-full h-full object-cover opacity-90 scale-105"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/40 to-transparent"></div>
+            {/* Soft gradient from banner to bottom */}
+            <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/50 to-transparent pointer-events-none"></div>
             
-            {/* Real-time Verified Open/Closed Status Tag */}
+            {/* Real-time Verified Open/Closed Status Tag - Translucent Glassmorphism */}
             <div
-              className={`absolute top-3.5 left-3.5 bg-neutral-950/90 backdrop-blur-md px-3 py-1.5 rounded-full text-[10px] font-extrabold flex items-center gap-1.5 shadow-lg border transition-all ${
+              className={`absolute top-3.5 left-3.5 bg-black/35 backdrop-blur-md px-3 py-1.5 rounded-full text-[10px] font-extrabold flex items-center gap-1.5 shadow-lg border transition-all ${
                 realOpenStatus.isOpen
-                  ? 'border-emerald-500/40 text-emerald-400'
-                  : 'border-amber-500/40 text-amber-400'
+                  ? 'border-emerald-500/50 text-emerald-400'
+                  : 'border-amber-500/50 text-amber-400'
               }`}
               title={realOpenStatus.detailLabel}
             >
@@ -735,39 +736,10 @@ export const ClientAppView: React.FC = () => {
               />
               <span className="tracking-wide">{realOpenStatus.statusLabel}</span>
               {realOpenStatus.detailLabel && (
-                <span className="text-[9px] text-neutral-400 font-normal hidden sm:inline border-l border-neutral-700 pl-1.5">
+                <span className="text-[9px] text-neutral-300 font-normal hidden sm:inline border-l border-white/20 pl-1.5">
                   {realOpenStatus.detailLabel}
                 </span>
               )}
-            </div>
-
-            {/* Top Right Quick Actions */}
-            <div className="absolute top-3.5 right-3.5 flex items-center gap-1.5">
-              {/* Copy Exclusive Link Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  const url = getBarbershopDirectUrl(currentBarbershop);
-                  navigator.clipboard.writeText(url);
-                  setCopiedDirectLink(true);
-                  setTimeout(() => setCopiedDirectLink(false), 3000);
-                }}
-                className={`p-2 rounded-full shadow-lg backdrop-blur-md transition-all active:scale-95 text-xs flex items-center gap-1 font-bold ${
-                  copiedDirectLink
-                    ? 'bg-emerald-500 text-neutral-950 px-2.5'
-                    : 'bg-neutral-950/80 hover:bg-neutral-900 text-neutral-200 border border-neutral-700/80'
-                }`}
-                title="Copiar link exclusivo desta barbearia"
-              >
-                {copiedDirectLink ? (
-                  <>
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span className="text-[10px]">Copiado!</span>
-                  </>
-                ) : (
-                  <Share2 className="w-3.5 h-3.5" />
-                )}
-              </button>
             </div>
           </div>
 
@@ -852,27 +824,29 @@ export const ClientAppView: React.FC = () => {
                       setGoogleStep('SELECT_ACCOUNT');
                       setShowLoginModal(true);
                     }}
-                    className="bg-white hover:bg-neutral-100 text-neutral-950 font-black px-3 py-1.5 rounded-xl text-[11px] flex items-center gap-1.5 shadow-md active:scale-95 transition-all border border-neutral-300"
+                    className="group bg-neutral-900/90 hover:bg-neutral-800 text-neutral-100 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-2 shadow-lg border border-neutral-700/80 hover:border-orange-500/60 active:scale-95 transition-all cursor-pointer backdrop-blur-sm"
                   >
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
-                      <path
-                        fill="#4285F4"
-                        d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
-                      />
-                      <path
-                        fill="#34A853"
-                        d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"
-                      />
-                      <path
-                        fill="#FBBC05"
-                        d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.16 0 9.97 0 12s.45 3.84 1.25 5.42l4.03-3.15z"
-                      />
-                      <path
-                        fill="#EA4335"
-                        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                      />
-                    </svg>
-                    <span>Entrar Google</span>
+                    <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center shrink-0 shadow-sm">
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+                        <path
+                          fill="#4285F4"
+                          d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.16 0 9.97 0 12s.45 3.84 1.25 5.42l4.03-3.15z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                        />
+                      </svg>
+                    </div>
+                    <span className="text-[11px] tracking-wide group-hover:text-orange-400 transition-colors">Entrar Google</span>
                   </button>
                 )}
               </div>
