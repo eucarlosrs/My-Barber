@@ -22,7 +22,8 @@ import {
   AuditLog,
   Subscription,
   SubscriptionPaymentRecord,
-  SubscriptionStatus
+  SubscriptionStatus,
+  ColorMode
 } from '../types';
 import {
   INITIAL_BARBERSHOPS,
@@ -238,7 +239,12 @@ interface AppContextType {
   createSubscription: (data: { barbershopId: string; barbershopName?: string; payerEmail: string; payerName?: string; payerPhone?: string }) => Promise<{ success: boolean; subscription?: Subscription; initPointUrl?: string; error?: string }>;
   cancelSubscription: (barbershopId: string, reason?: string) => Promise<{ success: boolean; error?: string }>;
   syncSubscription: (barbershopId: string) => Promise<{ success: boolean; subscription?: Subscription; error?: string }>;
-  simulateSubscriptionAction: (barbershopId: string, action: 'CONFIRM_PAYMENT' | 'TRIGGER_PAST_DUE' | 'TRIGGER_SUSPEND' | 'REGULARIZE' | 'CANCEL' | 'STEP_BILLING_COUNT') => Promise<{ success: boolean; subscription?: Subscription; message?: string; error?: string }>;
+  simulateSubscriptionAction: (barbershopId: string, action: 'CONFIRM_PAYMENT' | 'TRIGGER_PAST_DUE' | 'TRIGGER_SUSPEND' | 'REGULARIZE' | 'CANCEL' | 'STEP_BILLING_COUNT' | 'VALIDATE_CARD_AND_START_TRIAL') => Promise<{ success: boolean; subscription?: Subscription; message?: string; error?: string }>;
+
+  // Dark / Light Theme Color Mode
+  colorMode: ColorMode;
+  setColorMode: (mode: ColorMode) => void;
+  toggleColorMode: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -342,6 +348,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>(INITIAL_SUBSCRIPTIONS);
   const [subscriptionPayments, setSubscriptionPayments] = useState<SubscriptionPaymentRecord[]>(INITIAL_SUBSCRIPTION_PAYMENTS);
+
+  // Dark / Light Theme Color Mode
+  const [colorMode, setColorModeState] = useState<ColorMode>(() => {
+    try {
+      const saved = localStorage.getItem('mybarber_color_mode');
+      if (saved === 'light' || saved === 'dark') return saved;
+    } catch {
+      // ignore
+    }
+    return 'dark';
+  });
+
+  const setColorMode = (mode: ColorMode) => {
+    setColorModeState(mode);
+    try {
+      localStorage.setItem('mybarber_color_mode', mode);
+    } catch {
+      // ignore
+    }
+  };
+
+  const toggleColorMode = () => {
+    setColorMode(colorMode === 'dark' ? 'light' : 'dark');
+  };
+
+  useEffect(() => {
+    try {
+      if (colorMode === 'light') {
+        document.documentElement.classList.add('light-mode');
+        document.documentElement.setAttribute('data-theme-mode', 'light');
+        document.body.classList.add('light-mode');
+      } else {
+        document.documentElement.classList.remove('light-mode');
+        document.documentElement.setAttribute('data-theme-mode', 'dark');
+        document.body.classList.remove('light-mode');
+      }
+    } catch {
+      // ignore
+    }
+  }, [colorMode]);
   const [whatsappLoginPhone, setWhatsappLoginPhone] = useState<string>('');
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
 
@@ -455,7 +501,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const simulateSubscriptionAction = async (
     barbershopId: string,
-    action: 'CONFIRM_PAYMENT' | 'TRIGGER_PAST_DUE' | 'TRIGGER_SUSPEND' | 'REGULARIZE' | 'CANCEL' | 'STEP_BILLING_COUNT'
+    action: 'CONFIRM_PAYMENT' | 'TRIGGER_PAST_DUE' | 'TRIGGER_SUSPEND' | 'REGULARIZE' | 'CANCEL' | 'STEP_BILLING_COUNT' | 'VALIDATE_CARD_AND_START_TRIAL'
   ) => {
     try {
       const res = await fetch('/api/subscriptions/simulate-action', {
@@ -656,7 +702,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         details: 'Login Master autenticado com sucesso com credenciais seguras.',
         status: 'SUCESSO'
       });
-      return { success: true, role: 'SUPER_ADMIN', user: superAdmin };
+      return { success: true, role: 'SUPER_ADMIN' as UserRole, user: superAdmin };
     }
 
     // Search matching user in users list
@@ -738,7 +784,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: 'SUCESSO'
     });
 
-    return { success: true, role: matched.role, user: matched };
+    return { success: true, role: matched.role as UserRole, user: matched };
   };
 
   const logout = () => {
@@ -1427,6 +1473,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return client;
   };
 
+  const loginWithWhatsApp = (phone: string, name?: string): User => {
+    const cleanPhone = phone.trim();
+    let client = users.find(
+      u => u.role === 'CLIENTE' && u.whatsapp && cleanPhone.replace(/\D/g, '').length >= 8 && u.whatsapp.replace(/\D/g, '') === cleanPhone.replace(/\D/g, '')
+    );
+
+    if (!client) {
+      client = {
+        id: `user-client-wa-${Date.now()}`,
+        tenantId: activeTenantId,
+        role: 'CLIENTE',
+        name: name?.trim() || 'Cliente',
+        whatsapp: cleanPhone,
+        authProvider: 'SYSTEM',
+        createdAt: new Date().toISOString()
+      };
+      syncDoc('users', client.id, client);
+      setUsers(prev => [...prev, client!]);
+    }
+
+    setCurrentUserId(client.id);
+    setAuthenticatedUser(client);
+    setWhatsappLoginPhone(cleanPhone);
+    try {
+      localStorage.setItem('mybarber_session_user_id', client.id);
+    } catch {
+      // ignore
+    }
+    setViewMode('CLIENT_APP');
+    return client;
+  };
+
   // Access Hierarchy: Master Admin (App Owner) creates Proprietário / Gerente login
   const createManagerAccess = (data: {
     tenantId: string;
@@ -1679,6 +1757,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     defaultStock.forEach(stk => syncDoc('stock', stk.id, stk));
 
     // Initialize Mercado Pago Recurring Subscription
+    const trialStartDate = now.toISOString().split('T')[0];
+    const trialEndDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
     const initialSubscription: Subscription = {
       id: `sub-${newTenantId}`,
       barbershopId: newTenantId,
@@ -1689,12 +1770,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       mercadopagoSubscriptionId: `mp-sub-${Date.now()}`,
       status: 'PENDING',
       plan: 'Plano MY BARBER',
-      currentPrice: 49.90,
+      currentPrice: 0.00,
       billingCycle: 'MONTHLY',
+      isInTrial: false,
+      trialStartDate,
+      trialEndDate,
+      paidBillingCount: 0,
       trialOrLaunchPeriod: true,
       billingCount: 0,
-      nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      nextBillingDate: trialEndDate,
       initPointUrl: `https://www.mercadopago.com.br/subscriptions/checkout?preapproval_id=mp-sub-${Date.now()}`,
+      cardValidated: false,
       toleranceDays: 7,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString()
@@ -1976,6 +2062,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createCommunication,
         sendReturnMessage,
         whatsappLoginPhone,
+        loginWithWhatsApp,
         loginWithGoogle,
         createManagerAccess,
         createProfessionalAccess,
@@ -1994,7 +2081,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createSubscription,
         cancelSubscription,
         syncSubscription,
-        simulateSubscriptionAction
+        simulateSubscriptionAction,
+        // Color Mode Dark / Light
+        colorMode,
+        setColorMode,
+        toggleColorMode
       }}
     >
       {children}

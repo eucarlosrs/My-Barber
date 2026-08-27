@@ -116,6 +116,7 @@ export const AppointmentsTab: React.FC = () => {
       serviceId: srv.id,
       serviceName: srv.name,
       servicePrice: srv.price,
+      serviceDuration: srv.durationMinutes,
       date: newDate,
       startTime: newStartTime,
       endTime: endTime,

@@ -57,3 +57,25 @@
 ## 10. NÃO QUEBRAR O SISTEMA
 - Toda evolução deve ser integrada à arquitetura existente preservando dados, cadastros e rotas das barbearias ativas.
 
+---
+
+# GESTÃO DE VERSÕES, ISSUES E DEPLOYS (GITHUB & AGENTS)
+
+## 1. FLUXO DE ISSUES E PULL REQUESTS (PRs)
+- **Toda Tarefa** (Correção `fix:`, Melhoria `refactor:`/`perf:` ou Nova Função `feat:`) deve estar associada a uma Issue.
+- Todo deploy e mesclagem de código deve ser realizado via Pull Request (PR).
+- O PR **deve obrigatoriamente mencionar a Issue correspondente** no corpo da descrição (ex: `Closes #123` ou `Relacionado a #123`).
+- Padrão de Branch: `feature/nome-da-tarefa`, `fix/descricao-do-bug` ou `chore/nome-da-tarefa`.
+
+## 2. MOTION PRINCIPLES (UI/UX)
+- Todas as telas e componentes devem utilizar transições fluidas e respeitar os princípios de animação:
+  - **Skeletons pulsantes** durante carregamento de dados (listagens, cards, tabelas) em vez de telas em branco.
+  - **Transições suaves de entrada e saída** (`fade-in`, `scale-up` com curvas como `easeOutExpo` via Motion / Tailwind).
+  - Feedback visual imediato e estados de progresso em ações assíncronas (pagamentos, agendamentos, cadastros).
+
+## 3. QUALIDADE DE CÓDIGO & OBSERVABILIDADE
+- **Linting & Type Safety**: `npm run lint` (`tsc --noEmit`) deve passar com zero erros em todas as alterações.
+- **Testes Automatizados**: Manter e rodar a suíte de testes (`npm test`) para garantir integridade das regras financeiras do Mercado Pago e isolamento multi-tenant.
+- **Error Boundary Global**: Interceptar exceções de renderização no cliente sem quebrar a sessão do usuário.
+
+

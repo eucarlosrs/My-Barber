@@ -28,14 +28,21 @@ interface StoredSubscription {
   payerPhone?: string;
   mercadopagoSubscriptionId: string;
   mercadopagoCustomerId?: string;
-  status: 'PENDING' | 'ACTIVE' | 'PAST_DUE' | 'SUSPENDED' | 'CANCELED';
+  status: 'PENDING' | 'TRIAL_14_DAYS' | 'ACTIVE' | 'PAST_DUE' | 'SUSPENDED' | 'CANCELED';
   plan: string;
-  currentPrice: number;
+  currentPrice: number; // 0.00 durante 14 dias grátis, 49.90 nos meses 1-3, 69.90 a partir do mês 4
   billingCycle: 'MONTHLY';
+  isInTrial: boolean;
+  trialStartDate?: string;
+  trialEndDate?: string;
+  paidBillingCount: number; // Quantidade de mensalidades pagas (1, 2, 3 = R$ 49,90; 4+ = R$ 69,90)
   trialOrLaunchPeriod: boolean;
   billingCount: number;
   nextBillingDate: string;
   initPointUrl?: string;
+  cardValidated: boolean;
+  cardBrand?: string;
+  cardLastFourDigits?: string;
   pastDueSince?: string;
   toleranceDays: number;
   createdAt: string;
@@ -71,6 +78,13 @@ interface WebhookEvent {
   error?: string;
 }
 
+// Helper: Calculate 14 days trial end date
+function get14DaysFromDate(baseDate = new Date()): string {
+  const d = new Date(baseDate);
+  d.setDate(d.getDate() + 14);
+  return d.toISOString().split('T')[0];
+}
+
 // In-Memory Database with persistent initial seed
 const subscriptionsDB: Map<string, StoredSubscription> = new Map([
   [
@@ -88,12 +102,19 @@ const subscriptionsDB: Map<string, StoredSubscription> = new Map([
       plan: 'Plano MY BARBER',
       currentPrice: 49.90,
       billingCycle: 'MONTHLY',
+      isInTrial: false,
+      trialStartDate: '2026-01-01',
+      trialEndDate: '2026-01-15',
+      paidBillingCount: 2,
       trialOrLaunchPeriod: true,
       billingCount: 2,
       nextBillingDate: '2026-09-15',
       initPointUrl: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_id=2c9380848a90b1',
+      cardValidated: true,
+      cardBrand: 'Mastercard',
+      cardLastFourDigits: '4242',
       toleranceDays: 7,
-      createdAt: '2026-01-15T10:00:00Z',
+      createdAt: '2026-01-01T10:00:00Z',
       updatedAt: '2026-02-15T10:00:00Z'
     }
   ],
@@ -112,12 +133,19 @@ const subscriptionsDB: Map<string, StoredSubscription> = new Map([
       plan: 'Plano MY BARBER',
       currentPrice: 69.90,
       billingCycle: 'MONTHLY',
+      isInTrial: false,
+      trialStartDate: '2025-11-06',
+      trialEndDate: '2025-11-20',
+      paidBillingCount: 4,
       trialOrLaunchPeriod: false,
       billingCount: 4,
       nextBillingDate: '2026-09-20',
       initPointUrl: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_id=2c9380848a90b2',
+      cardValidated: true,
+      cardBrand: 'Visa',
+      cardLastFourDigits: '8899',
       toleranceDays: 7,
-      createdAt: '2025-11-20T10:00:00Z',
+      createdAt: '2025-11-06T10:00:00Z',
       updatedAt: '2026-02-20T10:00:00Z'
     }
   ]
@@ -272,9 +300,65 @@ async function cancelMercadoPagoSubscription(mpSubscriptionId: string) {
 // API ENDPOINTS
 // =========================================================================
 
-// 1. Health check
+// 1. Health check & Mercado Pago Credential Verification
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', service: 'MY BARBER Subscription Engine' });
+});
+
+app.get('/api/mercadopago/check-credentials', async (_req: Request, res: Response) => {
+  const token = process.env.MERCADOPAGO_ACCESS_TOKEN;
+  const publicKey = process.env.MERCADOPAGO_PUBLIC_KEY;
+  const webhookSecret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
+
+  if (!token) {
+    return res.json({
+      configured: false,
+      valid: false,
+      message: 'Variável MERCADOPAGO_ACCESS_TOKEN não encontrada no ambiente.',
+      hasPublicKey: Boolean(publicKey),
+      hasWebhookSecret: Boolean(webhookSecret)
+    });
+  }
+
+  // Mask token for safe diagnostic output
+  const maskedToken = token.length > 16 
+    ? `${token.slice(0, 10)}...${token.slice(-6)}` 
+    : '***';
+
+  try {
+    const mpUser = await callMercadoPago('/users/me');
+    if (mpUser && mpUser.id) {
+      return res.json({
+        configured: true,
+        valid: true,
+        maskedToken,
+        publicKeyConfigured: Boolean(publicKey),
+        webhookSecretConfigured: Boolean(webhookSecret),
+        mercadoPagoUser: {
+          id: mpUser.id,
+          nickname: mpUser.nickname,
+          email: mpUser.email ? `${mpUser.email.slice(0, 3)}***@${mpUser.email.split('@')[1]}` : undefined,
+          siteId: mpUser.site_id,
+          collectorId: mpUser.id
+        },
+        message: 'Credenciais do Mercado Pago conectadas e autenticadas com sucesso!'
+      });
+    } else {
+      return res.json({
+        configured: true,
+        valid: false,
+        maskedToken,
+        message: 'O token foi detectado, mas o Mercado Pago rejeitou a autenticação. Verifique se o Access Token foi copiado sem espaços extras.'
+      });
+    }
+  } catch (err: any) {
+    return res.status(500).json({
+      configured: true,
+      valid: false,
+      error: err.message,
+      message: 'Falha ao conectar com a API do Mercado Pago.'
+    });
+  }
 });
 
 // 2. Create / Initialize Recurring Subscription
@@ -292,20 +376,26 @@ app.post('/api/subscriptions/create', async (req: Request, res: Response) => {
     let mpSubId = `mp-sub-${Date.now()}`;
     let initPoint = `https://www.mercadopago.com.br/subscriptions/checkout?preapproval_id=${mpSubId}`;
 
+    const now = new Date();
+    const trialStartDate = now.toISOString().split('T')[0];
+    const trialEndDate = get14DaysFromDate(now);
+
     // Call Mercado Pago API if access token is configured
+    // Start recurring monthly billing directly scheduled for 14 days later (end of trial)
     if (process.env.MERCADOPAGO_ACCESS_TOKEN) {
       const mpResponse = await callMercadoPago('/preapproval', {
         method: 'POST',
         body: JSON.stringify({
           payer_email: payerEmail,
           back_url: returnUrl,
-          reason: 'Plano MY BARBER - Assinatura Mensal',
+          reason: 'Plano MY BARBER - 14 Dias Grátis + R$ 49,90/mês (3 meses)',
           external_reference: barbershopId,
           auto_recurring: {
             frequency: 1,
             frequency_type: 'months',
             transaction_amount: 49.90,
-            currency_id: 'BRL'
+            currency_id: 'BRL',
+            start_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
           },
           status: 'pending'
         })
@@ -317,7 +407,7 @@ app.post('/api/subscriptions/create', async (req: Request, res: Response) => {
       }
     }
 
-    const now = new Date().toISOString();
+    const nowIso = now.toISOString();
     const newSubscription: StoredSubscription = {
       id: `sub-${barbershopId}`,
       barbershopId,
@@ -326,17 +416,22 @@ app.post('/api/subscriptions/create', async (req: Request, res: Response) => {
       payerName: payerName || '',
       payerPhone: payerPhone || '',
       mercadopagoSubscriptionId: mpSubId,
-      status: 'PENDING',
+      status: 'PENDING', // Fica PENDING até o proprietário inserir e validar o cartão no checkout MP
       plan: 'Plano MY BARBER',
-      currentPrice: 49.90,
+      currentPrice: 0.00, // 0.00 durante os 14 dias grátis
       billingCycle: 'MONTHLY',
+      isInTrial: false,
+      trialStartDate,
+      trialEndDate,
+      paidBillingCount: 0,
       trialOrLaunchPeriod: true,
       billingCount: 0,
-      nextBillingDate: getNextBillingDate(),
+      nextBillingDate: trialEndDate,
       initPointUrl: initPoint,
+      cardValidated: false,
       toleranceDays: 7,
-      createdAt: now,
-      updatedAt: now
+      createdAt: nowIso,
+      updatedAt: nowIso
     };
 
     subscriptionsDB.set(barbershopId, newSubscription);
@@ -345,7 +440,7 @@ app.post('/api/subscriptions/create', async (req: Request, res: Response) => {
       success: true,
       subscription: newSubscription,
       initPointUrl: initPoint,
-      message: 'Assinatura criada com sucesso. Redirecionando para autorização no Mercado Pago.'
+      message: 'Assinatura criada com sucesso. Redirecionando para validação do cartão de crédito no Mercado Pago.'
     });
   } catch (err: any) {
     console.error('Error creating subscription:', err);
@@ -360,6 +455,19 @@ app.get('/api/subscriptions/status/:barbershopId', async (req: Request, res: Res
 
   if (!subscription) {
     return res.status(404).json({ error: 'Assinatura não encontrada para esta barbearia' });
+  }
+
+  // Calculate trial days remaining if in TRIAL
+  if (subscription.status === 'TRIAL_14_DAYS' && subscription.trialEndDate) {
+    const today = new Date().toISOString().split('T')[0];
+    const end = new Date(subscription.trialEndDate);
+    const now = new Date(today);
+    const diffDays = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays <= 0 && subscription.paidBillingCount === 0) {
+      // Trial expired -> first charge should happen
+      // If payment did not occur yet, set to PAST_DUE or keep until webhook arrives
+    }
   }
 
   // Calculate tolerance status if PAST_DUE
@@ -390,7 +498,10 @@ app.get('/api/subscriptions/all', (_req: Request, res: Response) => {
     .filter(s => s.status === 'ACTIVE' || s.status === 'PAST_DUE')
     .reduce((sum, s) => sum + s.currentPrice, 0);
 
-  const activeCount = allSubs.filter(s => s.status === 'ACTIVE').length;
+  const trialCount = allSubs.filter(s => s.status === 'TRIAL_14_DAYS').length;
+  const promoCount = allSubs.filter(s => s.status === 'ACTIVE' && s.paidBillingCount >= 1 && s.paidBillingCount <= 3).length;
+  const regularCount = allSubs.filter(s => s.status === 'ACTIVE' && s.paidBillingCount >= 4).length;
+  const activeCount = allSubs.filter(s => s.status === 'ACTIVE' || s.status === 'TRIAL_14_DAYS').length;
   const pastDueCount = allSubs.filter(s => s.status === 'PAST_DUE').length;
   const suspendedCount = allSubs.filter(s => s.status === 'SUSPENDED').length;
   const canceledCount = allSubs.filter(s => s.status === 'CANCELED').length;
@@ -403,6 +514,9 @@ app.get('/api/subscriptions/all', (_req: Request, res: Response) => {
       totalMRR,
       totalCount: allSubs.length,
       activeCount,
+      trialCount,
+      promoCount,
+      regularCount,
       pastDueCount,
       suspendedCount,
       canceledCount,
@@ -454,7 +568,16 @@ app.post('/api/subscriptions/sync/:barbershopId', async (req: Request, res: Resp
     const mpData = await callMercadoPago(`/preapproval/${subscription.mercadopagoSubscriptionId}`);
     if (mpData) {
       if (mpData.status === 'authorized') {
-        subscription.status = 'ACTIVE';
+        subscription.cardValidated = true;
+        // If it's still in the 14 days window, set to TRIAL_14_DAYS with full access
+        const nowIso = new Date().toISOString().split('T')[0];
+        if (subscription.trialEndDate && subscription.trialEndDate >= nowIso && subscription.paidBillingCount === 0) {
+          subscription.status = 'TRIAL_14_DAYS';
+          subscription.isInTrial = true;
+        } else {
+          subscription.status = 'ACTIVE';
+          subscription.isInTrial = false;
+        }
       } else if (mpData.status === 'cancelled') {
         subscription.status = 'CANCELED';
       } else if (mpData.status === 'pending') {
@@ -472,6 +595,10 @@ app.post('/api/subscriptions/simulate-action', async (req: Request, res: Respons
   const { barbershopId, action } = req.body;
   let subscription = subscriptionsDB.get(barbershopId);
 
+  const now = new Date();
+  const nowStr = now.toISOString().split('T')[0];
+  const trialEnd = get14DaysFromDate(now);
+
   if (!subscription) {
     subscription = {
       id: `sub-${barbershopId}`,
@@ -481,34 +608,63 @@ app.post('/api/subscriptions/simulate-action', async (req: Request, res: Respons
       mercadopagoSubscriptionId: `mp-sim-${Date.now()}`,
       status: 'PENDING',
       plan: 'Plano MY BARBER',
-      currentPrice: 49.90,
+      currentPrice: 0.00,
       billingCycle: 'MONTHLY',
+      isInTrial: false,
+      trialStartDate: nowStr,
+      trialEndDate: trialEnd,
+      paidBillingCount: 0,
       trialOrLaunchPeriod: true,
       billingCount: 0,
-      nextBillingDate: getNextBillingDate(),
+      nextBillingDate: trialEnd,
+      cardValidated: false,
       toleranceDays: 7,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString()
     };
     subscriptionsDB.set(barbershopId, subscription);
   }
 
-  const now = new Date().toISOString();
+  const nowIso = now.toISOString();
   let message = '';
 
   switch (action) {
-    case 'CONFIRM_PAYMENT': {
-      // Advance billing cycle count
-      const nextCount = subscription.billingCount + 1;
-      subscription.billingCount = nextCount;
-      subscription.status = 'ACTIVE';
+    case 'VALIDATE_CARD_AND_START_TRIAL': {
+      // Step 1: Card is validated by Mercado Pago -> Starts 14 Days Free Trial with full access
+      subscription.cardValidated = true;
+      subscription.cardBrand = 'Mastercard';
+      subscription.cardLastFourDigits = '8822';
+      subscription.status = 'TRIAL_14_DAYS';
+      subscription.isInTrial = true;
+      subscription.trialStartDate = nowStr;
+      subscription.trialEndDate = get14DaysFromDate(now);
+      subscription.paidBillingCount = 0;
+      subscription.currentPrice = 0.00;
+      subscription.nextBillingDate = subscription.trialEndDate;
+      subscription.updatedAt = nowIso;
       delete subscription.pastDueSince;
 
-      // Rule: Months 1 to 3 = R$ 49.90. From Month 4 onwards = R$ 69.90.
-      const paidAmount = nextCount <= 3 ? 49.90 : 69.90;
+      message = `Cartão validado com sucesso pelo Mercado Pago! Período gratuito de 14 DIAS GRÁTIS iniciado com acesso completo. Primeira cobrança de R$ 49,90 programada para ${subscription.trialEndDate}.`;
+      break;
+    }
 
-      if (nextCount >= 3) {
-        // Automatically switch next price to 69.90 on Mercado Pago
+    case 'CONFIRM_PAYMENT': {
+      // Step 2, 3, 4: Monthly Recurring Billing
+      const nextPaidCount = subscription.paidBillingCount + 1;
+      subscription.paidBillingCount = nextPaidCount;
+      subscription.billingCount = nextPaidCount;
+      subscription.status = 'ACTIVE';
+      subscription.isInTrial = false;
+      subscription.cardValidated = true;
+      delete subscription.pastDueSince;
+
+      // Rule:
+      // Month 1, 2, 3 = R$ 49.90 (promotional)
+      // Month 4+ = R$ 69.90 (regular auto-switch)
+      const paidAmount = nextPaidCount <= 3 ? 49.90 : 69.90;
+
+      if (nextPaidCount >= 3) {
+        // Automatically switch next recurring price to 69.90 on Mercado Pago
         subscription.currentPrice = 69.90;
         subscription.trialOrLaunchPeriod = false;
         if (process.env.MERCADOPAGO_ACCESS_TOKEN && subscription.mercadopagoSubscriptionId) {
@@ -520,9 +676,9 @@ app.post('/api/subscriptions/simulate-action', async (req: Request, res: Respons
       }
 
       subscription.nextBillingDate = getNextBillingDate();
-      subscription.updatedAt = now;
+      subscription.updatedAt = nowIso;
 
-      // Record payment
+      // Record payment transaction
       const newPayment: StoredPayment = {
         id: `pay-sim-${Date.now()}`,
         subscriptionId: subscription.id,
@@ -532,28 +688,30 @@ app.post('/api/subscriptions/simulate-action', async (req: Request, res: Respons
         amount: paidAmount,
         status: 'APPROVED',
         statusDetail: 'accredited',
-        paymentDate: now.split('T')[0],
-        billingNumber: nextCount,
+        paymentDate: nowStr,
+        billingNumber: nextPaidCount,
         paymentMethod: 'Mercado Pago (Cartão de Crédito)',
-        createdAt: now
+        createdAt: nowIso
       };
       paymentsDB.unshift(newPayment);
 
-      message = `Cobrança #${nextCount} (R$ ${paidAmount.toFixed(2).replace('.', ',')}) confirmada com sucesso! ${
-        nextCount === 3
-          ? 'Oferta de lançamento concluída. A partir da 4ª mensalidade o valor será atualizado automaticamente para R$ 69,90/mês.'
-          : nextCount > 3
-          ? 'Mensalidade regular faturada em R$ 69,90.'
-          : 'Condição especial de lançamento ativa (R$ 49,90).'
-      }`;
+      if (nextPaidCount === 1) {
+        message = '1º Mês Pago confirmado (R$ 49,90). Faltam 2 meses promocionais antes do valor definitivo de R$ 69,90.';
+      } else if (nextPaidCount === 2) {
+        message = '2º Mês Pago confirmado (R$ 49,90). Falta 1 mês promocional antes do valor definitivo de R$ 69,90.';
+      } else if (nextPaidCount === 3) {
+        message = '3º Mês Pago confirmado (R$ 49,90). Oferta de 3 meses concluída! A próxima renovação (#4) foi atualizada automaticamente para R$ 69,90/mês no Mercado Pago.';
+      } else {
+        message = `Mensalidade regular #${nextPaidCount} faturada em R$ 69,90 no Mercado Pago.`;
+      }
       break;
     }
 
     case 'TRIGGER_PAST_DUE': {
       subscription.status = 'PAST_DUE';
-      subscription.pastDueSince = now;
-      subscription.updatedAt = now;
-      message = 'Simulação de falha de pagamento ativada. Assinatura em tolerância de 7 dias com aviso de regularização.';
+      subscription.pastDueSince = nowIso;
+      subscription.updatedAt = nowIso;
+      message = 'Cobrança não autorizada pelo Mercado Pago. Assinatura em tolerância de 7 dias com aviso de regularização.';
       break;
     }
 
@@ -561,17 +719,18 @@ app.post('/api/subscriptions/simulate-action', async (req: Request, res: Respons
       const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
       subscription.status = 'SUSPENDED';
       subscription.pastDueSince = eightDaysAgo;
-      subscription.updatedAt = now;
-      message = 'Prazo de tolerância de 7 dias ultrapassado. Acesso operacional bloqueado até regularização.';
+      subscription.updatedAt = nowIso;
+      message = 'Prazo de tolerância de 7 dias expirado. Sistema bloqueado operacionalmente até confirmação de pagamento pelo Mercado Pago.';
       break;
     }
 
     case 'REGULARIZE': {
-      subscription.status = 'ACTIVE';
+      subscription.status = subscription.isInTrial ? 'TRIAL_14_DAYS' : 'ACTIVE';
       delete subscription.pastDueSince;
-      subscription.updatedAt = now;
-      const count = Math.max(1, subscription.billingCount);
-      const paidAmount = subscription.currentPrice;
+      subscription.updatedAt = nowIso;
+      
+      const count = Math.max(1, subscription.paidBillingCount || 1);
+      const paidAmount = subscription.currentPrice > 0 ? subscription.currentPrice : 49.90;
 
       const newPayment: StoredPayment = {
         id: `pay-sim-${Date.now()}`,
@@ -582,20 +741,20 @@ app.post('/api/subscriptions/simulate-action', async (req: Request, res: Respons
         amount: paidAmount,
         status: 'APPROVED',
         statusDetail: 'accredited',
-        paymentDate: now.split('T')[0],
+        paymentDate: nowStr,
         billingNumber: count,
         paymentMethod: 'Mercado Pago (Regularizado)',
-        createdAt: now
+        createdAt: nowIso
       };
       paymentsDB.unshift(newPayment);
-      message = 'Pagamento regularizado no Mercado Pago! Acesso 100% restaurado automaticamente.';
+      message = 'Pagamento regularizado e confirmado pelo Mercado Pago! Acesso 100% restabelecido.';
       break;
     }
 
     case 'CANCEL': {
       subscription.status = 'CANCELED';
-      subscription.canceledAt = now;
-      subscription.updatedAt = now;
+      subscription.canceledAt = nowIso;
+      subscription.updatedAt = nowIso;
       message = 'Assinatura cancelada no Mercado Pago.';
       break;
     }
@@ -678,19 +837,26 @@ app.post('/api/webhooks/mercadopago', async (req: any, res: Response) => {
         const sub = subscriptionsDB.get(externalRef)!;
 
         if (status === 'approved') {
-          const nextCount = sub.billingCount + 1;
-          sub.billingCount = nextCount;
+          const nextPaidCount = (sub.paidBillingCount || 0) + 1;
+          sub.paidBillingCount = nextPaidCount;
+          sub.billingCount = nextPaidCount;
           sub.status = 'ACTIVE';
+          sub.isInTrial = false;
+          sub.cardValidated = true;
           delete sub.pastDueSince;
 
           // Rule: Month 1-3 = 49.90, Month 4+ = 69.90
-          if (nextCount >= 3) {
+          if (nextPaidCount >= 3) {
             sub.currentPrice = 69.90;
             sub.trialOrLaunchPeriod = false;
             if (process.env.MERCADOPAGO_ACCESS_TOKEN && sub.mercadopagoSubscriptionId) {
               await updateMercadoPagoSubscriptionPrice(sub.mercadopagoSubscriptionId, 69.90);
             }
+          } else {
+            sub.currentPrice = 49.90;
+            sub.trialOrLaunchPeriod = true;
           }
+
           sub.nextBillingDate = getNextBillingDate();
           sub.updatedAt = now;
 
@@ -704,7 +870,7 @@ app.post('/api/webhooks/mercadopago', async (req: any, res: Response) => {
             status: 'APPROVED',
             statusDetail: paymentData?.status_detail || 'accredited',
             paymentDate: now.split('T')[0],
-            billingNumber: nextCount,
+            billingNumber: nextPaidCount,
             paymentMethod: paymentData?.payment_method_id || 'Cartão de Crédito',
             createdAt: now
           });
@@ -727,7 +893,17 @@ app.post('/api/webhooks/mercadopago', async (req: any, res: Response) => {
       if (externalRef && subscriptionsDB.has(externalRef)) {
         const sub = subscriptionsDB.get(externalRef)!;
         if (preapprovalData?.status === 'authorized') {
-          sub.status = 'ACTIVE';
+          sub.cardValidated = true;
+          const nowStr = now.split('T')[0];
+          // If within the 14 days trial window and no paid months yet, activate 14-days free trial
+          if (sub.trialEndDate && sub.trialEndDate >= nowStr && (sub.paidBillingCount || 0) === 0) {
+            sub.status = 'TRIAL_14_DAYS';
+            sub.isInTrial = true;
+            sub.currentPrice = 0.00;
+          } else {
+            sub.status = 'ACTIVE';
+            sub.isInTrial = false;
+          }
         } else if (preapprovalData?.status === 'cancelled') {
           sub.status = 'CANCELED';
           sub.canceledAt = now;

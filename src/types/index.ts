@@ -51,6 +51,7 @@ export interface User {
   canViewAllProfessionals?: boolean;
   commissionPercentage?: number; // Para profissionais
   specialties?: string[];
+  specialty?: string;
   createdAt: string;
 }
 
@@ -87,6 +88,10 @@ export interface BarbershopCoordinates {
 
 export type BarbershopStatus = 'ATIVA' | 'TESTE' | 'TESTE_EXPIRADO' | 'INATIVA';
 
+export type BarbershopThemeId = 'CURRENT' | 'GOLD' | 'BLUE' | 'NEON_GREEN';
+
+export type ColorMode = 'dark' | 'light';
+
 export interface Barbershop {
   id: string;
   name: string; // Ex: "Barbearia do João"
@@ -104,6 +109,7 @@ export interface Barbershop {
   planId: PlanId;
   reminderConfig: BarbershopReminderConfig;
   primaryColor?: string;
+  theme?: BarbershopThemeId; // 'CURRENT' | 'GOLD' | 'BLUE' | 'NEON_GREEN'
   status?: BarbershopStatus | 'ACTIVE' | 'INACTIVE';
   commercialMode?: 'PAGO' | 'TESTE_GRATIS';
   trialStartedAt?: string; // Data e hora de início do teste grátis (ISO)
@@ -121,6 +127,7 @@ export interface RegisterBarbershopInput {
   about: string;
   phone: string;
   whatsapp: string;
+  theme?: BarbershopThemeId;
   street: string;
   number: string;
   complement?: string;
@@ -160,6 +167,7 @@ export interface Service {
   category: string;
   imageUrl?: string;
   returnReminderDays?: number; // Configuração para Seção 20
+  commissionPercentage?: number;
   active: boolean;
 }
 
@@ -313,8 +321,10 @@ export interface Raffle {
   participants: RaffleParticipant[];
   winnerClientId?: string;
   winnerClientName?: string;
+  winnerName?: string;
   winnerDrawnAt?: string;
   showInHighlights?: boolean;
+  highlightTag?: string;
   createdAt: string;
 }
 
@@ -327,13 +337,16 @@ export interface Promotion {
   title: string;
   description: string;
   discountPercentage?: number;
+  discountPercent?: number;
   promotionalPrice?: number;
   serviceId?: string;
   serviceName?: string;
+  serviceCategory?: string;
   code?: string;
   validUntil: string; // YYYY-MM-DD
   active: boolean;
   imageUrl?: string;
+  bannerUrl?: string;
   showInHighlights?: boolean;
   highlightTag?: string; // Ex: "PROMOÇÃO", "GANHADOR", "NOVIDADE"
   createdAt: string;
@@ -470,7 +483,13 @@ export interface AuditLog {
 // ==========================================
 // 15. ASSINATURAS RECORRENTES MERCADO PAGO
 // ==========================================
-export type SubscriptionStatus = 'PENDING' | 'ACTIVE' | 'PAST_DUE' | 'SUSPENDED' | 'CANCELED';
+export type SubscriptionStatus = 
+  | 'PENDING'          // Aguardando validação do cartão no Mercado Pago
+  | 'TRIAL_14_DAYS'     // 14 dias grátis ativos (acesso total liberado)
+  | 'ACTIVE'           // Ativa (cobranças em dia)
+  | 'PAST_DUE'         // Pagamento pendente (em tolerância de 7 dias)
+  | 'SUSPENDED'        // Inadimplente (tolerância expirada, acesso bloqueado)
+  | 'CANCELED';        // Assinatura cancelada
 
 export interface Subscription {
   id: string;
@@ -483,13 +502,27 @@ export interface Subscription {
   mercadopagoCustomerId?: string;
   status: SubscriptionStatus;
   plan: string; // 'Plano MY BARBER'
-  currentPrice: number; // R$ 49.90 (meses 1 a 3) ou R$ 69.90 (a partir do mês 4)
+  currentPrice: number; // 0.00 (Trial 14 dias), 49.90 (meses 1 a 3 pagos), 69.90 (do 4º mês pago em diante)
   billingCycle: 'MONTHLY';
-  trialOrLaunchPeriod: boolean; // true para os 3 primeiros meses
-  billingCount: number; // Quantidade de cobranças confirmadas e faturadas
+  
+  // Controle detalhado dos 14 dias grátis
+  isInTrial: boolean; // true durante os 14 dias
+  trialStartDate?: string; // YYYY-MM-DD
+  trialEndDate?: string;   // YYYY-MM-DD (exatamente 14 dias após início)
+  trialDaysRemaining?: number;
+
+  // Controle dos meses promocionais pagos (1º, 2º e 3º mês a R$ 49,90)
+  paidBillingCount: number; // 0 (trial), 1 (1º mês pago), 2 (2º mês pago), 3 (3º mês pago), 4+ (regular R$ 69,90)
+  trialOrLaunchPeriod: boolean; // true se está no trial ou nos 3 meses a R$ 49,90
+  billingCount: number; // total de cobranças processadas
+  
   nextBillingDate: string; // Formato YYYY-MM-DD
   initPointUrl?: string; // Link de checkout/autorização do Mercado Pago
-  pastDueSince?: string; // Data em que ficou inadimplente (para contagem dos 7 dias de tolerância)
+  cardValidated: boolean; // true se o cartão foi tokenizado e validado pelo MP
+  cardBrand?: string; // 'visa', 'mastercard', etc.
+  cardLastFourDigits?: string;
+  
+  pastDueSince?: string; // Data em que falhou cobrança (tolerância de 7 dias)
   toleranceDays: number; // 7 dias
   createdAt: string;
   updatedAt: string;

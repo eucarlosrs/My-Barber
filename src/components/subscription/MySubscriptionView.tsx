@@ -33,7 +33,7 @@ export const MySubscriptionView: React.FC = () => {
 
   const shopPayments = subscriptionPayments.filter(p => p.barbershopId === currentBarbershop.id);
 
-  const handleSimulate = async (action: 'CONFIRM_PAYMENT' | 'TRIGGER_PAST_DUE' | 'TRIGGER_SUSPEND' | 'REGULARIZE' | 'CANCEL') => {
+  const handleSimulate = async (action: 'CONFIRM_PAYMENT' | 'TRIGGER_PAST_DUE' | 'TRIGGER_SUSPEND' | 'REGULARIZE' | 'CANCEL' | 'VALIDATE_CARD_AND_START_TRIAL') => {
     setIsLoading(true);
     setFeedbackMessage(null);
     try {
@@ -87,6 +87,13 @@ export const MySubscriptionView: React.FC = () => {
 
   const getStatusBadge = (status?: SubscriptionStatus) => {
     switch (status) {
+      case 'TRIAL_14_DAYS':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-sky-500/10 text-sky-600 border border-sky-500/20">
+            <Sparkles className="w-3.5 h-3.5" />
+            14 Dias Grátis Ativos (Acesso Completo)
+          </span>
+        );
       case 'ACTIVE':
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
@@ -120,15 +127,16 @@ export const MySubscriptionView: React.FC = () => {
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-600 border border-blue-500/20">
             <Clock className="w-3.5 h-3.5" />
-            Aguardando Autorização
+            Aguardando Validação de Cartão
           </span>
         );
     }
   };
 
-  const billingCount = currentSubscription?.billingCount || 0;
-  const currentPrice = currentSubscription?.currentPrice || 49.90;
-  const isLaunchOffer = billingCount < 3;
+  const isInTrial = currentSubscription?.status === 'TRIAL_14_DAYS';
+  const paidCount = currentSubscription?.paidBillingCount || 0;
+  const currentPrice = isInTrial ? 0.00 : (paidCount <= 3 ? 49.90 : 69.90);
+  const isLaunchOffer = paidCount <= 3;
 
   return (
     <div className="space-y-6" id="my-subscription-container">
@@ -254,42 +262,57 @@ export const MySubscriptionView: React.FC = () => {
             </div>
           </div>
 
-          {/* Pricing Milestones Progression */}
+          {/* Pricing Milestones Progression (14 Days Free -> 3 Months R$ 49,90 -> Month 4+ R$ 69,90) */}
           <div className="bg-zinc-50 rounded-xl p-4 border border-zinc-200/80 space-y-3">
             <div className="flex items-center justify-between text-xs font-semibold text-zinc-700">
-              <span>Evolução da Oferta de Lançamento</span>
-              <span>Mensalidade #{billingCount || 1}</span>
+              <span>Evolução do Plano MY BARBER</span>
+              <span className="font-bold text-amber-700">
+                {isInTrial ? 'Período de Degustação (14 Dias Grátis)' : `Mensalidade Paga #${paidCount || 1}`}
+              </span>
             </div>
 
             {/* Stepper Visualizer */}
-            <div className="grid grid-cols-4 gap-2">
-              <div className={`p-2.5 rounded-lg border text-center transition-all ${billingCount >= 1 ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-medium' : 'bg-white border-zinc-200 text-zinc-600'}`}>
-                <div className="text-[10px] uppercase font-bold tracking-wider">1º Mês</div>
-                <div className="text-xs font-semibold mt-0.5">R$ 49,90</div>
-                <div className="text-[10px] text-zinc-500 mt-1">{billingCount >= 1 ? '✓ Pago' : 'Atual'}</div>
+            <div className="grid grid-cols-5 gap-2">
+              {/* 14 Days Free */}
+              <div className={`p-2.5 rounded-lg border text-center transition-all ${isInTrial ? 'bg-sky-50 border-sky-300 text-sky-900 font-medium ring-2 ring-sky-400' : (paidCount >= 1 ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-white border-zinc-200 text-zinc-600')}`}>
+                <div className="text-[9px] uppercase font-bold tracking-wider text-sky-600">Degustação</div>
+                <div className="text-xs font-semibold mt-0.5">14 Dias Grátis</div>
+                <div className="text-[10px] text-zinc-500 mt-1">
+                  {paidCount >= 1 ? '✓ Concluído' : isInTrial ? 'Em Uso' : 'Pendente'}
+                </div>
               </div>
 
-              <div className={`p-2.5 rounded-lg border text-center transition-all ${billingCount >= 2 ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-medium' : billingCount === 1 ? 'bg-amber-50 border-amber-300 text-amber-800 font-medium' : 'bg-white border-zinc-200 text-zinc-600'}`}>
-                <div className="text-[10px] uppercase font-bold tracking-wider">2º Mês</div>
+              {/* Month 1 */}
+              <div className={`p-2.5 rounded-lg border text-center transition-all ${paidCount >= 1 ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-medium' : (!isInTrial && paidCount === 0 ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-white border-zinc-200 text-zinc-600')}`}>
+                <div className="text-[9px] uppercase font-bold tracking-wider">1º Mês</div>
                 <div className="text-xs font-semibold mt-0.5">R$ 49,90</div>
-                <div className="text-[10px] text-zinc-500 mt-1">{billingCount >= 2 ? '✓ Pago' : billingCount === 1 ? 'Próximo' : 'Pendente'}</div>
+                <div className="text-[10px] text-zinc-500 mt-1">{paidCount >= 1 ? '✓ Pago' : 'Programado'}</div>
               </div>
 
-              <div className={`p-2.5 rounded-lg border text-center transition-all ${billingCount >= 3 ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-medium' : billingCount === 2 ? 'bg-amber-50 border-amber-300 text-amber-800 font-medium' : 'bg-white border-zinc-200 text-zinc-600'}`}>
-                <div className="text-[10px] uppercase font-bold tracking-wider">3º Mês</div>
+              {/* Month 2 */}
+              <div className={`p-2.5 rounded-lg border text-center transition-all ${paidCount >= 2 ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-medium' : paidCount === 1 ? 'bg-amber-50 border-amber-300 text-amber-800 font-medium' : 'bg-white border-zinc-200 text-zinc-600'}`}>
+                <div className="text-[9px] uppercase font-bold tracking-wider">2º Mês</div>
                 <div className="text-xs font-semibold mt-0.5">R$ 49,90</div>
-                <div className="text-[10px] text-zinc-500 mt-1">{billingCount >= 3 ? '✓ Pago' : billingCount === 2 ? 'Próximo' : 'Pendente'}</div>
+                <div className="text-[10px] text-zinc-500 mt-1">{paidCount >= 2 ? '✓ Pago' : paidCount === 1 ? 'Próximo' : 'Pendente'}</div>
               </div>
 
-              <div className={`p-2.5 rounded-lg border text-center transition-all ${billingCount >= 4 ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-medium' : 'bg-zinc-100 border-zinc-300 text-zinc-700'}`}>
-                <div className="text-[10px] uppercase font-bold tracking-wider text-amber-600">4º Mês+</div>
+              {/* Month 3 */}
+              <div className={`p-2.5 rounded-lg border text-center transition-all ${paidCount >= 3 ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-medium' : paidCount === 2 ? 'bg-amber-50 border-amber-300 text-amber-800 font-medium' : 'bg-white border-zinc-200 text-zinc-600'}`}>
+                <div className="text-[9px] uppercase font-bold tracking-wider">3º Mês</div>
+                <div className="text-xs font-semibold mt-0.5">R$ 49,90</div>
+                <div className="text-[10px] text-zinc-500 mt-1">{paidCount >= 3 ? '✓ Pago' : paidCount === 2 ? 'Próximo' : 'Pendente'}</div>
+              </div>
+
+              {/* Month 4+ */}
+              <div className={`p-2.5 rounded-lg border text-center transition-all ${paidCount >= 4 ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-medium' : 'bg-zinc-100 border-zinc-300 text-zinc-700'}`}>
+                <div className="text-[9px] uppercase font-bold tracking-wider text-amber-600">4º Mês+</div>
                 <div className="text-xs font-semibold mt-0.5">R$ 69,90</div>
                 <div className="text-[10px] text-zinc-500 mt-1">Automático</div>
               </div>
             </div>
 
             <p className="text-xs text-zinc-500 italic">
-              * A mudança de R$ 49,90 para R$ 69,90 é executada <strong>automaticamente</strong> na mesma assinatura pelo Mercado Pago a partir da 4ª cobrança. Não é necessário recadastrar cartão.
+              * Cartão validado no Mercado Pago para liberação imediata de <strong>14 dias grátis</strong> com acesso total. A transição de R$ 49,90 para R$ 69,90 a partir do 4º mês é <strong>100% automática</strong> na mesma assinatura.
             </p>
           </div>
 
@@ -361,6 +384,26 @@ export const MySubscriptionView: React.FC = () => {
           </p>
 
           <div className="space-y-2">
+            {currentSubscription?.status === 'PENDING' && (
+              <button
+                onClick={() => handleSimulate('VALIDATE_CARD_AND_START_TRIAL' as any)}
+                disabled={isLoading}
+                className="w-full text-left px-3.5 py-2.5 bg-sky-950/80 hover:bg-sky-900/90 hover:border-sky-400/70 border border-sky-600/50 rounded-xl transition-all text-xs flex items-center justify-between group"
+                id="btn-sim-validate-card-trial"
+              >
+                <div>
+                  <div className="font-semibold text-sky-300 group-hover:text-sky-200 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                    Validar Cartão & Iniciar 14 Dias Grátis
+                  </div>
+                  <div className="text-[11px] text-sky-200/80 mt-0.5">Libera acesso total imediato</div>
+                </div>
+                <span className="text-sky-400 font-mono text-[10px] font-bold">
+                  GRÁTIS
+                </span>
+              </button>
+            )}
+
             <button
               onClick={() => handleSimulate('CONFIRM_PAYMENT')}
               disabled={isLoading}
@@ -372,10 +415,12 @@ export const MySubscriptionView: React.FC = () => {
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   Simular Cobrança Aprovada
                 </div>
-                <div className="text-[11px] text-zinc-400 mt-0.5">Avança para cobrança #{billingCount + 1}</div>
+                <div className="text-[11px] text-zinc-400 mt-0.5">
+                  {isInTrial ? 'Encerra degustação e inicia 1º Mês (R$ 49,90)' : `Avança para cobrança #${paidCount + 1}`}
+                </div>
               </div>
               <span className="text-zinc-500 font-mono text-[10px]">
-                {billingCount < 3 ? 'R$ 49,90' : 'R$ 69,90'}
+                {paidCount < 3 ? 'R$ 49,90' : 'R$ 69,90'}
               </span>
             </button>
 

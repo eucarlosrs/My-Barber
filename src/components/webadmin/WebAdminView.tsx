@@ -40,6 +40,9 @@ import { GalleryTab } from './GalleryTab';
 import { MySubscriptionView } from '../subscription/MySubscriptionView';
 import { AppImage } from '../common/AppImage';
 import { ImageEditModal, ImagePreset } from '../common/ImageEditModal';
+import { ThemeSelectorCard } from './ThemeSelectorCard';
+import { getThemeCssVariables } from '../../utils/theme';
+import { ThemeModeToggle } from '../common/ThemeModeToggle';
 
 export const WebAdminView: React.FC = () => {
   const {
@@ -137,7 +140,10 @@ export const WebAdminView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div
+      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6"
+      style={getThemeCssVariables(currentBarbershop.theme)}
+    >
       {/* Header bar of WebAdmin */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-neutral-800">
         <div>
@@ -155,8 +161,11 @@ export const WebAdminView: React.FC = () => {
           </p>
         </div>
 
-        {/* Plan Limit badge */}
-        <div className="bg-neutral-900 border border-neutral-800 p-3 rounded-2xl flex items-center gap-3">
+        <div className="flex items-center gap-3 self-stretch sm:self-auto justify-between sm:justify-end">
+          <ThemeModeToggle />
+
+          {/* Plan Limit badge */}
+          <div className="bg-neutral-900 border border-neutral-800 p-3 rounded-2xl flex items-center gap-3">
           <Users className="w-5 h-5 text-orange-400" />
           <div>
             <div className="text-xs font-semibold text-neutral-200">
@@ -174,6 +183,7 @@ export const WebAdminView: React.FC = () => {
           </div>
         </div>
       </div>
+    </div>
 
       {/* Link de Divulgação Exclusivo da Barbearia no My Barber */}
       <div className="my-4 bg-gradient-to-r from-orange-500/15 via-neutral-900 to-neutral-900 border border-orange-500/40 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl overflow-hidden">
@@ -784,15 +794,19 @@ export const WebAdminView: React.FC = () => {
 
       {/* 7. IDENTIDADE DA BARBEARIA & CONFIGURAÇÕES */}
       {activeTab === 'SETTINGS' && (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 space-y-6">
-          <div>
-            <h3 className="font-bold text-neutral-100 font-heading text-lg">
-              Identidade Visual & Informações do Estabelecimento (Seções 4 e 25)
-            </h3>
-            <p className="text-xs text-neutral-400">
-              Esses dados personalizam todo o aplicativo que o seu cliente visualiza.
-            </p>
-          </div>
+        <div className="space-y-6">
+          {/* Seletor Oficial dos 4 Temas de Cores do App */}
+          <ThemeSelectorCard />
+
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 space-y-6">
+            <div>
+              <h3 className="font-bold text-neutral-100 font-heading text-lg">
+                Identidade Visual & Informações do Estabelecimento (Seções 4 e 25)
+              </h3>
+              <p className="text-xs text-neutral-400">
+                Esses dados personalizam todo o aplicativo que o seu cliente visualiza.
+              </p>
+            </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
@@ -1017,6 +1031,7 @@ export const WebAdminView: React.FC = () => {
             </div>
           </div>
         </div>
+      </div>
       )}
 
       {/* MINHA ASSINATURA */}

@@ -57,6 +57,8 @@ import { AppImage } from '../common/AppImage';
 import { APP_ASSETS } from '../../data/assets';
 import { triggerGooglePopupLogin } from '../../lib/googleAuth';
 import { formatPhoneNumber } from '../../utils/formatters';
+import { getThemeCssVariables } from '../../utils/theme';
+import { ThemeModeToggle } from '../common/ThemeModeToggle';
 
 export const ClientAppView: React.FC = () => {
   const {
@@ -93,7 +95,7 @@ export const ClientAppView: React.FC = () => {
     getBarbershopDirectUrl
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'BOOKING' | 'GALLERY' | 'MY_APPOINTMENTS' | 'PROMOTIONS' | 'RAFFLES' | 'PACKAGES' | 'ABOUT' | 'WAITLIST'>('BOOKING');
+  const [activeTab, setActiveTab] = useState<'BOOKING' | 'GALLERY' | 'MY_APPOINTMENTS' | 'PROMOTIONS' | 'RAFFLES' | 'PACKAGES' | 'ABOUT' | 'WAITLIST' | 'NEWS'>('BOOKING');
   const [selectedGalleryCategory, setSelectedGalleryCategory] = useState<string>('TODOS');
   const [activeWorkDetail, setActiveWorkDetail] = useState<GalleryWork | null>(null);
   const [copiedCoupon, setCopiedCoupon] = useState<string | null>(null);
@@ -681,7 +683,10 @@ export const ClientAppView: React.FC = () => {
   };
 
   const appBody = (
-    <div className="flex-1 w-full max-w-4xl mx-auto flex flex-col bg-neutral-950 text-neutral-100 relative pb-24 shadow-2xl">
+    <div
+      className="flex-1 w-full max-w-4xl mx-auto flex flex-col bg-neutral-950 text-neutral-100 relative pb-24 shadow-2xl"
+      style={getThemeCssVariables(currentBarbershop.theme)}
+    >
       {/* Real Client Top Bar with Barbershop Name, Client greeting and Logout */}
       {isClient && !isImpersonating && (
         <div className="bg-neutral-900/95 backdrop-blur-md border-b border-neutral-800 px-4 py-2.5 flex items-center justify-between sticky top-0 z-30">
@@ -689,7 +694,8 @@ export const ClientAppView: React.FC = () => {
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
             <span className="text-xs sm:text-sm font-bold text-neutral-200 truncate">{currentBarbershop.name}</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <ThemeModeToggle />
             <div className="flex items-center gap-2 text-xs text-neutral-300">
               <User className="w-3.5 h-3.5 text-orange-400" />
               <span className="font-semibold">{currentUser.name}</span>
@@ -742,6 +748,11 @@ export const ClientAppView: React.FC = () => {
                 </span>
               )}
             </div>
+
+            {/* Dark / Light Mode Switch in Banner */}
+            <div className="absolute top-3.5 right-3.5 z-10">
+              <ThemeModeToggle variant="pill" />
+            </div>
           </div>
 
           {/* Barbershop Info Row & Client Login Status */}
@@ -752,7 +763,8 @@ export const ClientAppView: React.FC = () => {
                   src={currentBarbershop.logoUrl}
                   alt={currentBarbershop.name}
                   fallbackType="logo"
-                  className="w-16 h-16 rounded-2xl object-cover border-2 border-orange-500/60 shadow-2xl bg-neutral-900 shrink-0"
+                  className="w-16 h-16 rounded-2xl object-cover border-2 shadow-2xl bg-neutral-900 shrink-0"
+                  style={{ borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.6))' }}
                 />
                 <div>
                   <div className="flex items-center gap-0.5">
@@ -765,10 +777,11 @@ export const ClientAppView: React.FC = () => {
                       )}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="p-0.5 text-orange-500 hover:text-orange-400 hover:bg-neutral-800/80 rounded-lg transition-colors cursor-pointer inline-flex items-center"
+                      className="p-0.5 hover:bg-neutral-800/80 rounded-lg transition-colors cursor-pointer inline-flex items-center"
+                      style={{ color: 'var(--theme-primary, #FF6B00)' }}
                       title="Abrir no Google Maps"
                     >
-                      <MapPin className="w-3.5 h-3.5 text-orange-500 shrink-0 hover:scale-110 transition-transform" />
+                      <MapPin className="w-3.5 h-3.5 shrink-0 hover:scale-110 transition-transform" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
                     </a>
                   </div>
                 </div>
@@ -783,10 +796,17 @@ export const ClientAppView: React.FC = () => {
                         src={currentUser.avatarUrl}
                         alt={currentUser.name}
                         fallbackType="userAvatar"
-                        className="w-7 h-7 rounded-full object-cover border border-orange-500/60 shrink-0"
+                        className="w-7 h-7 rounded-full object-cover border shrink-0"
+                        style={{ borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.6))' }}
                       />
                     ) : (
-                      <div className="w-7 h-7 rounded-full bg-orange-500 text-neutral-950 flex items-center justify-center font-black text-[11px] shrink-0">
+                      <div
+                        className="w-7 h-7 rounded-full flex items-center justify-center font-black text-[11px] shrink-0"
+                        style={{
+                          backgroundColor: 'var(--theme-primary, #FF6B00)',
+                          color: 'var(--theme-contrast, #0D0D0D)'
+                        }}
+                      >
                         {currentUser.name.charAt(0)}
                       </div>
                     )}
@@ -803,7 +823,8 @@ export const ClientAppView: React.FC = () => {
                             else if (currentUser.role === 'PROPRIETARIO' || currentUser.role === 'GERENTE') setViewMode('WEBADMIN');
                             else if (currentUser.role === 'PROFISSIONAL') setViewMode('PROFISSIONAL_APP');
                           }}
-                          className="text-[9px] text-orange-400 font-bold hover:underline cursor-pointer flex items-center gap-0.5"
+                          className="text-[9px] font-bold hover:underline cursor-pointer flex items-center gap-0.5"
+                          style={{ color: 'var(--theme-primary, #FF6B00)' }}
                           title="Ir para o Painel de Gestão"
                         >
                           <Shield className="w-2.5 h-2.5" />
@@ -825,7 +846,7 @@ export const ClientAppView: React.FC = () => {
                       setGoogleStep('SELECT_ACCOUNT');
                       setShowLoginModal(true);
                     }}
-                    className="group bg-neutral-900/90 hover:bg-neutral-800 text-neutral-100 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-2 shadow-lg border border-neutral-700/80 hover:border-orange-500/60 active:scale-95 transition-all cursor-pointer backdrop-blur-sm"
+                    className="group bg-neutral-900/90 hover:bg-neutral-800 text-neutral-100 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-2 shadow-lg border border-neutral-700/80 active:scale-95 transition-all cursor-pointer backdrop-blur-sm"
                   >
                     <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center shrink-0 shadow-sm">
                       <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
@@ -847,7 +868,7 @@ export const ClientAppView: React.FC = () => {
                         />
                       </svg>
                     </div>
-                    <span className="text-[11px] tracking-wide group-hover:text-orange-400 transition-colors">Entrar Google</span>
+                    <span className="text-[11px] tracking-wide transition-colors">Entrar Google</span>
                   </button>
                 )}
               </div>
@@ -858,10 +879,10 @@ export const ClientAppView: React.FC = () => {
               <div className="mt-3.5 pt-3 border-t border-neutral-800/80">
                 <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-2 flex items-center justify-between">
                   <span className="flex items-center gap-1.5 text-neutral-300">
-                    <Flame className="w-3.5 h-3.5 text-amber-400" />
+                    <Flame className="w-3.5 h-3.5" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
                     Destaques & Novidades da Barbearia
                   </span>
-                  <span className="text-[9px] text-orange-400/90 font-medium">Toque para ver</span>
+                  <span className="text-[9px] font-medium" style={{ color: 'var(--theme-primary, #FF6B00)' }}>Toque para ver</span>
                 </div>
                 <div className="flex items-center gap-3.5 overflow-x-auto py-2 px-1 no-scrollbar">
                   {/* Highlighted Promotions - Sized for ~3.5 items visible & unclipped circles */}
@@ -872,7 +893,12 @@ export const ClientAppView: React.FC = () => {
                       className="w-[88px] sm:w-[94px] shrink-0 flex flex-col items-center gap-1.5 group focus:outline-none"
                       title={promo.title}
                     >
-                      <div className="w-16 h-16 sm:w-[68px] sm:h-[68px] rounded-full p-[2.5px] bg-gradient-to-tr from-orange-500 via-amber-500 to-orange-400 group-hover:scale-105 transition-transform shadow-md relative">
+                      <div
+                        className="w-16 h-16 sm:w-[68px] sm:h-[68px] rounded-full p-[2.5px] group-hover:scale-105 transition-transform shadow-md relative"
+                        style={{
+                          background: 'linear-gradient(135deg, var(--theme-primary, #FF6B00), var(--theme-hover, #E05A00))'
+                        }}
+                      >
                         <div className="w-full h-full rounded-full overflow-hidden bg-neutral-950 border border-neutral-900 relative">
                           <AppImage
                             src={promo.imageUrl || 'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=200'}
@@ -883,16 +909,22 @@ export const ClientAppView: React.FC = () => {
                           <div className="absolute inset-0 bg-neutral-950/20" />
                         </div>
                         {promo.discountPercentage && (
-                          <div className="absolute -top-1 -right-1 bg-orange-500 text-neutral-950 text-[9px] font-black px-1.5 py-0.2 rounded-full shadow border border-neutral-950 z-10">
+                          <div
+                            className="absolute -top-1 -right-1 text-[9px] font-black px-1.5 py-0.2 rounded-full shadow border border-neutral-950 z-10"
+                            style={{
+                              backgroundColor: 'var(--theme-primary, #FF6B00)',
+                              color: 'var(--theme-contrast, #0D0D0D)'
+                            }}
+                          >
                             {promo.discountPercentage}%
                           </div>
                         )}
                       </div>
                       <div className="text-center w-full px-0.5">
-                        <span className="text-[10px] font-bold text-neutral-200 block truncate group-hover:text-orange-400 transition-colors">
+                        <span className="text-[10px] font-bold text-neutral-200 block truncate transition-colors">
                           {promo.title}
                         </span>
-                        <span className="text-[8px] font-black uppercase text-amber-400/90 block truncate">
+                        <span className="text-[8px] font-black uppercase block truncate" style={{ color: 'var(--theme-primary, #FF6B00)' }}>
                           {promo.highlightTag || 'PROMO'}
                         </span>
                       </div>
@@ -907,7 +939,12 @@ export const ClientAppView: React.FC = () => {
                       className="w-[88px] sm:w-[94px] shrink-0 flex flex-col items-center gap-1.5 group focus:outline-none"
                       title={raffle.title}
                     >
-                      <div className="w-16 h-16 sm:w-[68px] sm:h-[68px] rounded-full p-[2.5px] bg-gradient-to-tr from-amber-400 via-orange-500 to-yellow-300 group-hover:scale-105 transition-transform shadow-md relative">
+                      <div
+                        className="w-16 h-16 sm:w-[68px] sm:h-[68px] rounded-full p-[2.5px] group-hover:scale-105 transition-transform shadow-md relative"
+                        style={{
+                          background: 'linear-gradient(135deg, var(--theme-primary, #FF6B00), var(--theme-hover, #E05A00))'
+                        }}
+                      >
                         <div className="w-full h-full rounded-full overflow-hidden bg-neutral-950 border border-neutral-900 relative">
                           <AppImage
                             src={raffle.imageUrl || 'https://images.unsplash.com/photo-1512690459411-b9245aed614b?w=200'}
@@ -917,15 +954,21 @@ export const ClientAppView: React.FC = () => {
                           />
                           <div className="absolute inset-0 bg-neutral-950/20" />
                         </div>
-                        <div className="absolute -top-1 -right-1 bg-amber-400 text-neutral-950 text-[9px] font-black px-1.5 py-0.5 rounded-full shadow border border-neutral-950 flex items-center z-10">
+                        <div
+                          className="absolute -top-1 -right-1 text-[9px] font-black px-1.5 py-0.5 rounded-full shadow border border-neutral-950 flex items-center z-10"
+                          style={{
+                            backgroundColor: 'var(--theme-primary, #FF6B00)',
+                            color: 'var(--theme-contrast, #0D0D0D)'
+                          }}
+                        >
                           <Trophy className="w-2.5 h-2.5" />
                         </div>
                       </div>
                       <div className="text-center w-full px-0.5">
-                        <span className="text-[10px] font-bold text-neutral-200 block truncate group-hover:text-amber-400 transition-colors">
+                        <span className="text-[10px] font-bold text-neutral-200 block truncate transition-colors">
                           {raffle.title}
                         </span>
-                        <span className="text-[8px] font-black uppercase text-amber-400/90 block truncate">
+                        <span className="text-[8px] font-black uppercase block truncate" style={{ color: 'var(--theme-primary, #FF6B00)' }}>
                           {raffle.status === 'REALIZADO' ? 'GANHADOR' : (raffle.highlightTag || 'SORTEIO')}
                         </span>
                       </div>
@@ -969,7 +1012,13 @@ export const ClientAppView: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between mb-2.5">
                   <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-orange-500 text-neutral-950 font-bold text-[11px] flex items-center justify-center">
+                    <span
+                      className="w-5 h-5 rounded-full font-bold text-[11px] flex items-center justify-center"
+                      style={{
+                        backgroundColor: 'var(--theme-primary, #FF6B00)',
+                        color: 'var(--theme-contrast, #0D0D0D)'
+                      }}
+                    >
                       1
                     </span>
                     <h3 className="font-semibold text-neutral-100 text-sm">
@@ -982,19 +1031,30 @@ export const ClientAppView: React.FC = () => {
                 {/* Category Filter Chips */}
                 {categories.length > 1 && (
                   <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-2 no-scrollbar">
-                    {categories.map(cat => (
-                      <button
-                        key={cat}
-                        onClick={() => setSelectedCategory(cat)}
-                        className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
-                          selectedCategory === cat
-                            ? 'bg-orange-500 text-neutral-950 font-semibold shadow-md'
-                            : 'bg-neutral-900 text-neutral-400 hover:text-neutral-200 border border-neutral-800'
-                        }`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
+                    {categories.map(cat => {
+                      const isCatSelected = selectedCategory === cat;
+                      return (
+                        <button
+                          key={cat}
+                          onClick={() => setSelectedCategory(cat)}
+                          className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                            isCatSelected
+                              ? 'font-semibold shadow-md'
+                              : 'bg-neutral-900 text-neutral-400 hover:text-neutral-200 border border-neutral-800'
+                          }`}
+                          style={
+                            isCatSelected
+                              ? {
+                                  backgroundColor: 'var(--theme-primary, #FF6B00)',
+                                  color: 'var(--theme-contrast, #0D0D0D)'
+                                }
+                              : undefined
+                          }
+                        >
+                          {cat}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
 
@@ -1010,7 +1070,11 @@ export const ClientAppView: React.FC = () => {
                     <p className="text-xs font-bold text-neutral-300">Nenhum serviço encontrado nesta categoria</p>
                     <button
                       onClick={() => setSelectedCategory('TODOS')}
-                      className="px-3 py-1.5 bg-orange-500 text-neutral-950 rounded-xl text-xs font-bold"
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold"
+                      style={{
+                        backgroundColor: 'var(--theme-primary, #FF6B00)',
+                        color: 'var(--theme-contrast, #0D0D0D)'
+                      }}
                     >
                       Ver Todos os Serviços
                     </button>
@@ -1027,9 +1091,17 @@ export const ClientAppView: React.FC = () => {
                           onClick={() => handleSelectServiceAndProceed(srv)}
                           className={`w-full text-left p-3 rounded-2xl border transition-all flex items-start gap-3.5 active:scale-[0.99] group cursor-pointer ${
                             isSelected
-                              ? 'bg-neutral-900/95 border-2 border-orange-500 shadow-lg shadow-orange-500/10'
+                              ? 'bg-neutral-900/95 border-2 shadow-lg'
                               : 'bg-neutral-900/90 border border-neutral-800/90 hover:border-neutral-700 text-neutral-300'
                           }`}
+                          style={
+                            isSelected
+                              ? {
+                                  borderColor: 'var(--theme-primary, #FF6B00)',
+                                  boxShadow: '0 10px 25px -5px var(--theme-focus, rgba(255, 107, 0, 0.2))'
+                                }
+                              : undefined
+                          }
                         >
                           {/* Service Thumbnail */}
                           <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl overflow-hidden bg-neutral-950 shrink-0 border border-neutral-800 relative mt-0.5">
@@ -1047,7 +1119,7 @@ export const ClientAppView: React.FC = () => {
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex-1 min-w-0">
                                 <span
-                                  className="font-bold text-sm text-neutral-100 block group-hover:text-orange-400 transition-colors line-clamp-2 leading-snug break-words"
+                                  className="font-bold text-sm text-neutral-100 block transition-colors line-clamp-2 leading-snug break-words"
                                   title={srv.name}
                                 >
                                   {srv.name}
@@ -1070,7 +1142,8 @@ export const ClientAppView: React.FC = () => {
                                         e.stopPropagation();
                                         setExpandedDescriptions(prev => ({ ...prev, [srv.id]: false }));
                                       }}
-                                      className="inline-flex items-center gap-1 text-[10px] font-bold text-orange-400 hover:text-orange-300 mt-1.5"
+                                      className="inline-flex items-center gap-1 text-[10px] font-bold mt-1.5"
+                                      style={{ color: 'var(--theme-primary, #FF6B00)' }}
                                     >
                                       <Minus className="w-3 h-3" />
                                       <span>Ver menos</span>
@@ -1086,7 +1159,8 @@ export const ClientAppView: React.FC = () => {
                                           e.stopPropagation();
                                           setExpandedDescriptions(prev => ({ ...prev, [srv.id]: true }));
                                         }}
-                                        className="p-1 px-1.5 bg-neutral-800/90 hover:bg-neutral-700 text-orange-400 rounded-md text-[10px] font-black shrink-0 flex items-center gap-0.5 border border-neutral-700/60 transition-colors shadow-sm"
+                                        className="p-1 px-1.5 bg-neutral-800/90 hover:bg-neutral-700 rounded-md text-[10px] font-black shrink-0 flex items-center gap-0.5 border border-neutral-700/60 transition-colors shadow-sm"
+                                        style={{ color: 'var(--theme-primary, #FF6B00)' }}
                                         title="Ver descrição completa"
                                       >
                                         <Plus className="w-3 h-3" />
@@ -1099,7 +1173,14 @@ export const ClientAppView: React.FC = () => {
 
                             {/* Badges: Duration & Category */}
                             <div className="flex items-center gap-2 pt-0.5">
-                              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-500 bg-amber-500/15 px-2.5 py-1 rounded-lg border border-amber-500/20">
+                              <span
+                                className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg border"
+                                style={{
+                                  backgroundColor: 'var(--theme-surface, rgba(255, 107, 0, 0.15))',
+                                  color: 'var(--theme-primary, #FF6B00)',
+                                  borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.3))'
+                                }}
+                              >
                                 <Clock className="w-3.5 h-3.5" />
                                 {srv.durationMinutes} min
                               </span>
@@ -1120,7 +1201,13 @@ export const ClientAppView: React.FC = () => {
               {/* Step 2: Select Professional */}
               <div id="step-2-professionals">
                 <div className="flex items-center gap-2 mb-2.5">
-                  <span className="w-5 h-5 rounded-full bg-orange-500 text-neutral-950 font-bold text-[11px] flex items-center justify-center">
+                  <span
+                    className="w-5 h-5 rounded-full font-bold text-[11px] flex items-center justify-center"
+                    style={{
+                      backgroundColor: 'var(--theme-primary, #FF6B00)',
+                      color: 'var(--theme-contrast, #0D0D0D)'
+                    }}
+                  >
                     2
                   </span>
                   <h3 className="font-semibold text-neutral-100 text-sm">
@@ -1137,9 +1224,18 @@ export const ClientAppView: React.FC = () => {
                         onClick={() => handleSelectProfessionalAndProceed(prof)}
                         className={`p-3 rounded-2xl border text-left transition-all flex flex-col items-center text-center active:scale-[0.98] ${
                           isSelected
-                            ? 'bg-orange-500/10 border-orange-500 ring-1 ring-orange-500/50 shadow-md'
+                            ? 'shadow-md'
                             : 'bg-neutral-900 border-neutral-800/80 hover:border-neutral-700'
                         }`}
+                        style={
+                          isSelected
+                            ? {
+                                backgroundColor: 'var(--theme-surface, rgba(255, 107, 0, 0.12))',
+                                borderColor: 'var(--theme-primary, #FF6B00)',
+                                boxShadow: '0 4px 14px 0 var(--theme-focus, rgba(255, 107, 0, 0.25))'
+                              }
+                            : undefined
+                        }
                       >
                         <div className="relative mb-2">
                           <AppImage
@@ -1149,14 +1245,20 @@ export const ClientAppView: React.FC = () => {
                             className="w-14 h-14 rounded-full object-cover border-2 border-neutral-700 shadow-md"
                           />
                           {isSelected && (
-                            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center text-neutral-950 font-bold text-[10px] shadow">
+                            <div
+                              className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] shadow"
+                              style={{
+                                backgroundColor: 'var(--theme-primary, #FF6B00)',
+                                color: 'var(--theme-contrast, #0D0D0D)'
+                              }}
+                            >
                               ✓
                             </div>
                           )}
                         </div>
                         <div className="font-bold text-xs text-neutral-100 truncate w-full">{prof.name}</div>
-                        <div className="flex items-center gap-1 text-[10px] text-orange-400 font-semibold mt-0.5">
-                          <Star className="w-2.5 h-2.5 fill-orange-400 text-orange-400" />
+                        <div className="flex items-center gap-1 text-[10px] font-semibold mt-0.5" style={{ color: 'var(--theme-primary, #FF6B00)' }}>
+                          <Star className="w-2.5 h-2.5 fill-current" />
                           <span>4.9 (Mestre)</span>
                         </div>
                       </button>
@@ -1168,7 +1270,13 @@ export const ClientAppView: React.FC = () => {
               {/* Step 3: Select Date Strip & Time Slots */}
               <div id="step-3-datetime">
                 <div className="flex items-center gap-2 mb-2.5">
-                  <span className="w-5 h-5 rounded-full bg-orange-500 text-neutral-950 font-bold text-[11px] flex items-center justify-center">
+                  <span
+                    className="w-5 h-5 rounded-full font-bold text-[11px] flex items-center justify-center"
+                    style={{
+                      backgroundColor: 'var(--theme-primary, #FF6B00)',
+                      color: 'var(--theme-contrast, #0D0D0D)'
+                    }}
+                  >
                     3
                   </span>
                   <h3 className="font-semibold text-neutral-100 text-sm">
@@ -1186,15 +1294,24 @@ export const ClientAppView: React.FC = () => {
                         onClick={() => handleSelectDateAndProceed(d.date)}
                         className={`flex flex-col items-center py-2 px-3 rounded-2xl border min-w-[58px] transition-all active:scale-95 ${
                           isSelected
-                            ? 'bg-orange-500 text-neutral-950 border-orange-500 shadow-md font-bold'
+                            ? 'shadow-md font-bold'
                             : 'bg-neutral-900 border-neutral-800 text-neutral-300 hover:border-neutral-700'
                         }`}
+                        style={
+                          isSelected
+                            ? {
+                                backgroundColor: 'var(--theme-primary, #FF6B00)',
+                                color: 'var(--theme-contrast, #0D0D0D)',
+                                borderColor: 'var(--theme-primary, #FF6B00)'
+                              }
+                            : undefined
+                        }
                       >
-                        <span className={`text-[10px] uppercase ${isSelected ? 'text-neutral-950 font-black' : 'text-neutral-400'}`}>
+                        <span className={`text-[10px] uppercase ${isSelected ? 'font-black' : 'text-neutral-400'}`}>
                           {d.dayName}
                         </span>
                         <span className="text-base font-extrabold my-0.5">{d.dayNum}</span>
-                        <span className={`text-[9px] ${isSelected ? 'text-neutral-900' : 'text-neutral-500'}`}>
+                        <span className={`text-[9px] ${isSelected ? 'opacity-90' : 'text-neutral-500'}`}>
                           {d.month}
                         </span>
                       </button>
@@ -1237,9 +1354,18 @@ export const ClientAppView: React.FC = () => {
                                     !slot.available
                                       ? 'bg-neutral-950/40 text-neutral-600 border border-neutral-900 cursor-not-allowed line-through opacity-60'
                                       : isSelected
-                                      ? 'bg-orange-500 text-neutral-950 shadow-md ring-2 ring-orange-400'
+                                      ? 'shadow-md'
                                       : 'bg-neutral-950 hover:bg-neutral-800 text-neutral-300 border border-neutral-800'
                                   }`}
+                                  style={
+                                    isSelected
+                                      ? {
+                                          backgroundColor: 'var(--theme-primary, #FF6B00)',
+                                          color: 'var(--theme-contrast, #0D0D0D)',
+                                          boxShadow: '0 0 0 2px var(--theme-focus, rgba(255, 107, 0, 0.4))'
+                                        }
+                                      : undefined
+                                  }
                                 >
                                   {slot.time}
                                 </button>
@@ -1272,9 +1398,18 @@ export const ClientAppView: React.FC = () => {
                                     !slot.available
                                       ? 'bg-neutral-950/40 text-neutral-600 border border-neutral-900 cursor-not-allowed line-through opacity-60'
                                       : isSelected
-                                      ? 'bg-orange-500 text-neutral-950 shadow-md ring-2 ring-orange-400'
+                                      ? 'shadow-md'
                                       : 'bg-neutral-950 hover:bg-neutral-800 text-neutral-300 border border-neutral-800'
                                   }`}
+                                  style={
+                                    isSelected
+                                      ? {
+                                          backgroundColor: 'var(--theme-primary, #FF6B00)',
+                                          color: 'var(--theme-contrast, #0D0D0D)',
+                                          boxShadow: '0 0 0 2px var(--theme-focus, rgba(255, 107, 0, 0.4))'
+                                        }
+                                      : undefined
+                                  }
                                 >
                                   {slot.time}
                                 </button>
@@ -1307,9 +1442,18 @@ export const ClientAppView: React.FC = () => {
                                     !slot.available
                                       ? 'bg-neutral-950/40 text-neutral-600 border border-neutral-900 cursor-not-allowed line-through opacity-60'
                                       : isSelected
-                                      ? 'bg-orange-500 text-neutral-950 shadow-md ring-2 ring-orange-400'
+                                      ? 'shadow-md'
                                       : 'bg-neutral-950 hover:bg-neutral-800 text-neutral-300 border border-neutral-800'
                                   }`}
+                                  style={
+                                    isSelected
+                                      ? {
+                                          backgroundColor: 'var(--theme-primary, #FF6B00)',
+                                          color: 'var(--theme-contrast, #0D0D0D)',
+                                          boxShadow: '0 0 0 2px var(--theme-focus, rgba(255, 107, 0, 0.4))'
+                                        }
+                                      : undefined
+                                  }
                                 >
                                   {slot.time}
                                 </button>
@@ -1324,14 +1468,18 @@ export const ClientAppView: React.FC = () => {
               </div>
 
               {/* Sticky Booking Summary Sheet */}
-              <div id="step-4-confirm" className="bg-neutral-900 border-2 border-orange-500/40 rounded-2xl p-4 shadow-xl space-y-3">
+              <div
+                id="step-4-confirm"
+                className="bg-neutral-900 border-2 rounded-2xl p-4 shadow-xl space-y-3"
+                style={{ borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.4))' }}
+              >
                 <div className="flex items-center justify-between text-xs pb-2 border-b border-neutral-800 gap-2">
                   <div className="min-w-0 flex-1">
                     <span className="text-[10px] text-neutral-400 uppercase font-bold block">Resumo do Horário</span>
                     <div className="font-extrabold text-neutral-100 text-xs mt-0.5 truncate">
                       {selectedService?.name || 'Selecione o serviço'}
                     </div>
-                    <div className="text-[11px] text-orange-400 font-semibold truncate">
+                    <div className="text-[11px] font-semibold truncate" style={{ color: 'var(--theme-primary, #FF6B00)' }}>
                       Com {selectedProfessional?.name || 'Barbeiro'} • {selectedDate.split('-').reverse().join('/')} às {selectedTime}
                     </div>
                   </div>
@@ -1348,9 +1496,18 @@ export const ClientAppView: React.FC = () => {
                   disabled={!selectedService || !selectedProfessional}
                   className={`w-full py-3.5 rounded-xl text-xs sm:text-sm font-semibold tracking-wide flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all ${
                     selectedService && selectedProfessional
-                      ? 'bg-orange-500 hover:bg-orange-400 text-neutral-950 cursor-pointer shadow-orange-500/20'
+                      ? 'cursor-pointer'
                       : 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
                   }`}
+                  style={
+                    selectedService && selectedProfessional
+                      ? {
+                          backgroundColor: 'var(--theme-primary, #FF6B00)',
+                          color: 'var(--theme-contrast, #0D0D0D)',
+                          boxShadow: '0 4px 15px var(--theme-focus, rgba(255, 107, 0, 0.3))'
+                        }
+                      : undefined
+                  }
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>CONFIRMAR AGENDAMENTO</span>
@@ -1363,7 +1520,13 @@ export const ClientAppView: React.FC = () => {
           {activeTab === 'MY_APPOINTMENTS' && (
             !isClient ? (
               <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 text-center space-y-4">
-                <div className="w-12 h-12 rounded-2xl bg-orange-500/10 text-orange-400 flex items-center justify-center mx-auto">
+                <div
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto"
+                  style={{
+                    backgroundColor: 'var(--theme-light-bg, rgba(255, 107, 0, 0.15))',
+                    color: 'var(--theme-primary, #FF6B00)'
+                  }}
+                >
                   <Calendar className="w-6 h-6" />
                 </div>
                 <div>
@@ -1377,7 +1540,11 @@ export const ClientAppView: React.FC = () => {
                     setGoogleStep('SELECT_ACCOUNT');
                     setShowLoginModal(true);
                   }}
-                  className="px-5 py-2.5 bg-orange-500 hover:bg-orange-400 text-neutral-950 font-black rounded-xl text-xs flex items-center gap-2 mx-auto shadow-md transition-all active:scale-95 cursor-pointer"
+                  className="px-5 py-2.5 font-black rounded-xl text-xs flex items-center gap-2 mx-auto shadow-md transition-all active:scale-95 cursor-pointer"
+                  style={{
+                    backgroundColor: 'var(--theme-primary, #FF6B00)',
+                    color: 'var(--theme-contrast, #0D0D0D)'
+                  }}
                 >
                   <LogIn className="w-4 h-4" />
                   <span>Entrar com Google</span>
@@ -1392,7 +1559,14 @@ export const ClientAppView: React.FC = () => {
                   </h3>
                   <p className="text-[11px] text-neutral-400">Tickets de corte e histórico em toda a rede My Barber</p>
                 </div>
-                <span className="text-xs bg-orange-500/10 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-full font-bold">
+                <span
+                  className="text-xs px-2 py-0.5 rounded-full font-bold border"
+                  style={{
+                    backgroundColor: 'var(--theme-light-bg, rgba(255, 107, 0, 0.15))',
+                    color: 'var(--theme-primary, #FF6B00)',
+                    borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.3))'
+                  }}
+                >
                   {clientAppointments.length + clientOtherAppointments.length} agendados
                 </span>
               </div>
@@ -1400,7 +1574,10 @@ export const ClientAppView: React.FC = () => {
               {/* Seção 1: Agendamentos na barbearia atual */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="text-[10px] font-black text-orange-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <div
+                    className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5"
+                    style={{ color: 'var(--theme-primary, #FF6B00)' }}
+                  >
                     <Store className="w-3.5 h-3.5" />
                     <span>Nesta Barbearia ({currentBarbershop.name})</span>
                   </div>
@@ -1420,7 +1597,11 @@ export const ClientAppView: React.FC = () => {
                     </div>
                     <button
                       onClick={() => setActiveTab('BOOKING')}
-                      className="px-4 py-1.5 bg-orange-500 text-neutral-950 font-bold rounded-xl text-xs"
+                      className="px-4 py-1.5 font-bold rounded-xl text-xs"
+                      style={{
+                        backgroundColor: 'var(--theme-primary, #FF6B00)',
+                        color: 'var(--theme-contrast, #0D0D0D)'
+                      }}
                     >
                       Agendar Agora
                     </button>
@@ -1433,9 +1614,14 @@ export const ClientAppView: React.FC = () => {
                         className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden shadow-lg relative"
                       >
                         {/* Ticket Top Header */}
-                        <div className="bg-gradient-to-r from-orange-500/20 via-neutral-900 to-neutral-900 p-3.5 flex items-center justify-between border-b border-neutral-800/80">
+                        <div
+                          className="p-3.5 flex items-center justify-between border-b border-neutral-800/80"
+                          style={{
+                            background: 'linear-gradient(to right, var(--theme-light-bg, rgba(255, 107, 0, 0.2)), transparent)'
+                          }}
+                        >
                           <div className="flex items-center gap-2">
-                            <Ticket className="w-4 h-4 text-orange-400" />
+                            <Ticket className="w-4 h-4" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
                             <span className="font-black text-neutral-100 text-xs uppercase tracking-wider font-heading">
                               VIP PASS • {apt.serviceName}
                             </span>
@@ -1450,7 +1636,7 @@ export const ClientAppView: React.FC = () => {
                           <div className="grid grid-cols-2 gap-2 text-xs">
                             <div>
                               <span className="text-[10px] text-neutral-500 block">Data e Horário</span>
-                              <span className="font-extrabold text-orange-400">
+                              <span className="font-extrabold" style={{ color: 'var(--theme-primary, #FF6B00)' }}>
                                 {apt.date.split('-').reverse().join('/')} às {apt.startTime}
                               </span>
                             </div>
@@ -1481,7 +1667,8 @@ export const ClientAppView: React.FC = () => {
                             href={`https://wa.me/55${currentBarbershop.whatsapp.replace(/\D/g, '')}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-neutral-300 hover:text-orange-400 flex items-center gap-1 font-bold"
+                            className="text-neutral-300 hover:opacity-80 flex items-center gap-1 font-bold"
+                            style={{ color: 'var(--theme-primary, #FF6B00)' }}
                           >
                             <Phone className="w-2.5 h-2.5" />
                             Falar com Salão
@@ -1593,7 +1780,10 @@ export const ClientAppView: React.FC = () => {
 
               {/* My active digital passes */}
               <div className="space-y-3">
-                <div className="text-[10px] font-black text-orange-400 uppercase tracking-wider">
+                <div
+                  className="text-[10px] font-black uppercase tracking-wider"
+                  style={{ color: 'var(--theme-primary, #FF6B00)' }}
+                >
                   Minha Carteira Digital de Cortes
                 </div>
 
@@ -1605,11 +1795,21 @@ export const ClientAppView: React.FC = () => {
                   clientCustPackages.map(cp => (
                     <div
                       key={cp.id}
-                      className="bg-gradient-to-br from-neutral-900 via-neutral-900 to-orange-950/30 border border-orange-500/40 rounded-2xl p-4 shadow-xl relative overflow-hidden"
+                      className="bg-neutral-900 rounded-2xl p-4 shadow-xl relative overflow-hidden border"
+                      style={{
+                        borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.4))',
+                        background: 'linear-gradient(135deg, #171717, #171717 60%, var(--theme-light-bg, rgba(255, 107, 0, 0.15)))'
+                      }}
                     >
                       <div className="flex justify-between items-start mb-3">
                         <div>
-                          <span className="text-[9px] font-black bg-orange-500 text-neutral-950 px-2 py-0.5 rounded uppercase">
+                          <span
+                            className="text-[9px] font-black px-2 py-0.5 rounded uppercase"
+                            style={{
+                              backgroundColor: 'var(--theme-primary, #FF6B00)',
+                              color: 'var(--theme-contrast, #0D0D0D)'
+                            }}
+                          >
                             VIP PASS ATIVO
                           </span>
                           <h4 className="font-extrabold text-neutral-100 text-sm font-heading mt-1">{cp.packageTitle}</h4>
@@ -1624,7 +1824,10 @@ export const ClientAppView: React.FC = () => {
                             <div key={item.itemId} className="bg-neutral-950/80 p-3 rounded-xl border border-neutral-800">
                               <div className="flex justify-between text-xs mb-1.5">
                                 <span className="font-bold text-neutral-200">{item.name}</span>
-                                <span className="font-extrabold text-orange-400 font-mono">
+                                <span
+                                  className="font-extrabold font-mono"
+                                  style={{ color: 'var(--theme-primary, #FF6B00)' }}
+                                >
                                   {remaining} restantes ({item.usedQuantity}/{item.totalQuantity} usadas)
                                 </span>
                               </div>
@@ -1639,8 +1842,17 @@ export const ClientAppView: React.FC = () => {
                                       className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold border ${
                                         isUsed
                                           ? 'bg-neutral-800 border-neutral-700 text-neutral-500 opacity-60'
-                                          : 'bg-orange-500/20 border-orange-500 text-orange-300 ring-1 ring-orange-500/30'
+                                          : 'ring-1'
                                       }`}
+                                      style={
+                                        !isUsed
+                                          ? {
+                                              backgroundColor: 'var(--theme-light-bg, rgba(255, 107, 0, 0.2))',
+                                              borderColor: 'var(--theme-primary, #FF6B00)',
+                                              color: 'var(--theme-primary, #FF6B00)'
+                                            }
+                                          : undefined
+                                      }
                                     >
                                       {isUsed ? '✓' : '✂️'}
                                     </div>
@@ -1653,9 +1865,17 @@ export const ClientAppView: React.FC = () => {
                                 disabled={remaining === 0}
                                 className={`w-full mt-1.5 py-2 rounded-xl text-xs font-bold transition-all ${
                                   remaining > 0
-                                    ? 'bg-orange-500 hover:bg-orange-400 text-neutral-950 shadow-md active:scale-95'
+                                    ? 'shadow-md active:scale-95 cursor-pointer'
                                     : 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
                                 }`}
+                                style={
+                                  remaining > 0
+                                    ? {
+                                        backgroundColor: 'var(--theme-primary, #FF6B00)',
+                                        color: 'var(--theme-contrast, #0D0D0D)'
+                                      }
+                                    : undefined
+                                }
                               >
                                 {remaining > 0 ? 'Utilizar 1 Sessão no Atendimento' : 'Pacote Totalmente Utilizado'}
                               </button>
@@ -1690,7 +1910,7 @@ export const ClientAppView: React.FC = () => {
                         {pkg.items.map((it, idx) => (
                           <div key={idx} className="flex justify-between">
                             <span>• {it.name}</span>
-                            <strong className="text-orange-400">{it.totalQuantity}x</strong>
+                            <strong style={{ color: 'var(--theme-primary, #FF6B00)' }}>{it.totalQuantity}x</strong>
                           </div>
                         ))}
                       </div>
@@ -1711,9 +1931,15 @@ export const ClientAppView: React.FC = () => {
           {/* TAB 4: 🎁 SORTEIOS (SEÇÃO 23 - REGRA DOS 2 MESES) */}
           {activeTab === 'RAFFLES' && (
             <div className="space-y-4">
-              <div className="bg-gradient-to-br from-orange-500/20 via-neutral-900 to-neutral-900 border border-orange-500/40 rounded-2xl p-4 shadow-xl">
+              <div
+                className="rounded-2xl p-4 shadow-xl border bg-neutral-900"
+                style={{
+                  borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.4))',
+                  background: 'linear-gradient(135deg, var(--theme-light-bg, rgba(255, 107, 0, 0.2)), #171717 60%)'
+                }}
+              >
                 <div className="flex items-center gap-2 mb-1">
-                  <Gift className="w-5 h-5 text-orange-400" />
+                  <Gift className="w-5 h-5" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
                   <h3 className="font-black text-neutral-100 text-base font-heading">
                     Sorteios Exclusivos da Barbearia
                   </h3>
@@ -1960,7 +2186,13 @@ export const ClientAppView: React.FC = () => {
                 communications.map(comm => (
                   <div key={comm.id} className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 space-y-2">
                     <div className="flex justify-between items-start">
-                      <span className="text-[9px] font-black bg-orange-500/20 text-orange-300 px-2 py-0.5 rounded">
+                      <span
+                        className="text-[9px] font-black px-2 py-0.5 rounded"
+                        style={{
+                          backgroundColor: 'var(--theme-light-bg, rgba(255, 107, 0, 0.2))',
+                          color: 'var(--theme-primary, #FF6B00)'
+                        }}
+                      >
                         {comm.type}
                       </span>
                       <span className="text-[10px] text-neutral-500 font-mono">
@@ -2000,7 +2232,8 @@ export const ClientAppView: React.FC = () => {
                   <select
                     value={waitlistService}
                     onChange={e => setWaitlistService(e.target.value)}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none"
+                    style={{ outlineColor: 'var(--theme-primary, #FF6B00)' }}
                   >
                     {services.map(s => (
                       <option key={s.id} value={s.id}>
@@ -2017,7 +2250,7 @@ export const ClientAppView: React.FC = () => {
                     required
                     value={waitlistDate}
                     onChange={e => setWaitlistDate(e.target.value)}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none"
                   />
                 </div>
 
@@ -2031,9 +2264,17 @@ export const ClientAppView: React.FC = () => {
                         onClick={() => setWaitlistTimeRange(p)}
                         className={`py-1.5 rounded-xl text-xs font-bold transition-all ${
                           waitlistTimeRange === p
-                            ? 'bg-orange-500 text-neutral-950'
+                            ? 'shadow-md'
                             : 'bg-neutral-950 text-neutral-400 border border-neutral-800'
                         }`}
+                        style={
+                          waitlistTimeRange === p
+                            ? {
+                                backgroundColor: 'var(--theme-primary, #FF6B00)',
+                                color: 'var(--theme-contrast, #0D0D0D)'
+                              }
+                            : undefined
+                        }
                       >
                         {p}
                       </button>
@@ -2043,7 +2284,11 @@ export const ClientAppView: React.FC = () => {
 
                 <button
                   type="submit"
-                  className="w-full py-3 bg-orange-500 hover:bg-orange-400 text-neutral-950 rounded-xl font-black text-xs transition-colors shadow-md active:scale-95"
+                  className="w-full py-3 rounded-xl font-black text-xs transition-colors shadow-md active:scale-95 cursor-pointer"
+                  style={{
+                    backgroundColor: 'var(--theme-primary, #FF6B00)',
+                    color: 'var(--theme-contrast, #0D0D0D)'
+                  }}
                 >
                   ENTRAR NA FILA DE ESPERA
                 </button>
@@ -2056,7 +2301,7 @@ export const ClientAppView: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between">
                   <h3 className="font-black text-neutral-100 font-heading text-base flex items-center gap-1.5">
-                    <Camera className="w-4 h-4 text-orange-400" />
+                    <Camera className="w-4 h-4" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
                     <span>Galeria & Inspirações</span>
                   </h3>
                   <span className="text-[11px] text-neutral-400 font-semibold">{galleryWorks.slice(0, 4).length} fotos</span>
@@ -2082,9 +2327,17 @@ export const ClientAppView: React.FC = () => {
                     onClick={() => setSelectedGalleryCategory(cat.id)}
                     className={`px-3 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-all ${
                       selectedGalleryCategory === cat.id
-                        ? 'bg-orange-500 text-neutral-950 shadow-md'
+                        ? 'shadow-md'
                         : 'bg-neutral-900 text-neutral-400 hover:text-neutral-200 border border-neutral-800'
                     }`}
+                    style={
+                      selectedGalleryCategory === cat.id
+                        ? {
+                            backgroundColor: 'var(--theme-primary, #FF6B00)',
+                            color: 'var(--theme-contrast, #0D0D0D)'
+                          }
+                        : undefined
+                    }
                   >
                     {cat.label}
                   </button>
@@ -2099,7 +2352,7 @@ export const ClientAppView: React.FC = () => {
                   .map(work => (
                     <div
                       key={work.id}
-                      className="group bg-neutral-900 border border-neutral-800/90 rounded-2xl overflow-hidden flex flex-col shadow-lg transition-all hover:border-orange-500/40"
+                      className="group bg-neutral-900 border border-neutral-800/90 rounded-2xl overflow-hidden flex flex-col shadow-lg transition-all"
                     >
                       {/* Photo Container */}
                       <div
@@ -2128,7 +2381,10 @@ export const ClientAppView: React.FC = () => {
                         </button>
 
                         <div className="absolute bottom-2 left-2 right-2">
-                          <span className="text-[9px] font-extrabold text-orange-400 bg-neutral-950/80 px-1.5 py-0.5 rounded backdrop-blur-sm uppercase">
+                          <span
+                            className="text-[9px] font-extrabold bg-neutral-950/80 px-1.5 py-0.5 rounded backdrop-blur-sm uppercase"
+                            style={{ color: 'var(--theme-primary, #FF6B00)' }}
+                          >
                             {work.category}
                           </span>
                         </div>
@@ -2139,7 +2395,7 @@ export const ClientAppView: React.FC = () => {
                         <div>
                           <h4
                             onClick={() => setActiveWorkDetail(work)}
-                            className="font-bold text-neutral-100 text-xs line-clamp-1 cursor-pointer hover:text-orange-400"
+                            className="font-bold text-neutral-100 text-xs line-clamp-1 cursor-pointer transition-colors"
                           >
                             {work.title}
                           </h4>
@@ -2161,7 +2417,11 @@ export const ClientAppView: React.FC = () => {
                             }
                             setActiveTab('BOOKING');
                           }}
-                          className="w-full py-1.5 bg-orange-500/20 hover:bg-orange-500 text-orange-300 hover:text-neutral-950 font-bold rounded-xl text-[10px] transition-all flex items-center justify-center gap-1 shadow-sm active:scale-95"
+                          className="w-full py-1.5 font-bold rounded-xl text-[10px] transition-all flex items-center justify-center gap-1 shadow-sm active:scale-95"
+                          style={{
+                            backgroundColor: 'var(--theme-light-bg, rgba(255, 107, 0, 0.2))',
+                            color: 'var(--theme-primary, #FF6B00)'
+                          }}
                         >
                           <Scissors className="w-3 h-3" />
                           <span>Quero Esse Estilo</span>
@@ -2180,10 +2440,15 @@ export const ClientAppView: React.FC = () => {
               <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 space-y-3 shadow-lg">
                 <div className="flex items-center justify-between">
                   <h3 className="font-black text-neutral-100 font-heading text-base flex items-center gap-1.5">
-                    <Building2 className="w-4 h-4 text-orange-400" />
+                    <Building2 className="w-4 h-4" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
                     <span>Nosso Espaço</span>
                   </h3>
-                  <span className="text-[10px] text-orange-400 font-bold uppercase tracking-wider">Ambiente VIP</span>
+                  <span
+                    className="text-[10px] font-bold uppercase tracking-wider"
+                    style={{ color: 'var(--theme-primary, #FF6B00)' }}
+                  >
+                    Ambiente VIP
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
@@ -2242,7 +2507,12 @@ export const ClientAppView: React.FC = () => {
                         />
                         <div>
                           <div className="font-bold text-xs text-neutral-100">{prof.name}</div>
-                          <div className="text-[10px] text-orange-400 font-semibold">{prof.specialty || 'Especialista em Degradê & Barba'}</div>
+                          <div
+                            className="text-[10px] font-semibold"
+                            style={{ color: 'var(--theme-primary, #FF6B00)' }}
+                          >
+                            {prof.specialty || 'Especialista em Degradê & Barba'}
+                          </div>
                         </div>
                       </div>
                       <button
@@ -2250,7 +2520,11 @@ export const ClientAppView: React.FC = () => {
                           setSelectedProfessional(prof);
                           setActiveTab('BOOKING');
                         }}
-                        className="px-2.5 py-1 bg-orange-500/20 hover:bg-orange-500 text-orange-300 hover:text-neutral-950 text-[10px] font-bold rounded-lg transition-colors"
+                        className="px-2.5 py-1 text-[10px] font-bold rounded-lg transition-colors cursor-pointer"
+                        style={{
+                          backgroundColor: 'var(--theme-light-bg, rgba(255, 107, 0, 0.2))',
+                          color: 'var(--theme-primary, #FF6B00)'
+                        }}
                       >
                         Agendar
                       </button>
@@ -2264,7 +2538,7 @@ export const ClientAppView: React.FC = () => {
                 <h4 className="font-bold text-xs text-neutral-200 uppercase tracking-wider">Localização & Contato</h4>
                 <div className="space-y-2 text-xs text-neutral-300">
                   <div className="flex items-start gap-2">
-                    <MapPin className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
+                    <MapPin className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
                     <div>
                       <div>{currentBarbershop.address.street}, {currentBarbershop.address.number} {currentBarbershop.address.complement || ''}</div>
                       <div className="text-neutral-400 text-[11px]">{currentBarbershop.address.neighborhood} • {currentBarbershop.address.city}/{currentBarbershop.address.state}</div>
@@ -2309,10 +2583,17 @@ export const ClientAppView: React.FC = () => {
                 setActiveTab('BOOKING');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className="group flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900/90 hover:bg-neutral-800 text-orange-400 hover:text-orange-300 font-bold rounded-full shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-orange-500/30 hover:border-orange-500/60 transition-all duration-200 transform active:scale-95 cursor-pointer backdrop-blur-md"
+              className="group flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900/90 hover:bg-neutral-800 font-bold rounded-full shadow-[0_4px_16px_rgba(0,0,0,0.6)] border transition-all duration-200 transform active:scale-95 cursor-pointer backdrop-blur-md"
+              style={{
+                color: 'var(--theme-primary, #FF6B00)',
+                borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.35))'
+              }}
               title="Agendar horário na barbearia agora"
             >
-              <Scissors className="w-3.5 h-3.5 text-orange-400 stroke-[2.2] shrink-0 animate-scissor-snip" />
+              <Scissors
+                className="w-3.5 h-3.5 stroke-[2.2] shrink-0 animate-scissor-snip"
+                style={{ color: 'var(--theme-primary, #FF6B00)' }}
+              />
               <span className="text-[11px] font-extrabold uppercase tracking-wide font-heading">
                 Agendar
               </span>
@@ -2352,25 +2633,40 @@ export const ClientAppView: React.FC = () => {
                       }}
                       className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all relative cursor-pointer group ${
                         isActive
-                          ? 'text-orange-400 font-bold'
+                          ? 'font-bold'
                           : 'text-neutral-400 hover:text-neutral-200'
                       }`}
+                      style={isActive ? { color: 'var(--theme-primary, #FF6B00)' } : undefined}
                     >
-                      {/* Efeito de Lâmina / Brilho Âmbar de Barbearia no item Ativo */}
+                      {/* Efeito de Lâmina / Brilho do Tema da Barbearia no item Ativo */}
                       {isActive && (
-                        <div className="absolute inset-0 bg-gradient-to-b from-orange-500/15 via-amber-500/5 to-transparent rounded-xl border-t border-orange-500/50 shadow-[0_0_12px_rgba(249,115,22,0.25)] pointer-events-none" />
+                        <div
+                          className="absolute inset-0 rounded-xl pointer-events-none"
+                          style={{
+                            background: 'linear-gradient(to bottom, var(--theme-light-bg, rgba(255, 107, 0, 0.15)), transparent)',
+                            borderTop: '1px solid var(--theme-primary, #FF6B00)',
+                            boxShadow: '0 0 12px var(--theme-glow, rgba(255, 107, 0, 0.25))'
+                          }}
+                        />
                       )}
 
                       <div className="relative">
                         <Icon
                           className={`w-4 h-4 transition-all duration-200 ${
                             isActive
-                              ? 'stroke-[2.6] text-orange-400 scale-110 drop-shadow-[0_2px_8px_rgba(249,115,22,0.6)]'
+                              ? 'stroke-[2.6] scale-110'
                               : 'stroke-2 group-hover:scale-105'
                           }`}
+                          style={isActive ? { color: 'var(--theme-primary, #FF6B00)' } : undefined}
                         />
                         {tab.badge && tab.badge > 0 ? (
-                          <span className="absolute -top-1.5 -right-2 bg-gradient-to-r from-orange-500 to-amber-500 text-neutral-950 text-[9px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center shadow-md">
+                          <span
+                            className="absolute -top-1.5 -right-2 text-[9px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center shadow-md"
+                            style={{
+                              backgroundColor: 'var(--theme-primary, #FF6B00)',
+                              color: 'var(--theme-contrast, #0D0D0D)'
+                            }}
+                          >
                             {tab.badge}
                           </span>
                         ) : null}
@@ -2379,9 +2675,10 @@ export const ClientAppView: React.FC = () => {
                       <span
                         className={`text-[9px] mt-0.5 tracking-tight transition-colors ${
                           isActive
-                            ? 'font-black text-orange-400 tracking-normal'
+                            ? 'font-black tracking-normal'
                             : 'font-medium text-neutral-400'
                         }`}
+                        style={isActive ? { color: 'var(--theme-primary, #FF6B00)' } : undefined}
                       >
                         {tab.label}
                       </span>
@@ -2421,7 +2718,14 @@ export const ClientAppView: React.FC = () => {
 
               <div className="p-5 -mt-6 relative bg-neutral-950 rounded-t-3xl space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest bg-orange-500/10 px-2 py-0.5 rounded border border-orange-500/20">
+                  <span
+                    className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border"
+                    style={{
+                      color: 'var(--theme-primary, #FF6B00)',
+                      backgroundColor: 'var(--theme-light-bg, rgba(255, 107, 0, 0.1))',
+                      borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.2))'
+                    }}
+                  >
                     {activeWorkDetail.category}
                   </span>
                   <button
@@ -2445,7 +2749,7 @@ export const ClientAppView: React.FC = () => {
 
                 <div className="bg-neutral-900 p-3 rounded-xl border border-neutral-800 flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
-                    <Scissors className="w-4 h-4 text-orange-400" />
+                    <Scissors className="w-4 h-4" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
                     <span className="text-neutral-300">Feito por: <strong>{activeWorkDetail.professionalName}</strong></span>
                   </div>
                   {activeWorkDetail.servicePrice && (
@@ -2468,7 +2772,11 @@ export const ClientAppView: React.FC = () => {
                     setActiveWorkDetail(null);
                     setActiveTab('BOOKING');
                   }}
-                  className="w-full py-3 bg-orange-500 hover:bg-orange-400 text-neutral-950 font-black rounded-xl text-xs transition-colors shadow-lg active:scale-95"
+                  className="w-full py-3 font-black rounded-xl text-xs transition-colors shadow-lg active:scale-95 cursor-pointer"
+                  style={{
+                    backgroundColor: 'var(--theme-primary, #FF6B00)',
+                    color: 'var(--theme-contrast, #0D0D0D)'
+                  }}
                 >
                   Agendar com esse Profissional
                 </button>
@@ -2502,7 +2810,13 @@ export const ClientAppView: React.FC = () => {
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/40 to-transparent" />
-                <div className="absolute top-4 left-4 bg-orange-500 text-neutral-950 text-[10px] font-black uppercase px-2.5 py-1 rounded-lg shadow-md">
+                <div
+                  className="absolute top-4 left-4 text-[10px] font-black uppercase px-2.5 py-1 rounded-lg shadow-md"
+                  style={{
+                    backgroundColor: 'var(--theme-primary, #FF6B00)',
+                    color: 'var(--theme-contrast, #0D0D0D)'
+                  }}
+                >
                   {selectedHighlightPromo.highlightTag || 'PROMOÇÃO EM DESTAQUE'}
                 </div>
               </div>
@@ -2514,7 +2828,14 @@ export const ClientAppView: React.FC = () => {
                       {selectedHighlightPromo.title}
                     </h3>
                     {selectedHighlightPromo.discountPercentage && (
-                      <span className="text-xs font-black bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-lg shrink-0">
+                      <span
+                        className="text-xs font-black border px-2 py-0.5 rounded-lg shrink-0"
+                        style={{
+                          backgroundColor: 'var(--theme-light-bg, rgba(255, 107, 0, 0.2))',
+                          color: 'var(--theme-primary, #FF6B00)',
+                          borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.3))'
+                        }}
+                      >
                         {selectedHighlightPromo.discountPercentage}% OFF
                       </span>
                     )}
@@ -2525,9 +2846,19 @@ export const ClientAppView: React.FC = () => {
                 </div>
 
                 {/* Automatic Direct Benefit indicator */}
-                <div className="bg-neutral-900 p-3 rounded-2xl border border-orange-500/30 flex items-center justify-between">
+                <div
+                  className="bg-neutral-900 p-3 rounded-2xl border flex items-center justify-between"
+                  style={{ borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.3))' }}
+                >
                   <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-xl bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-400">
+                    <div
+                      className="w-7 h-7 rounded-xl border flex items-center justify-center"
+                      style={{
+                        backgroundColor: 'var(--theme-light-bg, rgba(255, 107, 0, 0.1))',
+                        borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.3))',
+                        color: 'var(--theme-primary, #FF6B00)'
+                      }}
+                    >
                       <Sparkles className="w-4 h-4" />
                     </div>
                     <div>
@@ -2553,7 +2884,11 @@ export const ClientAppView: React.FC = () => {
                     setSelectedHighlightPromo(null);
                     setActiveTab('BOOKING');
                   }}
-                  className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-neutral-950 font-black rounded-xl text-xs transition-all shadow-lg flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
+                  className="w-full py-3 font-black rounded-xl text-xs transition-all shadow-lg flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
+                  style={{
+                    backgroundColor: 'var(--theme-primary, #FF6B00)',
+                    color: 'var(--theme-contrast, #0D0D0D)'
+                  }}
                 >
                   <Scissors className="w-4 h-4" />
                   <span>Aproveitar e Agendar com Desconto</span>

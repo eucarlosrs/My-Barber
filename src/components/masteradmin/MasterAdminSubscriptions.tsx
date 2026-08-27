@@ -15,7 +15,8 @@ import {
   Search,
   ShieldCheck,
   TrendingUp,
-  Building2
+  Building2,
+  Sparkles
 } from 'lucide-react';
 import { Subscription, SubscriptionStatus } from '../../types';
 
@@ -32,6 +33,37 @@ export const MasterAdminSubscriptions: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [loadingShopId, setLoadingShopId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [mpStatus, setMpStatus] = useState<{
+    loading: boolean;
+    configured?: boolean;
+    valid?: boolean;
+    maskedToken?: string;
+    mercadoPagoUser?: { id: number; nickname?: string; email?: string };
+    message?: string;
+  }>({ loading: true });
+
+  React.useEffect(() => {
+    fetch('/api/mercadopago/check-credentials')
+      .then(res => res.json())
+      .then(data => {
+        setMpStatus({
+          loading: false,
+          configured: data.configured,
+          valid: data.valid,
+          maskedToken: data.maskedToken,
+          mercadoPagoUser: data.mercadoPagoUser,
+          message: data.message
+        });
+      })
+      .catch(() => {
+        setMpStatus({
+          loading: false,
+          configured: false,
+          valid: false,
+          message: 'Não foi possível consultar o status do Mercado Pago.'
+        });
+      });
+  }, []);
 
   const filteredSubscriptions = subscriptions.filter(sub => {
     const shop = barbershops.find(b => b.id === sub.barbershopId);
@@ -48,11 +80,12 @@ export const MasterAdminSubscriptions: React.FC = () => {
     .filter(s => s.status === 'ACTIVE' || s.status === 'PAST_DUE')
     .reduce((sum, s) => sum + s.currentPrice, 0);
 
-  const activeCount = subscriptions.filter(s => s.status === 'ACTIVE').length;
+  const trialCount = subscriptions.filter(s => s.status === 'TRIAL_14_DAYS').length;
+  const activeCount = subscriptions.filter(s => s.status === 'ACTIVE' || s.status === 'TRIAL_14_DAYS').length;
   const pastDueCount = subscriptions.filter(s => s.status === 'PAST_DUE').length;
   const suspendedCount = subscriptions.filter(s => s.status === 'SUSPENDED').length;
-  const launchOfferCount = subscriptions.filter(s => s.billingCount < 3).length;
-  const regularOfferCount = subscriptions.filter(s => s.billingCount >= 3).length;
+  const launchOfferCount = subscriptions.filter(s => s.status === 'ACTIVE' && (s.paidBillingCount || s.billingCount) <= 3).length;
+  const regularOfferCount = subscriptions.filter(s => s.status === 'ACTIVE' && (s.paidBillingCount || s.billingCount) >= 4).length;
 
   const handleSimulate = async (barbershopId: string, action: any) => {
     setLoadingShopId(barbershopId);
@@ -86,6 +119,13 @@ export const MasterAdminSubscriptions: React.FC = () => {
 
   const getStatusBadge = (status: SubscriptionStatus) => {
     switch (status) {
+      case 'TRIAL_14_DAYS':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/20">
+            <Sparkles className="w-3 h-3" />
+            14 Dias Grátis
+          </span>
+        );
       case 'ACTIVE':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
@@ -119,7 +159,7 @@ export const MasterAdminSubscriptions: React.FC = () => {
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
             <Clock className="w-3 h-3" />
-            Pendente
+            Validação Cartão
           </span>
         );
     }
@@ -137,7 +177,53 @@ export const MasterAdminSubscriptions: React.FC = () => {
         </div>
       )}
 
-      {/* Metrics Row */}
+      {/* Live Mercado Pago Connection Banner */}
+      <div className={`p-4 rounded-3xl border transition-all ${
+        mpStatus.loading
+          ? 'bg-neutral-900 border-neutral-800 text-neutral-400'
+          : mpStatus.valid
+          ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-300'
+          : 'bg-amber-950/30 border-amber-500/30 text-amber-300'
+      }`}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold ${
+              mpStatus.valid ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
+            }`}>
+              {mpStatus.loading ? (
+                <RefreshCw className="w-5 h-5 animate-spin text-neutral-400" />
+              ) : mpStatus.valid ? (
+                <ShieldCheck className="w-5 h-5" />
+              ) : (
+                <AlertTriangle className="w-5 h-5" />
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm text-neutral-100">
+                  Integração Mercado Pago API Oficial
+                </span>
+                {mpStatus.valid && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500 text-neutral-950">
+                    CONECTADO & ATIVO
+                  </span>
+                )}
+              </div>
+              <p className="text-xs opacity-90 mt-0.5">
+                {mpStatus.loading
+                  ? 'Verificando credenciais...'
+                  : mpStatus.valid
+                  ? `Conta autenticada: ${mpStatus.mercadoPagoUser?.nickname || 'Vendedor'} (ID: ${mpStatus.mercadoPagoUser?.id}) • Token: ${mpStatus.maskedToken}`
+                  : mpStatus.message || 'Credenciais pendentes ou inválidas.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="text-xs font-mono opacity-80 pl-13 sm:pl-0">
+            Webhooks & Preapproval ativos
+          </div>
+        </div>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4">
           <div className="flex items-center justify-between text-neutral-400 text-xs mb-1">
@@ -312,6 +398,17 @@ export const MasterAdminSubscriptions: React.FC = () => {
 
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                          {sub.status === 'PENDING' && (
+                            <button
+                              onClick={() => handleSimulate(sub.barbershopId, 'VALIDATE_CARD_AND_START_TRIAL')}
+                              disabled={isBusy}
+                              title="Simular validação de cartão e iniciar 14 dias grátis"
+                              className="px-2.5 py-1.5 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 rounded-lg text-[11px] font-bold transition-all disabled:opacity-50"
+                            >
+                              Validar Cartão (14d)
+                            </button>
+                          )}
+
                           <button
                             onClick={() => handleSimulate(sub.barbershopId, 'CONFIRM_PAYMENT')}
                             disabled={isBusy}
