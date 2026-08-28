@@ -5,8 +5,10 @@
   --theme-hover: #E05A00;
   --theme-glow: rgba(255, 107, 0, 0.35);
   --theme-contrast: #0D0D0D;
-  --theme-light-bg: rgba(255, 107, 0, 0.12);
+  --theme-light-bg: rgba(255, 107, 0, 0.14);
+  --theme-surface: rgba(255, 107, 0, 0.08);
   --theme-border: rgba(255, 107, 0, 0.35);
+  --theme-focus: rgba(255, 107, 0, 0.25);
 }
 
 @theme {

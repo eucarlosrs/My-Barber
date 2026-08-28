@@ -11,7 +11,9 @@ export interface BarbershopThemeOption {
   glowColor: string;
   contrastTextColor: string;
   lightBgColor: string;
+  surfaceColor: string;
   borderColor: string;
+  focusColor: string;
   previewTags: string[];
   gradient: string;
 }
@@ -27,8 +29,10 @@ export const BARBERSHOP_THEMES: Record<BarbershopThemeId, BarbershopThemeOption>
     hoverColor: '#E05A00',
     glowColor: 'rgba(255, 107, 0, 0.35)',
     contrastTextColor: '#0D0D0D',
-    lightBgColor: 'rgba(255, 107, 0, 0.12)',
+    lightBgColor: 'rgba(255, 107, 0, 0.14)',
+    surfaceColor: 'rgba(255, 107, 0, 0.08)',
     borderColor: 'rgba(255, 107, 0, 0.35)',
+    focusColor: 'rgba(255, 107, 0, 0.25)',
     previewTags: ['#FF6B00', 'Âmbar Quente', 'Original'],
     gradient: 'from-[#FF6B00] to-[#D95400]'
   },
@@ -42,8 +46,10 @@ export const BARBERSHOP_THEMES: Record<BarbershopThemeId, BarbershopThemeOption>
     hoverColor: '#CA9A24',
     glowColor: 'rgba(229, 184, 59, 0.35)',
     contrastTextColor: '#0D0D0D',
-    lightBgColor: 'rgba(229, 184, 59, 0.12)',
+    lightBgColor: 'rgba(229, 184, 59, 0.14)',
+    surfaceColor: 'rgba(229, 184, 59, 0.08)',
     borderColor: 'rgba(229, 184, 59, 0.35)',
+    focusColor: 'rgba(229, 184, 59, 0.25)',
     previewTags: ['#D4AF37', '#E5B83B', 'Luxury'],
     gradient: 'from-[#F5D061] via-[#E5B83B] to-[#B8871E]'
   },
@@ -57,8 +63,10 @@ export const BARBERSHOP_THEMES: Record<BarbershopThemeId, BarbershopThemeOption>
     hoverColor: '#009ED1',
     glowColor: 'rgba(0, 191, 255, 0.35)',
     contrastTextColor: '#0D0D0D',
-    lightBgColor: 'rgba(0, 191, 255, 0.12)',
+    lightBgColor: 'rgba(0, 191, 255, 0.14)',
+    surfaceColor: 'rgba(0, 191, 255, 0.08)',
     borderColor: 'rgba(0, 191, 255, 0.35)',
+    focusColor: 'rgba(0, 191, 255, 0.25)',
     previewTags: ['#00BFFF', 'Azul Elétrico', 'Moderno'],
     gradient: 'from-[#00BFFF] via-[#0284C7] to-[#0369A1]'
   },
@@ -70,10 +78,12 @@ export const BARBERSHOP_THEMES: Record<BarbershopThemeId, BarbershopThemeOption>
     description: 'Máximo contraste e destaque em botões de ação, agendamentos, estados ativos e indicadores.',
     primaryColor: '#A3FF00',
     hoverColor: '#8FE000',
-    glowColor: 'rgba(163, 255, 0, 0.45)',
+    glowColor: 'rgba(163, 255, 0, 0.35)',
     contrastTextColor: '#0A0A0A',
     lightBgColor: 'rgba(163, 255, 0, 0.14)',
-    borderColor: 'rgba(163, 255, 0, 0.40)',
+    surfaceColor: 'rgba(163, 255, 0, 0.08)',
+    borderColor: 'rgba(163, 255, 0, 0.35)',
+    focusColor: 'rgba(163, 255, 0, 0.25)',
     previewTags: ['#A3FF00', '#AFFF00', 'Verde Neon'],
     gradient: 'from-[#AFFF00] via-[#A3FF00] to-[#7BC600]'
   }
@@ -96,6 +106,8 @@ export function getThemeCssVariables(themeId?: BarbershopThemeId): React.CSSProp
     ['--theme-glow' as any]: cfg.glowColor,
     ['--theme-contrast' as any]: cfg.contrastTextColor,
     ['--theme-light-bg' as any]: cfg.lightBgColor,
+    ['--theme-surface' as any]: cfg.surfaceColor,
     ['--theme-border' as any]: cfg.borderColor,
+    ['--theme-focus' as any]: cfg.focusColor,
   };
 }

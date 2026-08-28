@@ -11,6 +11,7 @@ import { WebAdminView } from './components/webadmin/WebAdminView';
 import { ClientAppView } from './components/app/ClientAppView';
 import { ProfessionalAppView } from './components/app/ProfessionalAppView';
 import { AuthLoginView } from './components/auth/AuthLoginView';
+import { StaffLoginView } from './components/auth/StaffLoginView';
 import { BarbershopDiscoveryView } from './components/discovery/BarbershopDiscoveryView';
 import { Scissors } from 'lucide-react';
 
@@ -47,6 +48,8 @@ const MainContent: React.FC = () => {
   switch (viewMode) {
     case 'LOGIN':
       return <AuthLoginView />;
+    case 'STAFF_LOGIN':
+      return <StaffLoginView />;
     case 'DISCOVERY':
       return <BarbershopDiscoveryView />;
     case 'MASTER_ADMIN':

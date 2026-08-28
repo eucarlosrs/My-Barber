@@ -53,7 +53,7 @@ import {
 } from '../lib/firestoreSync';
 import { uploadImageToStorage } from '../lib/storage';
 
-export type AppViewMode = 'LOGIN' | 'ARCHITECTURE' | 'MASTER_ADMIN' | 'WEBADMIN' | 'CLIENT_APP' | 'PROFISSIONAL_APP' | 'DISCOVERY';
+export type AppViewMode = 'LOGIN' | 'STAFF_LOGIN' | 'ARCHITECTURE' | 'MASTER_ADMIN' | 'WEBADMIN' | 'CLIENT_APP' | 'PROFISSIONAL_APP' | 'DISCOVERY';
 
 export const MY_BARBER_MAIN_DOMAIN = 'mybarberbr.com.br';
 
@@ -263,6 +263,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [viewMode, setViewMode] = useState<AppViewMode>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const searchParams = new URLSearchParams(window.location.search);
+        const isStaffParam =
+          searchParams.get('admin') ||
+          searchParams.get('gestao') ||
+          searchParams.get('staff') ||
+          searchParams.get('painel') === 'gestao' ||
+          searchParams.get('mode') === 'staff' ||
+          searchParams.get('view') === 'admin';
+
+        const hash = window.location.hash.toLowerCase();
+        const isStaffHash = hash.includes('admin') || hash.includes('gestao') || hash.includes('staff');
+
+        const pathname = window.location.pathname.toLowerCase();
+        const isStaffPath = pathname.endsWith('/admin') || pathname.endsWith('/gestao') || pathname.endsWith('/staff');
+
+        if (isStaffParam || isStaffHash || isStaffPath) {
+          const savedId = localStorage.getItem('mybarber_session_user_id');
+          if (savedId) {
+            const u = INITIAL_USERS.find(user => user.id === savedId);
+            if (u) {
+              if (u.role === 'SUPER_ADMIN') return 'MASTER_ADMIN';
+              if (u.role === 'PROPRIETARIO' || u.role === 'GERENTE') return 'WEBADMIN';
+              if (u.role === 'PROFISSIONAL') return 'PROFISSIONAL_APP';
+            }
+          }
+          return 'STAFF_LOGIN';
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     const urlTenant = getInitialTenantFromUrl();
     if (urlTenant) {
       return 'CLIENT_APP';
@@ -797,7 +831,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setIsImpersonating(false);
     setImpersonationOriginUserId(null);
-    setViewMode('LOGIN');
+    if (prev && prev.role !== 'CLIENTE') {
+      setViewMode('STAFF_LOGIN');
+    } else {
+      setViewMode('CLIENT_APP');
+    }
 
     if (prev) {
       addAuditLog({

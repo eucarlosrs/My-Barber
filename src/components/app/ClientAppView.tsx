@@ -54,6 +54,7 @@ import {
 } from 'lucide-react';
 import { Service, User as UserType, GalleryWork, Promotion, Raffle, Barbershop } from '../../types';
 import { AppImage } from '../common/AppImage';
+import { TermsModal } from '../common/TermsModal';
 import { APP_ASSETS } from '../../data/assets';
 import { triggerGooglePopupLogin } from '../../lib/googleAuth';
 import { formatPhoneNumber } from '../../utils/formatters';
@@ -186,6 +187,7 @@ export const ClientAppView: React.FC = () => {
   const [selectedHighlightPromo, setSelectedHighlightPromo] = useState<Promotion | null>(null);
   const [selectedHighlightRaffle, setSelectedHighlightRaffle] = useState<Raffle | null>(null);
   const [showAddressModal, setShowAddressModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   // Dynamic Destaques list (configured by owner/manager)
   const highlightedPromos = useMemo(() => {
@@ -684,9 +686,34 @@ export const ClientAppView: React.FC = () => {
 
   const appBody = (
     <div
-      className="flex-1 w-full max-w-4xl mx-auto flex flex-col bg-neutral-950 text-neutral-100 relative pb-24 shadow-2xl"
+      className="flex-1 w-full max-w-4xl mx-auto flex flex-col bg-neutral-950 text-neutral-100 relative pb-24 shadow-2xl overflow-hidden"
       style={getThemeCssVariables(currentBarbershop.theme)}
     >
+      {/* Ambient Theme Background Glow (esfumaceado elegante respeitando a cor da paleta ativa) */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+        <div
+          className="absolute -top-24 -left-20 w-80 sm:w-96 h-80 sm:h-96 rounded-full opacity-[0.14] transition-all duration-700 pointer-events-none"
+          style={{
+            backgroundColor: 'var(--theme-primary, #FF6B00)',
+            filter: 'blur(80px)'
+          }}
+        />
+        <div
+          className="absolute top-1/4 -right-24 w-72 sm:w-80 h-72 sm:h-80 rounded-full opacity-[0.10] transition-all duration-700 pointer-events-none"
+          style={{
+            backgroundColor: 'var(--theme-primary, #FF6B00)',
+            filter: 'blur(90px)'
+          }}
+        />
+        <div
+          className="absolute top-2/3 -left-20 w-80 h-80 rounded-full opacity-[0.09] transition-all duration-700 pointer-events-none"
+          style={{
+            backgroundColor: 'var(--theme-primary, #FF6B00)',
+            filter: 'blur(100px)'
+          }}
+        />
+      </div>
+
       {/* Real Client Top Bar with Barbershop Name, Client greeting and Logout */}
       {isClient && !isImpersonating && (
         <div className="bg-neutral-900/95 backdrop-blur-md border-b border-neutral-800 px-4 py-2.5 flex items-center justify-between sticky top-0 z-30">
@@ -697,7 +724,7 @@ export const ClientAppView: React.FC = () => {
           <div className="flex items-center gap-2 sm:gap-3">
             <ThemeModeToggle />
             <div className="flex items-center gap-2 text-xs text-neutral-300">
-              <User className="w-3.5 h-3.5 text-orange-400" />
+              <User className="w-3.5 h-3.5" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
               <span className="font-semibold">{currentUser.name}</span>
             </div>
             <button
@@ -1684,8 +1711,11 @@ export const ClientAppView: React.FC = () => {
               {clientOtherAppointments.length > 0 && (
                 <div className="space-y-3 pt-3 border-t border-neutral-800/80">
                   <div className="flex items-center justify-between">
-                    <div className="text-[10px] font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <Compass className="w-3.5 h-3.5" />
+                    <div
+                      className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5"
+                      style={{ color: 'var(--theme-primary, #FF6B00)' }}
+                    >
+                      <Compass className="w-3.5 h-3.5" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
                       <span>Em Outras Barbearias da Rede</span>
                     </div>
                     <span className="text-[10px] text-neutral-400 font-mono">
@@ -1699,7 +1729,7 @@ export const ClientAppView: React.FC = () => {
                       return (
                         <div
                           key={apt.id}
-                          className="bg-neutral-900/90 border border-neutral-800 hover:border-amber-500/40 rounded-2xl overflow-hidden shadow-lg transition-all relative"
+                          className="bg-neutral-900/90 border border-neutral-800 rounded-2xl overflow-hidden shadow-lg transition-all relative"
                         >
                           <div className="bg-neutral-950 p-3 flex items-center justify-between border-b border-neutral-800/80">
                             <div className="flex items-center gap-2">
@@ -1711,7 +1741,7 @@ export const ClientAppView: React.FC = () => {
                                   className="w-6 h-6 rounded-lg object-cover border border-neutral-700"
                                 />
                               ) : (
-                                <Store className="w-4 h-4 text-amber-400" />
+                                <Store className="w-4 h-4" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
                               )}
                               <div>
                                 <span className="font-extrabold text-neutral-100 text-xs block leading-tight">
@@ -1730,7 +1760,12 @@ export const ClientAppView: React.FC = () => {
                                   setActiveTenantId(shop.id);
                                 }
                               }}
-                              className="px-2.5 py-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-colors"
+                              className="px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer border"
+                              style={{
+                                backgroundColor: 'var(--theme-light-bg, rgba(255, 107, 0, 0.15))',
+                                color: 'var(--theme-primary, #FF6B00)',
+                                borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.35))'
+                              }}
                             >
                               <span>Acessar</span>
                               <ExternalLink className="w-3 h-3" />
@@ -2001,14 +2036,25 @@ export const ClientAppView: React.FC = () => {
                           </div>
                         )}
 
-                        <div className="p-4 pt-1 space-y-3">
+                          <div className="p-4 pt-1 space-y-3">
                           <div className="flex justify-between items-start">
                             <div>
-                              <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase border ${
-                                raffle.status === 'ATIVO'
-                                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                                  : 'bg-neutral-800 text-neutral-400 border-neutral-700'
-                              }`}>
+                              <span
+                                className="text-[9px] font-black px-2 py-0.5 rounded uppercase border"
+                                style={
+                                  raffle.status === 'ATIVO'
+                                    ? {
+                                        backgroundColor: 'var(--theme-light-bg, rgba(255, 107, 0, 0.15))',
+                                        color: 'var(--theme-primary, #FF6B00)',
+                                        borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.35))'
+                                      }
+                                    : {
+                                        backgroundColor: '#262626',
+                                        color: '#A3A3A3',
+                                        borderColor: '#404040'
+                                      }
+                                }
+                              >
                                 {raffle.status === 'ATIVO' ? 'Sorteio em Aberto' : 'Sorteio Realizado'}
                               </span>
                               <h4 className="font-extrabold text-neutral-100 text-sm font-heading mt-1">
@@ -2022,10 +2068,19 @@ export const ClientAppView: React.FC = () => {
 
                           <p className="text-xs text-neutral-300">{raffle.description}</p>
 
-                          <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-800">
+                          <div
+                            className="p-3 rounded-xl border"
+                            style={{
+                              backgroundColor: 'var(--theme-surface, rgba(255, 107, 0, 0.06))',
+                              borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.25))'
+                            }}
+                          >
                             <span className="text-[10px] text-neutral-400 font-semibold block">Prêmio Especial:</span>
-                            <div className="text-xs font-black text-amber-400 mt-0.5 flex items-center gap-1.5">
-                              <Gift className="w-4 h-4 text-amber-400" />
+                            <div
+                              className="text-xs font-black mt-0.5 flex items-center gap-1.5"
+                              style={{ color: 'var(--theme-primary, #FF6B00)' }}
+                            >
+                              <Gift className="w-4 h-4" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
                               {raffle.prize}
                             </div>
                           </div>
@@ -2055,7 +2110,7 @@ export const ClientAppView: React.FC = () => {
                                 </div>
                                 <button
                                   onClick={() => handleRaffleClick(raffle.id)}
-                                  className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-neutral-200 rounded-xl text-[11px] font-semibold transition-colors"
+                                  className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-neutral-200 rounded-xl text-[11px] font-semibold transition-colors cursor-pointer"
                                 >
                                   Sair
                                 </button>
@@ -2063,7 +2118,12 @@ export const ClientAppView: React.FC = () => {
                             ) : (
                               <button
                                 onClick={() => handleRaffleClick(raffle.id)}
-                                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black rounded-xl text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+                                className="px-4 py-2 font-black rounded-xl text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
+                                style={{
+                                  backgroundColor: 'var(--theme-primary, #FF6B00)',
+                                  color: 'var(--theme-contrast, #0D0D0D)',
+                                  boxShadow: '0 4px 14px 0 var(--theme-focus, rgba(255, 107, 0, 0.25))'
+                                }}
                               >
                                 <Gift className="w-3.5 h-3.5" />
                                 <span>Quero Participar</span>
@@ -2082,9 +2142,15 @@ export const ClientAppView: React.FC = () => {
           {/* TAB 5: 🏷️ PROMOÇÕES */}
           {activeTab === 'PROMOTIONS' && (
             <div className="space-y-4">
-              <div className="bg-gradient-to-br from-amber-500/20 via-neutral-900 to-neutral-900 border border-amber-500/40 rounded-2xl p-4 shadow-xl">
+              <div
+                className="rounded-2xl p-4 shadow-xl border"
+                style={{
+                  background: 'linear-gradient(135deg, var(--theme-surface, rgba(255, 107, 0, 0.12)), rgba(20, 20, 20, 0.95))',
+                  borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.35))'
+                }}
+              >
                 <div className="flex items-center gap-2 mb-1">
-                  <Tag className="w-5 h-5 text-amber-400" />
+                  <Tag className="w-5 h-5" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
                   <h3 className="font-black text-neutral-100 text-base font-heading">
                     Promoções & Cupons Ativos
                   </h3>
@@ -2116,7 +2182,14 @@ export const ClientAppView: React.FC = () => {
                       <div className="flex justify-between items-start">
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30">
+                            <span
+                              className="text-[10px] font-black px-2 py-0.5 rounded border"
+                              style={{
+                                backgroundColor: 'var(--theme-light-bg, rgba(255, 107, 0, 0.15))',
+                                color: 'var(--theme-primary, #FF6B00)',
+                                borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.35))'
+                              }}
+                            >
                               {promo.discountPercent}% OFF
                             </span>
                             {promo.serviceCategory && (
@@ -2132,9 +2205,22 @@ export const ClientAppView: React.FC = () => {
                       <p className="text-xs text-neutral-300 leading-relaxed">{promo.description}</p>
 
                       {/* Direct Automatic Discount Indicator & Action */}
-                      <div className="bg-neutral-950 p-2.5 rounded-xl border border-neutral-800 flex items-center justify-between">
+                      <div
+                        className="p-2.5 rounded-xl border flex items-center justify-between"
+                        style={{
+                          backgroundColor: 'var(--theme-surface, rgba(255, 107, 0, 0.06))',
+                          borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.25))'
+                        }}
+                      >
                         <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                          <div
+                            className="w-6 h-6 rounded-lg flex items-center justify-center border"
+                            style={{
+                              backgroundColor: 'var(--theme-light-bg, rgba(255, 107, 0, 0.15))',
+                              borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.35))',
+                              color: 'var(--theme-primary, #FF6B00)'
+                            }}
+                          >
                             <Tag className="w-3.5 h-3.5" />
                           </div>
                           <div>
@@ -2158,7 +2244,12 @@ export const ClientAppView: React.FC = () => {
                             }
                             setActiveTab('BOOKING');
                           }}
-                          className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-neutral-950 font-black rounded-xl text-xs flex items-center gap-1.5 shadow active:scale-95 transition-all"
+                          className="px-3.5 py-1.5 font-black rounded-xl text-xs flex items-center gap-1.5 shadow active:scale-95 transition-all cursor-pointer"
+                          style={{
+                            backgroundColor: 'var(--theme-primary, #FF6B00)',
+                            color: 'var(--theme-contrast, #0D0D0D)',
+                            boxShadow: '0 4px 14px 0 var(--theme-focus, rgba(255, 107, 0, 0.25))'
+                          }}
                         >
                           <Scissors className="w-3.5 h-3.5" />
                           <span>Agendar com Desconto</span>
@@ -2564,7 +2655,7 @@ export const ClientAppView: React.FC = () => {
             <button
               type="button"
               onClick={() => setViewMode('LOGIN')}
-              className="text-[11px] text-neutral-500 hover:text-orange-400 font-medium transition-colors inline-flex items-center gap-1.5 cursor-pointer py-1.5 px-3 rounded-xl hover:bg-neutral-900 border border-transparent hover:border-neutral-800"
+              className="text-[11px] text-neutral-500 hover:text-neutral-200 font-medium transition-colors inline-flex items-center gap-1.5 cursor-pointer py-1.5 px-3 rounded-xl hover:bg-neutral-900 border border-transparent hover:border-neutral-800"
             >
               <Shield className="w-3.5 h-3.5 text-neutral-500" />
               <span>Acesso da Barbearia (Gestão & Equipe)</span>
@@ -2918,7 +3009,13 @@ export const ClientAppView: React.FC = () => {
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/40 to-transparent" />
-                <div className="absolute top-4 left-4 bg-amber-400 text-neutral-950 text-[10px] font-black uppercase px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1">
+                <div
+                  className="absolute top-4 left-4 text-[10px] font-black uppercase px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1"
+                  style={{
+                    backgroundColor: 'var(--theme-primary, #FF6B00)',
+                    color: 'var(--theme-contrast, #0D0D0D)'
+                  }}
+                >
                   <Trophy className="w-3 h-3" />
                   <span>{selectedHighlightRaffle.status === 'REALIZADO' ? 'SORTEIO REALIZADO' : (selectedHighlightRaffle.highlightTag || 'SORTEIO EM DESTAQUE')}</span>
                 </div>
@@ -2934,9 +3031,17 @@ export const ClientAppView: React.FC = () => {
                   </p>
                 </div>
 
-                <div className="bg-neutral-900 p-3 rounded-2xl border border-neutral-800">
+                <div
+                  className="p-3 rounded-2xl border"
+                  style={{
+                    backgroundColor: 'var(--theme-surface, rgba(255, 107, 0, 0.06))',
+                    borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.25))'
+                  }}
+                >
                   <span className="text-[10px] uppercase font-bold text-neutral-400 block">Prêmio:</span>
-                  <strong className="text-xs text-amber-400 font-bold mt-0.5 block">{selectedHighlightRaffle.prize}</strong>
+                  <strong className="text-xs font-bold mt-0.5 block" style={{ color: 'var(--theme-primary, #FF6B00)' }}>
+                    {selectedHighlightRaffle.prize}
+                  </strong>
                 </div>
 
                 {selectedHighlightRaffle.status === 'REALIZADO' && selectedHighlightRaffle.winnerClientName ? (
@@ -2964,7 +3069,12 @@ export const ClientAppView: React.FC = () => {
                     setSelectedHighlightRaffle(null);
                     setActiveTab('RAFFLES');
                   }}
-                  className="w-full py-3 bg-gradient-to-r from-amber-400 via-orange-500 to-amber-500 hover:from-amber-300 hover:to-orange-400 text-neutral-950 font-black rounded-xl text-xs transition-all shadow-lg flex items-center justify-center gap-2"
+                  className="w-full py-3 font-black rounded-xl text-xs transition-all shadow-lg flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
+                  style={{
+                    backgroundColor: 'var(--theme-primary, #FF6B00)',
+                    color: 'var(--theme-contrast, #0D0D0D)',
+                    boxShadow: '0 4px 16px 0 var(--theme-focus, rgba(255, 107, 0, 0.25))'
+                  }}
                 >
                   <Gift className="w-4 h-4" />
                   <span>Ver Todos os Sorteios & Detalhes</span>
@@ -2981,35 +3091,27 @@ export const ClientAppView: React.FC = () => {
               {googleStep === 'SELECT_ACCOUNT' ? (
                 <div>
                   <div className="flex items-center justify-between pb-3 mb-3 border-b border-neutral-800">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shadow-md">
-                        <svg className="w-4 h-4" viewBox="0 0 24 24">
-                          <path
-                            fill="#4285F4"
-                            d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
-                          />
-                          <path
-                            fill="#34A853"
-                            d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"
-                          />
-                          <path
-                            fill="#FBBC05"
-                            d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.16 0 9.97 0 12s.45 3.84 1.25 5.42l4.03-3.15z"
-                          />
-                          <path
-                            fill="#EA4335"
-                            d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                          />
-                        </svg>
+                    <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                      <div className="w-10 h-10 rounded-2xl bg-neutral-950 border border-neutral-800 p-0.5 flex items-center justify-center shadow-md shrink-0 overflow-hidden">
+                        <AppImage
+                          src={currentBarbershop.logoUrl}
+                          alt={currentBarbershop.name}
+                          fallbackType="logo"
+                          className="w-full h-full object-cover rounded-xl"
+                        />
                       </div>
-                      <div>
-                        <h3 className="text-sm font-black font-heading text-neutral-100">Fazer Login com Google</h3>
-                        <p className="text-[10px] text-neutral-400">Acesso exclusivo do cliente na {currentBarbershop.name}</p>
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-black font-heading text-neutral-100 truncate">
+                          Faça login na {currentBarbershop.name}
+                        </h3>
+                        <p className="text-[10px] text-neutral-400 truncate">
+                          Acesso exclusivo do cliente
+                        </p>
                       </div>
                     </div>
                     <button
                       onClick={() => setShowLoginModal(false)}
-                      className="p-1 rounded-lg text-neutral-400 hover:text-white cursor-pointer"
+                      className="p-1 rounded-lg text-neutral-400 hover:text-white cursor-pointer shrink-0"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -3058,7 +3160,7 @@ export const ClientAppView: React.FC = () => {
                         />
                       </svg>
                     )}
-                    <span>{isGoogleLoading ? 'Autenticando com Google...' : 'Entrar com Pop-up do Google'}</span>
+                    <span>{isGoogleLoading ? 'Autenticando com Google...' : 'Conecte-se utilizando sua conta do Google'}</span>
                   </button>
 
                   {/* Exibição apenas de contas salvas reais deste dispositivo */}
@@ -3077,7 +3179,7 @@ export const ClientAppView: React.FC = () => {
                           <div
                             key={acc.email}
                             onClick={() => handleSelectGoogleAccount(acc)}
-                            className="w-full bg-neutral-950 hover:bg-neutral-850 border border-neutral-800 hover:border-orange-500/50 p-2.5 rounded-2xl flex items-center justify-between text-left transition-all group cursor-pointer"
+                            className="w-full bg-neutral-950 hover:bg-neutral-850 border border-neutral-800 p-2.5 rounded-2xl flex items-center justify-between text-left transition-all group cursor-pointer"
                           >
                             <div className="flex items-center gap-2.5 min-w-0 pr-2">
                               <AppImage
@@ -3087,7 +3189,7 @@ export const ClientAppView: React.FC = () => {
                                 className="w-8 h-8 rounded-full object-cover border border-neutral-700 shrink-0"
                               />
                               <div className="min-w-0">
-                                <div className="text-xs font-bold text-neutral-100 group-hover:text-orange-400 transition-colors truncate">
+                                <div className="text-xs font-bold text-neutral-100 transition-colors truncate">
                                   {acc.name}
                                 </div>
                                 <div className="text-[10px] text-neutral-400 font-mono truncate">{acc.email}</div>
@@ -3102,7 +3204,7 @@ export const ClientAppView: React.FC = () => {
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
-                              <ChevronRight className="w-4 h-4 text-neutral-500 group-hover:text-orange-400 transition-colors" />
+                              <ChevronRight className="w-4 h-4 text-neutral-500" />
                             </div>
                           </div>
                         ))}
@@ -3122,7 +3224,10 @@ export const ClientAppView: React.FC = () => {
                   ) : (
                     <form onSubmit={handleCustomGoogleSubmit} className="bg-neutral-950 p-3.5 rounded-2xl border border-neutral-800 space-y-2.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-orange-400">
+                        <span
+                          className="text-[11px] font-bold"
+                          style={{ color: 'var(--theme-primary, #FF6B00)' }}
+                        >
                           Entrar com Nome e E-mail Google:
                         </span>
                         {savedAccounts.length > 0 && (
@@ -3141,7 +3246,7 @@ export const ClientAppView: React.FC = () => {
                         placeholder="Seu Nome Completo"
                         value={customGoogleName}
                         onChange={e => setCustomGoogleName(e.target.value)}
-                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none"
                       />
                       <input
                         type="email"
@@ -3149,7 +3254,7 @@ export const ClientAppView: React.FC = () => {
                         placeholder="seu.email@gmail.com"
                         value={customGoogleEmail}
                         onChange={e => setCustomGoogleEmail(e.target.value)}
-                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none"
                       />
                       <div className="flex justify-end gap-2 pt-1">
                         {savedAccounts.length > 0 && (
@@ -3163,7 +3268,11 @@ export const ClientAppView: React.FC = () => {
                         )}
                         <button
                           type="submit"
-                          className="w-full sm:w-auto px-4 py-2 bg-orange-500 hover:bg-orange-400 text-neutral-950 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+                          className="w-full sm:w-auto px-4 py-2 font-bold rounded-xl text-xs transition-all shadow-md cursor-pointer"
+                          style={{
+                            backgroundColor: 'var(--theme-primary, #FF6B00)',
+                            color: 'var(--theme-contrast, #0D0D0D)'
+                          }}
                         >
                           Continuar com esta conta
                         </button>
@@ -3171,19 +3280,20 @@ export const ClientAppView: React.FC = () => {
                     </form>
                   )}
 
-                  {/* Link Direto para Acesso Administrativo e Gestão */}
-                  <div className="pt-3 mt-3 border-t border-neutral-800 text-center">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowLoginModal(false);
-                        setViewMode('LOGIN');
-                      }}
-                      className="text-[11px] text-neutral-400 hover:text-orange-400 font-semibold transition-colors inline-flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Shield className="w-3.5 h-3.5 text-orange-400" />
-                      <span>É proprietário ou equipe? Acessar Painel de Gestão</span>
-                    </button>
+                  {/* Termos de Uso no Rodapé */}
+                  <div className="pt-3 mt-3 border-t border-neutral-800/80 text-center">
+                    <p className="text-[10.5px] text-neutral-400 leading-relaxed">
+                      Acessando você concorda com o{' '}
+                      <button
+                        type="button"
+                        onClick={() => setShowTermsModal(true)}
+                        className="font-bold underline hover:opacity-80 transition-opacity cursor-pointer inline-block"
+                        style={{ color: 'var(--theme-primary, #FF6B00)' }}
+                      >
+                        termo de uso
+                      </button>
+                      .
+                    </p>
                   </div>
                 </div>
               ) : googleStep === 'MASTER_PASSWORD' ? (
@@ -3191,7 +3301,13 @@ export const ClientAppView: React.FC = () => {
                 <form onSubmit={handleMasterPasswordSubmit} className="space-y-3.5">
                   <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center font-bold">
+                      <div
+                        className="w-8 h-8 rounded-xl flex items-center justify-center font-bold"
+                        style={{
+                          backgroundColor: 'var(--theme-light-bg, rgba(255, 107, 0, 0.2))',
+                          color: 'var(--theme-primary, #FF6B00)'
+                        }}
+                      >
                         <Lock className="w-4 h-4" />
                       </div>
                       <div>
@@ -3202,7 +3318,8 @@ export const ClientAppView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setGoogleStep('SELECT_ACCOUNT')}
-                      className="text-[10px] text-orange-400 hover:underline"
+                      className="text-[10px] hover:underline"
+                      style={{ color: 'var(--theme-primary, #FF6B00)' }}
                     >
                       Trocar
                     </button>
@@ -3226,7 +3343,7 @@ export const ClientAppView: React.FC = () => {
                       value={masterPassword}
                       onChange={e => setMasterPassword(e.target.value)}
                       placeholder="Digite sua senha mestre"
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 font-mono"
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none font-mono"
                     />
                   </div>
 
@@ -3240,7 +3357,11 @@ export const ClientAppView: React.FC = () => {
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-2 bg-orange-500 hover:bg-orange-400 text-neutral-950 rounded-xl text-xs font-black shadow-md flex items-center gap-1.5 transition-all"
+                      className="px-4 py-2 font-black rounded-xl text-xs shadow-md flex items-center gap-1.5 transition-all"
+                      style={{
+                        backgroundColor: 'var(--theme-primary, #FF6B00)',
+                        color: 'var(--theme-contrast, #0D0D0D)'
+                      }}
                     >
                       <Check className="w-4 h-4" />
                       <span>Acessar Painel Master</span>
@@ -3256,7 +3377,8 @@ export const ClientAppView: React.FC = () => {
                         src={googleAccount.avatarUrl}
                         alt={googleAccount.name}
                         fallbackType="avatar"
-                        className="w-8 h-8 rounded-full border border-orange-500/60 object-cover"
+                        className="w-8 h-8 rounded-full border object-cover"
+                        style={{ borderColor: 'var(--theme-primary, #FF6B00)' }}
                       />
                       <div>
                         <div className="text-xs font-bold text-neutral-100">{googleAccount.name}</div>
@@ -3266,7 +3388,8 @@ export const ClientAppView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setGoogleStep('SELECT_ACCOUNT')}
-                      className="text-[10px] text-orange-400 hover:underline"
+                      className="text-[10px] hover:underline"
+                      style={{ color: 'var(--theme-primary, #FF6B00)' }}
                     >
                       Trocar conta
                     </button>
@@ -3299,7 +3422,7 @@ export const ClientAppView: React.FC = () => {
                       value={clientPreferredName}
                       onChange={e => setClientPreferredName(e.target.value)}
                       placeholder="Ex: Carlos Silva"
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-orange-500"
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none"
                     />
                   </div>
 
@@ -3314,7 +3437,7 @@ export const ClientAppView: React.FC = () => {
                       value={clientPhone}
                       onChange={e => setClientPhone(formatPhoneNumber(e.target.value))}
                       placeholder="(11) 98888-7777"
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 font-mono"
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none font-mono"
                     />
                   </div>
 
@@ -3328,7 +3451,7 @@ export const ClientAppView: React.FC = () => {
                       required
                       value={clientBirthDate}
                       onChange={e => setClientBirthDate(e.target.value)}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 font-mono"
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none font-mono"
                     />
                   </div>
 
@@ -3342,7 +3465,11 @@ export const ClientAppView: React.FC = () => {
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-2 bg-orange-500 hover:bg-orange-400 text-neutral-950 rounded-xl text-xs font-black shadow-md flex items-center gap-1.5 transition-all"
+                      className="px-4 py-2 font-black rounded-xl text-xs shadow-md flex items-center gap-1.5 transition-all"
+                      style={{
+                        backgroundColor: 'var(--theme-primary, #FF6B00)',
+                        color: 'var(--theme-contrast, #0D0D0D)'
+                      }}
                     >
                       <Check className="w-4 h-4" />
                       <span>Salvar Cadastro & Continuar</span>
@@ -3368,7 +3495,14 @@ export const ClientAppView: React.FC = () => {
               </button>
 
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-3 bg-orange-500/10 border border-orange-500/30 rounded-2xl text-orange-500">
+                <div
+                  className="p-3 border rounded-2xl"
+                  style={{
+                    backgroundColor: 'var(--theme-light-bg, rgba(255, 107, 0, 0.1))',
+                    borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.3))',
+                    color: 'var(--theme-primary, #FF6B00)'
+                  }}
+                >
                   <MapPin className="w-6 h-6" />
                 </div>
                 <div>
@@ -3421,7 +3555,11 @@ export const ClientAppView: React.FC = () => {
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 py-3 px-4 bg-orange-500 hover:bg-orange-400 text-neutral-950 rounded-2xl text-xs font-black tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 transition-all cursor-pointer"
+                  className="flex-1 py-3 px-4 font-black rounded-2xl text-xs tracking-wide flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
+                  style={{
+                    backgroundColor: 'var(--theme-primary, #FF6B00)',
+                    color: 'var(--theme-contrast, #0D0D0D)'
+                  }}
                 >
                   <span>Abrir no Google Maps</span>
                   <ExternalLink className="w-4 h-4" />
@@ -3444,20 +3582,34 @@ export const ClientAppView: React.FC = () => {
         {/* ========================================================================= */}
         {showCelebrationModal && celebrationDetails && (
           <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-neutral-950 border-2 border-orange-500/50 rounded-3xl max-w-sm w-full p-6 text-center text-neutral-100 shadow-[0_0_50px_rgba(249,115,22,0.3)] relative overflow-hidden">
+            <div
+              className="bg-neutral-950 border-2 rounded-3xl max-w-sm w-full p-6 text-center text-neutral-100 shadow-2xl relative overflow-hidden"
+              style={{ borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.5))' }}
+            >
               {/* Decorative Barber Pole Line */}
               <div className="absolute top-0 left-0 right-0 h-1.5 barber-pole-stripe" />
 
               {/* Animated Floating Confetti / Sparks */}
-              <div className="absolute -top-3 left-1/4 w-2 h-2 rounded-full bg-orange-400 animate-ping opacity-75" />
+              <div
+                className="absolute -top-3 left-1/4 w-2 h-2 rounded-full animate-ping opacity-75"
+                style={{ backgroundColor: 'var(--theme-primary, #FF6B00)' }}
+              />
               <div className="absolute top-8 right-8 w-2 h-2 rounded-full bg-amber-300 animate-ping opacity-60" />
               <div className="absolute bottom-10 left-6 w-2 h-2 rounded-full bg-emerald-400 animate-pulse opacity-70" />
 
               {/* Animated Success Badge with Scissors & Checkmark */}
               <div className="relative my-4 inline-flex items-center justify-center">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-orange-500 to-amber-400 p-0.5 shadow-lg shadow-orange-500/30 animate-bounce">
-                  <div className="w-full h-full rounded-full bg-neutral-950 flex items-center justify-center text-orange-400">
-                    <CheckCircle2 className="w-10 h-10 text-orange-400 stroke-[2.5]" />
+                <div
+                  className="w-20 h-20 rounded-full p-0.5 shadow-lg animate-bounce"
+                  style={{
+                    background: 'linear-gradient(135deg, var(--theme-primary, #FF6B00), #F59E0B)'
+                  }}
+                >
+                  <div
+                    className="w-full h-full rounded-full bg-neutral-950 flex items-center justify-center"
+                    style={{ color: 'var(--theme-primary, #FF6B00)' }}
+                  >
+                    <CheckCircle2 className="w-10 h-10 stroke-[2.5]" />
                   </div>
                 </div>
                 <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-neutral-950 rounded-full p-1.5 shadow-md">
@@ -3468,7 +3620,10 @@ export const ClientAppView: React.FC = () => {
               <h3 className="text-xl font-black text-neutral-100 font-heading tracking-tight">
                 Horário Confirmado!
               </h3>
-              <p className="text-xs text-orange-400 font-bold uppercase tracking-wider mt-1">
+              <p
+                className="text-xs font-bold uppercase tracking-wider mt-1"
+                style={{ color: 'var(--theme-primary, #FF6B00)' }}
+              >
                 Seu agendamento foi realizado com sucesso
               </p>
 
@@ -3480,7 +3635,7 @@ export const ClientAppView: React.FC = () => {
                 </div>
                 <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
                   <span className="text-[11px] font-semibold text-neutral-400">Profissional</span>
-                  <span className="text-xs font-bold text-orange-400">{celebrationDetails.professionalName}</span>
+                  <span className="text-xs font-bold" style={{ color: 'var(--theme-primary, #FF6B00)' }}>{celebrationDetails.professionalName}</span>
                 </div>
                 <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
                   <span className="text-[11px] font-semibold text-neutral-400">Data e Horário</span>
@@ -3507,7 +3662,11 @@ export const ClientAppView: React.FC = () => {
                   setActiveTab('MY_APPOINTMENTS');
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                className="w-full py-3.5 px-4 bg-orange-500 hover:bg-orange-400 text-neutral-950 rounded-2xl text-xs sm:text-sm font-black tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-orange-500/25 transition-all cursor-pointer active:scale-95"
+                className="w-full py-3.5 px-4 font-black rounded-2xl text-xs sm:text-sm tracking-wide flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer active:scale-95"
+                style={{
+                  backgroundColor: 'var(--theme-primary, #FF6B00)',
+                  color: 'var(--theme-contrast, #0D0D0D)'
+                }}
               >
                 <span>VER MEUS AGENDAMENTOS</span>
                 <ChevronRight className="w-4 h-4 stroke-[3]" />
@@ -3515,6 +3674,13 @@ export const ClientAppView: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Termos de Uso Modal */}
+        <TermsModal
+          isOpen={showTermsModal}
+          onClose={() => setShowTermsModal(false)}
+          barbershopName={currentBarbershop.name}
+        />
       </div>
     );
 
