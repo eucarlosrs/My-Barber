@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   Building2,
@@ -29,7 +29,8 @@ import {
   Upload,
   Pencil,
   Image as ImageIcon,
-  CreditCard
+  CreditCard,
+  ArrowUp
 } from 'lucide-react';
 import { MY_BARBER_PLANS, UserRole, Service } from '../../types';
 import { ProfessionalsTab } from './ProfessionalsTab';
@@ -77,6 +78,28 @@ export const WebAdminView: React.FC = () => {
 
   const [copiedLink, setCopiedLink] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  // Monitor scroll to show subtle floating button when page is scrolled
+  useEffect(() => {
+    const checkScroll = () => {
+      if (window.scrollY > 280) {
+        setShowScrollTop(true);
+      } else {
+        setShowScrollTop(false);
+      }
+    };
+
+    window.addEventListener('scroll', checkScroll, { passive: true });
+    return () => window.removeEventListener('scroll', checkScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  };
 
   // Quick Image Edit Modal States
   const [showLogoEditModal, setShowLogoEditModal] = useState(false);
@@ -1138,6 +1161,23 @@ export const WebAdminView: React.FC = () => {
             setEditingServiceForImage(null);
           }}
         />
+      )}
+      {/* Botão Flutuante Sutil para Voltar ao Topo / Início da Página */}
+      {showScrollTop && (
+        <button
+          type="button"
+          onClick={scrollToTop}
+          className="fixed bottom-6 right-6 z-40 p-3 rounded-2xl bg-neutral-900/90 hover:bg-neutral-800 text-neutral-200 hover:text-white border border-neutral-700/80 shadow-2xl backdrop-blur-md transition-all duration-300 transform hover:-translate-y-1 hover:scale-105 active:scale-95 flex items-center gap-2 group cursor-pointer animate-fade-in"
+          title="Voltar ao início do painel"
+          aria-label="Voltar ao topo"
+        >
+          <div className="w-6 h-6 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center group-hover:bg-orange-500 group-hover:text-neutral-950 transition-colors">
+            <ArrowUp className="w-3.5 h-3.5 stroke-[2.5]" />
+          </div>
+          <span className="text-xs font-bold pr-1 hidden sm:inline text-neutral-300 group-hover:text-white transition-colors">
+            Voltar ao topo
+          </span>
+        </button>
       )}
     </div>
   );

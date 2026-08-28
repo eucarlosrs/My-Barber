@@ -16,7 +16,12 @@ import {
   Pencil,
   Upload,
   X,
-  Image as ImageIcon
+  Image as ImageIcon,
+  KeyRound,
+  Mail,
+  Eye,
+  EyeOff,
+  UserCheck
 } from 'lucide-react';
 import { MY_BARBER_PLANS, User } from '../../types';
 import { AppImage } from '../common/AppImage';
@@ -54,12 +59,14 @@ export const ProfessionalsTab: React.FC = () => {
   const [editingProfId, setEditingProfId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState('');
   const [commissionPercentage, setCommissionPercentage] = useState(45);
   const [canViewAllProfessionals, setCanViewAllProfessionals] = useState(false);
   const [specialties, setSpecialties] = useState<string[]>(['Degradê Navalhado', 'Barboterapia']);
   const [newSpecialtyInput, setNewSpecialtyInput] = useState('');
-  const [birthDate, setBirthDate] = useState('1992-06-15');
   const [error, setError] = useState<string | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
@@ -95,12 +102,14 @@ export const ProfessionalsTab: React.FC = () => {
     setEditingProfId(null);
     setName('');
     setWhatsapp('');
+    setEmail('');
+    setPassword('');
+    setShowPassword(false);
     setAvatarUrl(PRESET_AVATARS[0]);
     setCommissionPercentage(45);
     setCanViewAllProfessionals(false);
     setSpecialties(['Degradê Navalhado', 'Barboterapia']);
     setNewSpecialtyInput('');
-    setBirthDate('1992-06-15');
     setError(null);
     setIsUploadingPhoto(false);
     setShowModal(true);
@@ -110,12 +119,14 @@ export const ProfessionalsTab: React.FC = () => {
     setEditingProfId(prof.id);
     setName(prof.name);
     setWhatsapp(prof.whatsapp);
+    setEmail(prof.email || '');
+    setPassword(prof.password || '');
+    setShowPassword(false);
     setAvatarUrl(prof.avatarUrl || PRESET_AVATARS[0]);
     setCommissionPercentage(prof.commissionPercentage || 40);
     setCanViewAllProfessionals(!!prof.canViewAllProfessionals);
     setSpecialties(prof.specialties && prof.specialties.length > 0 ? [...prof.specialties] : ['Cortes em Geral']);
     setNewSpecialtyInput('');
-    setBirthDate(prof.birthDate || '1992-06-15');
     setError(null);
     setIsUploadingPhoto(false);
     setShowModal(true);
@@ -139,11 +150,12 @@ export const ProfessionalsTab: React.FC = () => {
       updateProfessional(editingProfId, {
         name: name.trim(),
         whatsapp: whatsapp.trim(),
+        email: email.trim() || undefined,
+        password: password.trim() || undefined,
         avatarUrl: avatarUrl.trim() || undefined,
         commissionPercentage,
         canViewAllProfessionals,
-        specialties: finalSpecialties,
-        birthDate
+        specialties: finalSpecialties
       });
       setShowModal(false);
     } else {
@@ -152,11 +164,12 @@ export const ProfessionalsTab: React.FC = () => {
         role: 'PROFISSIONAL',
         name: name.trim(),
         whatsapp: whatsapp.trim(),
+        email: email.trim() || undefined,
+        password: password.trim() || undefined,
         avatarUrl: avatarUrl.trim() || undefined,
         commissionPercentage,
         canViewAllProfessionals,
-        specialties: finalSpecialties,
-        birthDate
+        specialties: finalSpecialties
       });
 
       if (result.success) {
@@ -274,9 +287,17 @@ export const ProfessionalsTab: React.FC = () => {
                     <Phone className="w-3 h-3 text-neutral-500" />
                     {prof.whatsapp}
                   </p>
-                  <span className="inline-block mt-1 text-[10px] font-bold text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded border border-orange-500/20">
-                    Comissão: {prof.commissionPercentage || 40}%
-                  </span>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                    <span className="inline-block text-[10px] font-bold text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded border border-orange-500/20">
+                      Comissão: {prof.commissionPercentage || 40}%
+                    </span>
+                    {prof.email && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20" title={`Login: ${prof.email}`}>
+                        <UserCheck className="w-3 h-3" />
+                        Login Ativo
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -427,29 +448,75 @@ export const ProfessionalsTab: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-neutral-300 mb-1">Data de Aniversário</label>
-                  <input
-                    type="date"
-                    value={birthDate}
-                    onChange={e => setBirthDate(e.target.value)}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
-                  />
+                  <label className="block text-xs font-bold text-neutral-300 mb-1">Comissão (%)</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      required
+                      value={commissionPercentage}
+                      onChange={e => setCommissionPercentage(Number(e.target.value))}
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 pr-8"
+                    />
+                    <Percent className="w-3.5 h-3.5 text-neutral-500 absolute right-3 top-2.5" />
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-neutral-300 mb-1">Comissão (%)</label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    required
-                    value={commissionPercentage}
-                    onChange={e => setCommissionPercentage(Number(e.target.value))}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 pr-8"
-                  />
-                  <Percent className="w-3.5 h-3.5 text-neutral-500 absolute right-3 top-2.5" />
+              {/* Login & Acesso do Profissional */}
+              <div className="bg-neutral-950 p-3.5 rounded-2xl border border-neutral-800 space-y-3">
+                <div className="flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-orange-400 shrink-0" />
+                  <div>
+                    <span className="text-xs font-bold text-neutral-200 block">
+                      Dados de Acesso à Área de Barbeiro
+                    </span>
+                    <span className="text-[10px] text-neutral-400 block">
+                      Credenciais para o profissional acessar seu painel de agendamentos e comandas.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-bold text-neutral-300 mb-1">
+                      E-mail / Usuário de Login
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        placeholder="Ex: matheus@barbearia.com"
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-8 pr-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
+                      />
+                      <Mail className="w-3.5 h-3.5 text-neutral-500 absolute left-2.5 top-2.5" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-neutral-300 mb-1">
+                      Senha de Acesso
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        placeholder="Definir senha de acesso"
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-3 pr-8 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-2.5 top-2.5 text-neutral-500 hover:text-neutral-300 transition-colors"
+                        title={showPassword ? 'Ocultar senha' : 'Ver senha'}
+                      >
+                        {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
