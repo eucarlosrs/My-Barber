@@ -50,7 +50,9 @@ import {
   Trash2,
   Shield,
   Lock,
-  Sparkles
+  Sparkles,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { Service, User as UserType, GalleryWork, Promotion, Raffle, Barbershop } from '../../types';
 import { AppImage } from '../common/AppImage';
@@ -104,6 +106,11 @@ export const ClientAppView: React.FC = () => {
 
   // Google Login Modal & State
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginTab, setLoginTab] = useState<'CLIENT' | 'STAFF'>('CLIENT');
+  const [staffIdentifier, setStaffIdentifier] = useState('carlosrs.email@gmail.com');
+  const [staffPassword, setStaffPassword] = useState('Ca.753268');
+  const [showStaffPassword, setShowStaffPassword] = useState(false);
+  const [isStaffLoading, setIsStaffLoading] = useState(false);
   const [googleStep, setGoogleStep] = useState<'SELECT_ACCOUNT' | 'MASTER_PASSWORD' | 'COMPLETE_DATA'>('SELECT_ACCOUNT');
   const [pendingBookingAfterLogin, setPendingBookingAfterLogin] = useState(false);
   const [googleAccount, setGoogleAccount] = useState<{
@@ -559,6 +566,27 @@ export const ClientAppView: React.FC = () => {
       setClientBirthDate(existingClient?.birthDate || '');
       setGoogleStep('COMPLETE_DATA');
     }
+  };
+
+  const handleStaffLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!staffIdentifier.trim()) {
+      setLoginError('Informe seu e-mail, usuário ou WhatsApp de cadastro.');
+      return;
+    }
+    setIsStaffLoading(true);
+    setLoginError(null);
+
+    setTimeout(() => {
+      const res = loginWithCredentials(staffIdentifier, staffPassword);
+      setIsStaffLoading(false);
+      if (!res.success) {
+        setLoginError(res.error || 'Credenciais inválidas. Verifique seu login e senha.');
+      } else {
+        setShowLoginModal(false);
+        setLoginError(null);
+      }
+    }, 400);
   };
 
   const handleMasterPasswordSubmit = (e: React.FormEvent) => {
@@ -3084,399 +3112,527 @@ export const ClientAppView: React.FC = () => {
           </div>
         )}
 
-        {/* Google Account Login Modal */}
+        {/* Unified Authentication & Login Modal with Strict Tab Segmentation */}
         {showLoginModal && (
           <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-neutral-900 border border-neutral-800 rounded-3xl max-w-sm w-full p-5 text-neutral-100 shadow-2xl animate-fade-in">
-              {googleStep === 'SELECT_ACCOUNT' ? (
-                <div>
-                  <div className="flex items-center justify-between pb-3 mb-3 border-b border-neutral-800">
-                    <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                      <div className="w-10 h-10 rounded-2xl bg-neutral-950 border border-neutral-800 p-0.5 flex items-center justify-center shadow-md shrink-0 overflow-hidden">
-                        <AppImage
-                          src={currentBarbershop.logoUrl}
-                          alt={currentBarbershop.name}
-                          fallbackType="logo"
-                          className="w-full h-full object-cover rounded-xl"
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="text-sm font-black font-heading text-neutral-100 truncate">
-                          Faça login na {currentBarbershop.name}
-                        </h3>
-                        <p className="text-[10px] text-neutral-400 truncate">
-                          Acesso exclusivo do cliente
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setShowLoginModal(false)}
-                      className="p-1 rounded-lg text-neutral-400 hover:text-white cursor-pointer shrink-0"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
+            <div className="bg-neutral-900 border border-neutral-800 rounded-3xl max-w-sm w-full p-5 text-neutral-100 shadow-2xl animate-fade-in relative">
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLoginModal(false);
+                  setLoginError(null);
+                  setGoogleStep('SELECT_ACCOUNT');
+                }}
+                className="absolute top-4 right-4 p-1.5 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors cursor-pointer shrink-0 z-10"
+                title="Fechar"
+              >
+                <X className="w-4 h-4" />
+              </button>
 
-                  {loginError && (
-                    <div className="mb-3 p-2.5 rounded-xl bg-red-500/20 border border-red-500/40 text-red-300 text-xs flex items-start gap-2">
-                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                      <div className="space-y-1">
-                        <p className="font-semibold">{loginError}</p>
-                        {loginError.includes('autorização') && (
-                          <p className="text-[11px] text-red-200/80">
-                            Preencha seu nome e e-mail Google no formulário abaixo para acessar diretamente.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
+              {/* Centered Barbershop Logo Header */}
+              <div className="flex flex-col items-center text-center pt-1 pb-3">
+                <div className="w-16 h-16 rounded-2xl bg-neutral-950 border border-neutral-800 p-1 flex items-center justify-center shadow-lg overflow-hidden mb-2 relative">
+                  <AppImage
+                    src={currentBarbershop.logoUrl}
+                    alt={currentBarbershop.name}
+                    fallbackType="logo"
+                    className="w-full h-full object-cover rounded-xl"
+                  />
+                </div>
+                <h3 className="text-sm font-black font-heading text-neutral-100 truncate max-w-[240px]">
+                  {currentBarbershop.name}
+                </h3>
+                <p className="text-[11px] text-neutral-400">
+                  {loginTab === 'CLIENT' ? 'Acesso e agendamento para clientes' : 'Acesso administrativo & equipe'}
+                </p>
+              </div>
 
-                  {/* Botão Oficial de Login Real com Google */}
+              {/* Navigation Tabs Segmentation: Sou Cliente vs Equipe & Gestão */}
+              {googleStep === 'SELECT_ACCOUNT' && (
+                <div className="grid grid-cols-2 p-1 bg-neutral-950 rounded-2xl border border-neutral-800 mb-4">
                   <button
                     type="button"
-                    disabled={isGoogleLoading}
-                    onClick={handleRealGoogleLogin}
-                    className="w-full mb-3 py-3 px-4 bg-white hover:bg-neutral-100 text-neutral-900 font-bold rounded-2xl text-xs flex items-center justify-center gap-2.5 shadow-lg transition-all active:scale-98 cursor-pointer disabled:opacity-50"
+                    onClick={() => {
+                      setLoginTab('CLIENT');
+                      setLoginError(null);
+                    }}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      loginTab === 'CLIENT'
+                        ? 'shadow-md'
+                        : 'text-neutral-400 hover:text-neutral-200'
+                    }`}
+                    style={
+                      loginTab === 'CLIENT'
+                        ? {
+                            backgroundColor: 'var(--theme-primary, #FF6B00)',
+                            color: 'var(--theme-contrast, #0D0D0D)'
+                          }
+                        : undefined
+                    }
                   >
-                    {isGoogleLoading ? (
-                      <div className="w-4 h-4 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin"></div>
-                    ) : (
-                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                        <path
-                          fill="#4285F4"
-                          d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
-                        />
-                        <path
-                          fill="#34A853"
-                          d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"
-                        />
-                        <path
-                          fill="#FBBC05"
-                          d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.16 0 9.97 0 12s.45 3.84 1.25 5.42l4.03-3.15z"
-                        />
-                        <path
-                          fill="#EA4335"
-                          d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                        />
-                      </svg>
-                    )}
-                    <span>{isGoogleLoading ? 'Autenticando com Google...' : 'Conecte-se utilizando sua conta do Google'}</span>
+                    <User className="w-3.5 h-3.5" />
+                    <span>Sou Cliente</span>
                   </button>
 
-                  {/* Exibição apenas de contas salvas reais deste dispositivo */}
-                  {savedAccounts.length > 0 && (
-                    <div className="mb-3">
-                      <div className="relative flex py-1 items-center mb-2.5">
-                        <div className="flex-grow border-t border-neutral-800"></div>
-                        <span className="flex-shrink mx-2 text-[9px] uppercase font-bold text-neutral-400 tracking-wider">
-                          Contas salvas neste dispositivo
-                        </span>
-                        <div className="flex-grow border-t border-neutral-800"></div>
-                      </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoginTab('STAFF');
+                      setLoginError(null);
+                    }}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      loginTab === 'STAFF'
+                        ? 'shadow-md'
+                        : 'text-neutral-400 hover:text-neutral-200'
+                    }`}
+                    style={
+                      loginTab === 'STAFF'
+                        ? {
+                            backgroundColor: 'var(--theme-primary, #FF6B00)',
+                            color: 'var(--theme-contrast, #0D0D0D)'
+                          }
+                        : undefined
+                    }
+                  >
+                    <Shield className="w-3.5 h-3.5" />
+                    <span>Equipe & Gestão</span>
+                  </button>
+                </div>
+              )}
 
-                      <div className="space-y-2">
-                        {savedAccounts.map(acc => (
-                          <div
-                            key={acc.email}
-                            onClick={() => handleSelectGoogleAccount(acc)}
-                            className="w-full bg-neutral-950 hover:bg-neutral-850 border border-neutral-800 p-2.5 rounded-2xl flex items-center justify-between text-left transition-all group cursor-pointer"
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                              <AppImage
-                                src={acc.avatarUrl}
-                                alt={acc.name}
-                                fallbackType="avatar"
-                                className="w-8 h-8 rounded-full object-cover border border-neutral-700 shrink-0"
-                              />
-                              <div className="min-w-0">
-                                <div className="text-xs font-bold text-neutral-100 transition-colors truncate">
-                                  {acc.name}
+              {/* Error Message */}
+              {loginError && (
+                <div className="mb-3 p-2.5 rounded-xl bg-red-500/20 border border-red-500/40 text-red-300 text-xs flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-semibold">{loginError}</p>
+                    {loginError.includes('autorização') && (
+                      <p className="text-[11px] text-red-200/80">
+                        Preencha seu nome e e-mail Google no formulário abaixo para acessar diretamente.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 1: CLIENT LOGIN VIA GOOGLE */}
+              {loginTab === 'CLIENT' && (
+                <div>
+                  {googleStep === 'SELECT_ACCOUNT' ? (
+                    <div>
+                      {/* Botão Oficial de Login Real com Google */}
+                      <button
+                        type="button"
+                        disabled={isGoogleLoading}
+                        onClick={handleRealGoogleLogin}
+                        className="w-full mb-3 py-3 px-4 bg-white hover:bg-neutral-100 text-neutral-900 font-bold rounded-2xl text-xs flex items-center justify-center gap-2.5 shadow-lg transition-all active:scale-98 cursor-pointer disabled:opacity-50"
+                      >
+                        {isGoogleLoading ? (
+                          <div className="w-4 h-4 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                            <path
+                              fill="#4285F4"
+                              d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
+                            />
+                            <path
+                              fill="#34A853"
+                              d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"
+                            />
+                            <path
+                              fill="#FBBC05"
+                              d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.16 0 9.97 0 12s.45 3.84 1.25 5.42l4.03-3.15z"
+                            />
+                            <path
+                              fill="#EA4335"
+                              d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                            />
+                          </svg>
+                        )}
+                        <span>{isGoogleLoading ? 'Autenticando com Google...' : 'Cliente: acesse com conta Google'}</span>
+                      </button>
+
+                      {/* Exibição apenas de contas salvas reais deste dispositivo */}
+                      {savedAccounts.length > 0 && (
+                        <div className="mb-3">
+                          <div className="relative flex py-1 items-center mb-2.5">
+                            <div className="flex-grow border-t border-neutral-800"></div>
+                            <span className="flex-shrink mx-2 text-[9px] uppercase font-bold text-neutral-400 tracking-wider">
+                              Contas salvas neste dispositivo
+                            </span>
+                            <div className="flex-grow border-t border-neutral-800"></div>
+                          </div>
+
+                          <div className="space-y-2">
+                            {savedAccounts.map(acc => (
+                              <div
+                                key={acc.email}
+                                onClick={() => handleSelectGoogleAccount(acc)}
+                                className="w-full bg-neutral-950 hover:bg-neutral-850 border border-neutral-800 p-2.5 rounded-2xl flex items-center justify-between text-left transition-all group cursor-pointer"
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                                  <AppImage
+                                    src={acc.avatarUrl}
+                                    alt={acc.name}
+                                    fallbackType="avatar"
+                                    className="w-8 h-8 rounded-full object-cover border border-neutral-700 shrink-0"
+                                  />
+                                  <div className="min-w-0">
+                                    <div className="text-xs font-bold text-neutral-100 transition-colors truncate">
+                                      {acc.name}
+                                    </div>
+                                    <div className="text-[10px] text-neutral-400 font-mono truncate">{acc.email}</div>
+                                  </div>
                                 </div>
-                                <div className="text-[10px] text-neutral-400 font-mono truncate">{acc.email}</div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button
+                                    type="button"
+                                    title="Remover deste dispositivo"
+                                    onClick={(e) => removeSavedAccount(acc.email, e)}
+                                    className="p-1.5 text-neutral-500 hover:text-red-400 rounded-lg hover:bg-neutral-800/80 transition-colors"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <ChevronRight className="w-4 h-4 text-neutral-500" />
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0">
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Opção para informar conta Google diretamente */}
+                      {savedAccounts.length > 0 && !useCustomGoogle ? (
+                        <button
+                          type="button"
+                          onClick={() => setUseCustomGoogle(true)}
+                          className="w-full py-2 bg-neutral-950 hover:bg-neutral-850 text-neutral-300 rounded-xl text-xs font-semibold border border-neutral-800 transition-all text-center cursor-pointer"
+                        >
+                          + Usar outra conta Google
+                        </button>
+                      ) : (
+                        <form onSubmit={handleCustomGoogleSubmit} className="bg-neutral-950 p-3.5 rounded-2xl border border-neutral-800 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span
+                              className="text-[11px] font-bold"
+                              style={{ color: 'var(--theme-primary, #FF6B00)' }}
+                            >
+                              Entrar com Nome e E-mail Google:
+                            </span>
+                            {savedAccounts.length > 0 && (
                               <button
                                 type="button"
-                                title="Remover deste dispositivo"
-                                onClick={(e) => removeSavedAccount(acc.email, e)}
-                                className="p-1.5 text-neutral-500 hover:text-red-400 rounded-lg hover:bg-neutral-800/80 transition-colors"
+                                onClick={() => setUseCustomGoogle(false)}
+                                className="text-[10px] text-neutral-400 hover:text-neutral-200"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                Fechar
                               </button>
-                              <ChevronRight className="w-4 h-4 text-neutral-500" />
-                            </div>
+                            )}
                           </div>
-                        ))}
-                      </div>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Seu Nome Completo"
+                            value={customGoogleName}
+                            onChange={e => setCustomGoogleName(e.target.value)}
+                            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none"
+                          />
+                          <input
+                            type="email"
+                            required
+                            placeholder="seu.email@gmail.com"
+                            value={customGoogleEmail}
+                            onChange={e => setCustomGoogleEmail(e.target.value)}
+                            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none"
+                          />
+                          <div className="flex justify-end gap-2 pt-1">
+                            {savedAccounts.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setUseCustomGoogle(false)}
+                                className="px-2.5 py-1.5 text-xs text-neutral-400 hover:text-neutral-200"
+                              >
+                                Cancelar
+                              </button>
+                            )}
+                            <button
+                              type="submit"
+                              className="w-full sm:w-auto px-4 py-2 font-bold rounded-xl text-xs transition-all shadow-md cursor-pointer"
+                              style={{
+                                backgroundColor: 'var(--theme-primary, #FF6B00)',
+                                color: 'var(--theme-contrast, #0D0D0D)'
+                              }}
+                            >
+                              Continuar com esta conta
+                            </button>
+                          </div>
+                        </form>
+                      )}
                     </div>
-                  )}
-
-                  {/* Opção para informar conta Google diretamente */}
-                  {savedAccounts.length > 0 && !useCustomGoogle ? (
-                    <button
-                      type="button"
-                      onClick={() => setUseCustomGoogle(true)}
-                      className="w-full py-2 bg-neutral-950 hover:bg-neutral-850 text-neutral-300 rounded-xl text-xs font-semibold border border-neutral-800 transition-all text-center cursor-pointer"
-                    >
-                      + Usar outra conta Google
-                    </button>
-                  ) : (
-                    <form onSubmit={handleCustomGoogleSubmit} className="bg-neutral-950 p-3.5 rounded-2xl border border-neutral-800 space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span
-                          className="text-[11px] font-bold"
+                  ) : googleStep === 'MASTER_PASSWORD' ? (
+                    /* Master Admin Carlos Silva Access Screen */
+                    <form onSubmit={handleMasterPasswordSubmit} className="space-y-3.5">
+                      <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-8 h-8 rounded-xl flex items-center justify-center font-bold"
+                            style={{
+                              backgroundColor: 'var(--theme-light-bg, rgba(255, 107, 0, 0.2))',
+                              color: 'var(--theme-primary, #FF6B00)'
+                            }}
+                          >
+                            <Lock className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-black font-heading text-neutral-100">Acesso Master Plataforma</h3>
+                            <p className="text-[10px] text-neutral-400 font-mono">carlosrs.email@gmail.com</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setGoogleStep('SELECT_ACCOUNT')}
+                          className="text-[10px] hover:underline"
                           style={{ color: 'var(--theme-primary, #FF6B00)' }}
                         >
-                          Entrar com Nome e E-mail Google:
-                        </span>
-                        {savedAccounts.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => setUseCustomGoogle(false)}
-                            className="text-[10px] text-neutral-400 hover:text-neutral-200"
-                          >
-                            Fechar
-                          </button>
-                        )}
+                          Trocar
+                        </button>
                       </div>
-                      <input
-                        type="text"
-                        required
-                        placeholder="Seu Nome Completo"
-                        value={customGoogleName}
-                        onChange={e => setCustomGoogleName(e.target.value)}
-                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none"
-                      />
-                      <input
-                        type="email"
-                        required
-                        placeholder="seu.email@gmail.com"
-                        value={customGoogleEmail}
-                        onChange={e => setCustomGoogleEmail(e.target.value)}
-                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none"
-                      />
-                      <div className="flex justify-end gap-2 pt-1">
-                        {savedAccounts.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => setUseCustomGoogle(false)}
-                            className="px-2.5 py-1.5 text-xs text-neutral-400 hover:text-neutral-200"
-                          >
-                            Cancelar
-                          </button>
-                        )}
+
+                      <div>
+                        <label className="block text-xs font-bold text-neutral-200 mb-1">
+                          Senha Mestre de Acesso
+                        </label>
+                        <input
+                          type="password"
+                          required
+                          autoFocus
+                          value={masterPassword}
+                          onChange={e => setMasterPassword(e.target.value)}
+                          placeholder="Digite sua senha mestre"
+                          className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none font-mono"
+                        />
+                      </div>
+
+                      <div className="flex justify-end gap-2 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setGoogleStep('SELECT_ACCOUNT')}
+                          className="px-3 py-2 bg-neutral-800 text-neutral-300 rounded-xl text-xs font-semibold"
+                        >
+                          Voltar
+                        </button>
                         <button
                           type="submit"
-                          className="w-full sm:w-auto px-4 py-2 font-bold rounded-xl text-xs transition-all shadow-md cursor-pointer"
+                          className="px-4 py-2 font-black rounded-xl text-xs shadow-md flex items-center gap-1.5 transition-all"
                           style={{
                             backgroundColor: 'var(--theme-primary, #FF6B00)',
                             color: 'var(--theme-contrast, #0D0D0D)'
                           }}
                         >
-                          Continuar com esta conta
+                          <Check className="w-4 h-4" />
+                          <span>Acessar Painel Master</span>
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    /* Step: Mandatory First Access "Bem-vindo! Complete seu cadastro" */
+                    <form onSubmit={handleCompleteGoogleLogin} className="space-y-3.5">
+                      <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
+                        <div className="flex items-center gap-2.5">
+                          <AppImage
+                            src={googleAccount.avatarUrl}
+                            alt={googleAccount.name}
+                            fallbackType="avatar"
+                            className="w-8 h-8 rounded-full border object-cover"
+                            style={{ borderColor: 'var(--theme-primary, #FF6B00)' }}
+                          />
+                          <div>
+                            <div className="text-xs font-bold text-neutral-100">{googleAccount.name}</div>
+                            <div className="text-[10px] text-neutral-400 font-mono">{googleAccount.email}</div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setGoogleStep('SELECT_ACCOUNT')}
+                          className="text-[10px] hover:underline"
+                          style={{ color: 'var(--theme-primary, #FF6B00)' }}
+                        >
+                          Trocar conta
+                        </button>
+                      </div>
+
+                      <div>
+                        <h3 className="text-sm font-black font-heading text-neutral-100 flex items-center gap-1.5">
+                          <span>🎉 Bem-vindo! Complete seu cadastro</span>
+                        </h3>
+                        <p className="text-[11px] text-neutral-400 mt-0.5">
+                          Preencha seus dados para confirmar seu agendamento e receber lembretes no WhatsApp.
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-neutral-200 mb-1 flex items-center justify-between">
+                          <span>Como deseja ser chamado <span className="text-red-400">*</span></span>
+                          <span className="text-[10px] text-neutral-400 font-normal">Nome no aplicativo</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={clientPreferredName}
+                          onChange={e => setClientPreferredName(e.target.value)}
+                          placeholder="Ex: Carlos Silva"
+                          className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-neutral-200 mb-1 flex items-center justify-between">
+                          <span>WhatsApp / Telefone <span className="text-red-400">*</span></span>
+                          <span className="text-[10px] text-emerald-400 font-normal">Lembretes automáticos</span>
+                        </label>
+                        <input
+                          type="tel"
+                          required
+                          value={clientPhone}
+                          onChange={e => setClientPhone(formatPhoneNumber(e.target.value))}
+                          placeholder="(11) 98888-7777"
+                          className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-neutral-200 mb-1 flex items-center justify-between">
+                          <span>Data de Nascimento <span className="text-red-400">*</span></span>
+                          <span className="text-[10px] text-purple-400 font-normal">Sorteios & presentes</span>
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={clientBirthDate}
+                          onChange={e => setClientBirthDate(e.target.value)}
+                          className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none font-mono"
+                        />
+                      </div>
+
+                      <div className="flex justify-end gap-2 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setGoogleStep('SELECT_ACCOUNT')}
+                          className="px-3 py-2 bg-neutral-800 text-neutral-300 rounded-xl text-xs font-semibold"
+                        >
+                          Voltar
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-4 py-2 font-black rounded-xl text-xs shadow-md flex items-center gap-1.5 transition-all"
+                          style={{
+                            backgroundColor: 'var(--theme-primary, #FF6B00)',
+                            color: 'var(--theme-contrast, #0D0D0D)'
+                          }}
+                        >
+                          <Check className="w-4 h-4" />
+                          <span>Salvar Cadastro & Continuar</span>
                         </button>
                       </div>
                     </form>
                   )}
-
-                  {/* Termos de Uso no Rodapé */}
-                  <div className="pt-3 mt-3 border-t border-neutral-800/80 text-center">
-                    <p className="text-[10.5px] text-neutral-400 leading-relaxed">
-                      Acessando você concorda com o{' '}
-                      <button
-                        type="button"
-                        onClick={() => setShowTermsModal(true)}
-                        className="font-bold underline hover:opacity-80 transition-opacity cursor-pointer inline-block"
-                        style={{ color: 'var(--theme-primary, #FF6B00)' }}
-                      >
-                        termo de uso
-                      </button>
-                      .
-                    </p>
-                  </div>
                 </div>
-              ) : googleStep === 'MASTER_PASSWORD' ? (
-                /* Master Admin Carlos Silva Access Screen */
-                <form onSubmit={handleMasterPasswordSubmit} className="space-y-3.5">
-                  <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-8 h-8 rounded-xl flex items-center justify-center font-bold"
-                        style={{
-                          backgroundColor: 'var(--theme-light-bg, rgba(255, 107, 0, 0.2))',
-                          color: 'var(--theme-primary, #FF6B00)'
-                        }}
-                      >
-                        <Lock className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-black font-heading text-neutral-100">Acesso Master Plataforma</h3>
-                        <p className="text-[10px] text-neutral-400 font-mono">carlosrs.email@gmail.com</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setGoogleStep('SELECT_ACCOUNT')}
-                      className="text-[10px] hover:underline"
-                      style={{ color: 'var(--theme-primary, #FF6B00)' }}
-                    >
-                      Trocar
-                    </button>
-                  </div>
+              )}
 
-                  {loginError && (
-                    <div className="p-2.5 rounded-xl bg-red-500/20 border border-red-500/40 text-red-300 text-xs flex items-center gap-1.5">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>{loginError}</span>
+              {/* TAB 2: STAFF & MANAGEMENT LOGIN */}
+              {loginTab === 'STAFF' && (
+                <form onSubmit={handleStaffLoginSubmit} className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-200 mb-1">
+                      E-mail / Usuário de Acesso
+                    </label>
+                    <div className="relative">
+                      <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+                      <input
+                        type="text"
+                        required
+                        value={staffIdentifier}
+                        onChange={e => setStaffIdentifier(e.target.value)}
+                        placeholder="seu.email@barbearia.com"
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-9 pr-3 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 font-mono"
+                      />
                     </div>
-                  )}
+                  </div>
 
                   <div>
                     <label className="block text-xs font-bold text-neutral-200 mb-1">
-                      Senha Mestre de Acesso
+                      Senha de Acesso
                     </label>
-                    <input
-                      type="password"
-                      required
-                      autoFocus
-                      value={masterPassword}
-                      onChange={e => setMasterPassword(e.target.value)}
-                      placeholder="Digite sua senha mestre"
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none font-mono"
-                    />
-                  </div>
-
-                  <div className="flex justify-end gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setGoogleStep('SELECT_ACCOUNT')}
-                      className="px-3 py-2 bg-neutral-800 text-neutral-300 rounded-xl text-xs font-semibold"
-                    >
-                      Voltar
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 font-black rounded-xl text-xs shadow-md flex items-center gap-1.5 transition-all"
-                      style={{
-                        backgroundColor: 'var(--theme-primary, #FF6B00)',
-                        color: 'var(--theme-contrast, #0D0D0D)'
-                      }}
-                    >
-                      <Check className="w-4 h-4" />
-                      <span>Acessar Painel Master</span>
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                /* Step: Mandatory First Access "Bem-vindo! Complete seu cadastro" */
-                <form onSubmit={handleCompleteGoogleLogin} className="space-y-3.5">
-                  <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
-                    <div className="flex items-center gap-2.5">
-                      <AppImage
-                        src={googleAccount.avatarUrl}
-                        alt={googleAccount.name}
-                        fallbackType="avatar"
-                        className="w-8 h-8 rounded-full border object-cover"
-                        style={{ borderColor: 'var(--theme-primary, #FF6B00)' }}
+                    <div className="relative">
+                      <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+                      <input
+                        type={showStaffPassword ? 'text' : 'password'}
+                        required
+                        value={staffPassword}
+                        onChange={e => setStaffPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-9 pr-10 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 font-mono"
                       />
-                      <div>
-                        <div className="text-xs font-bold text-neutral-100">{googleAccount.name}</div>
-                        <div className="text-[10px] text-neutral-400 font-mono">{googleAccount.email}</div>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowStaffPassword(!showStaffPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300"
+                      >
+                        {showStaffPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
                     </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isStaffLoading}
+                    className="w-full py-3 px-4 font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-98 cursor-pointer disabled:opacity-50 mt-2"
+                    style={{
+                      backgroundColor: 'var(--theme-primary, #FF6B00)',
+                      color: 'var(--theme-contrast, #0D0D0D)'
+                    }}
+                  >
+                    {isStaffLoading ? (
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <>
+                        <Shield className="w-4 h-4" />
+                        <span>Acessar Painel da Barbearia</span>
+                      </>
+                    )}
+                  </button>
+
+                  <div className="pt-2 text-center">
                     <button
                       type="button"
-                      onClick={() => setGoogleStep('SELECT_ACCOUNT')}
-                      className="text-[10px] hover:underline"
-                      style={{ color: 'var(--theme-primary, #FF6B00)' }}
-                    >
-                      Trocar conta
-                    </button>
-                  </div>
-
-                  <div>
-                    <h3 className="text-sm font-black font-heading text-neutral-100 flex items-center gap-1.5">
-                      <span>🎉 Bem-vindo! Complete seu cadastro</span>
-                    </h3>
-                    <p className="text-[11px] text-neutral-400 mt-0.5">
-                      Preencha seus dados para confirmar seu agendamento e receber lembretes no WhatsApp.
-                    </p>
-                  </div>
-
-                  {loginError && (
-                    <div className="p-2.5 rounded-xl bg-red-500/20 border border-red-500/40 text-red-300 text-xs flex items-center gap-1.5">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>{loginError}</span>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-xs font-bold text-neutral-200 mb-1 flex items-center justify-between">
-                      <span>Como deseja ser chamado <span className="text-red-400">*</span></span>
-                      <span className="text-[10px] text-neutral-400 font-normal">Nome no aplicativo</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={clientPreferredName}
-                      onChange={e => setClientPreferredName(e.target.value)}
-                      placeholder="Ex: Carlos Silva"
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-neutral-200 mb-1 flex items-center justify-between">
-                      <span>WhatsApp / Telefone <span className="text-red-400">*</span></span>
-                      <span className="text-[10px] text-emerald-400 font-normal">Lembretes automáticos</span>
-                    </label>
-                    <input
-                      type="tel"
-                      required
-                      value={clientPhone}
-                      onChange={e => setClientPhone(formatPhoneNumber(e.target.value))}
-                      placeholder="(11) 98888-7777"
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-neutral-200 mb-1 flex items-center justify-between">
-                      <span>Data de Nascimento <span className="text-red-400">*</span></span>
-                      <span className="text-[10px] text-purple-400 font-normal">Sorteios & presentes</span>
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      value={clientBirthDate}
-                      onChange={e => setClientBirthDate(e.target.value)}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none font-mono"
-                    />
-                  </div>
-
-                  <div className="flex justify-end gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setGoogleStep('SELECT_ACCOUNT')}
-                      className="px-3 py-2 bg-neutral-800 text-neutral-300 rounded-xl text-xs font-semibold"
-                    >
-                      Voltar
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 font-black rounded-xl text-xs shadow-md flex items-center gap-1.5 transition-all"
-                      style={{
-                        backgroundColor: 'var(--theme-primary, #FF6B00)',
-                        color: 'var(--theme-contrast, #0D0D0D)'
+                      onClick={() => {
+                        setShowLoginModal(false);
+                        setViewMode('STAFF_LOGIN');
                       }}
+                      className="text-[11px] text-neutral-400 hover:text-neutral-200 underline cursor-pointer"
                     >
-                      <Check className="w-4 h-4" />
-                      <span>Salvar Cadastro & Continuar</span>
+                      Ir para tela completa de login administrativo
                     </button>
                   </div>
                 </form>
               )}
+
+              {/* Footer: Termos de Uso */}
+              <div className="pt-3 mt-3 border-t border-neutral-800/80 text-center">
+                <p className="text-[10.5px] text-neutral-400 leading-relaxed">
+                  Acessando você concorda com o{' '}
+                  <button
+                    type="button"
+                    onClick={() => setShowTermsModal(true)}
+                    className="font-bold underline hover:opacity-80 transition-opacity cursor-pointer inline-block"
+                    style={{ color: 'var(--theme-primary, #FF6B00)' }}
+                  >
+                    termo de uso
+                  </button>
+                  .
+                </p>
+              </div>
             </div>
           </div>
         )}
