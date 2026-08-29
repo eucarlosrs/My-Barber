@@ -170,6 +170,7 @@ export interface Barbershop {
   about: string; // Informações do estabelecimento
   phone: string;
   whatsapp: string;
+  businessHours?: string; // Horário de funcionamento/atendimento (ex: "Seg a Sáb: 09:00 às 20:00")
   address: BarbershopAddress;
   coordinates?: BarbershopCoordinates;
   socialMedia: BarbershopSocialMedia;
@@ -194,6 +195,7 @@ export interface RegisterBarbershopInput {
   about: string;
   phone: string;
   whatsapp: string;
+  businessHours?: string;
   theme?: BarbershopThemeId;
   street: string;
   number: string;

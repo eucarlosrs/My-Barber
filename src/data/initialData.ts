@@ -35,6 +35,7 @@ export const INITIAL_BARBERSHOPS: Barbershop[] = [
     about: 'Ambiente climatizado com poltronas vintage de couro, atendimento de excelência, navalha afiada e cerveja artesanal gelada. Mais que um corte de cabelo, uma experiência de estilo e bem-estar.',
     phone: '(11) 3456-7890',
     whatsapp: '(11) 98765-4321',
+    businessHours: 'Segunda a Sábado das 09:00 às 20:00',
     address: {
       street: 'Rua Augusta',
       number: '1420',
@@ -76,6 +77,7 @@ export const INITIAL_BARBERSHOPS: Barbershop[] = [
     about: 'Tradição e modernidade no coração da cidade. Especialistas em barba terapia, cortes clássicos na tesoura e visagismo facial.',
     phone: '(21) 2233-4455',
     whatsapp: '(21) 99887-7665',
+    businessHours: 'Terça a Sábado das 10:00 às 21:00',
     address: {
       street: 'Av. Nossa Senhora de Copacabana',
       number: '580',

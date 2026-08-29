@@ -183,6 +183,7 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
     about: '',
     phone: '(11) 3333-4444',
     whatsapp: '(11) 98888-7777',
+    businessHours: 'Segunda a Sábado das 09:00 às 20:00',
     street: 'Av. Paulista',
     number: '1000',
     complement: 'Sala 42',
@@ -831,22 +832,36 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-neutral-300 mb-1">Identificador Exclusivo (Slug)</label>
+                    <label className="block text-xs font-bold text-neutral-300 mb-1">Horário de Atendimento</label>
                     <input
                       type="text"
-                      value={editingShop.slug}
+                      placeholder="Ex: Seg a Sáb: 09:00 às 20:00"
+                      value={editingShop.businessHours || ''}
                       onChange={e => {
-                        const cleanSlug = e.target.value
-                          .toLowerCase()
-                          .normalize('NFD')
-                          .replace(/[\u0300-\u036f]/g, '')
-                          .replace(/[^a-z0-9-]+/g, '');
-                        const newDomain = `${cleanSlug}.mybarberbr.com.br`;
-                        setEditingShop(prev => prev ? { ...prev, slug: cleanSlug, customDomain: newDomain } : null);
+                        const newBh = e.target.value;
+                        setEditingShop(prev => prev ? { ...prev, businessHours: newBh } : null);
                       }}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-neutral-300 mb-1">Identificador Exclusivo (Slug)</label>
+                  <input
+                    type="text"
+                    value={editingShop.slug}
+                    onChange={e => {
+                      const cleanSlug = e.target.value
+                        .toLowerCase()
+                        .normalize('NFD')
+                        .replace(/[\u0300-\u036f]/g, '')
+                        .replace(/[^a-z0-9-]+/g, '');
+                      const newDomain = `${cleanSlug}.mybarberbr.com.br`;
+                      setEditingShop(prev => prev ? { ...prev, slug: cleanSlug, customDomain: newDomain } : null);
+                    }}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
+                  />
                 </div>
 
                 {/* Endereço Exclusivo da Barbearia */}
