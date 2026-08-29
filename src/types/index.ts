@@ -4,9 +4,76 @@
  */
 
 // ==========================================
-// 1. PLANO ÚNICO E FIXO (Seção 8)
+// 1. PLANOS E ASSINATURAS RECORRENTES SAAS (Módulo de Planos & Mercado Pago)
 // ==========================================
-export type PlanId = 'PLANO_UNICO';
+export type PlanId = 'PLANO_UNICO' | string;
+
+export type PlanBillingCycle = 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL';
+
+export interface PlanBillingScheduleStage {
+  id: string;
+  order: number;
+  name: string; // Ex: "Período Gratuito", "Promoção de Lançamento", "Preço Normal"
+  duration: number; // Ex: 14 (dias) ou 3 (meses)
+  unit: 'DAYS' | 'MONTHS' | 'CYCLES' | 'INDEFINITE';
+  price: number; // 0.00, 49.90, 99.90...
+}
+
+export interface PlanFeatures {
+  agenda: boolean;
+  clientes: boolean;
+  profissionais: boolean;
+  servicos: boolean;
+  pacotes: boolean;
+  comunicacoes: boolean;
+  promocoes: boolean;
+  sorteios: boolean;
+  galeria: boolean;
+  estoque: boolean;
+  relatorios_financeiros: boolean;
+}
+
+export interface PlanLimits {
+  maxProfessionals: number | 'UNLIMITED';
+  maxUnits: number | 'UNLIMITED';
+  maxClients: number | 'UNLIMITED';
+}
+
+export interface CustomPlan {
+  id: string;
+  name: string;
+  description: string;
+  status: 'ACTIVE' | 'INACTIVE';
+  priceMonthly: number; // Preço regular base
+  billingCycle: PlanBillingCycle; // 'MONTHLY', 'QUARTERLY', 'SEMIANNUAL', 'ANNUAL'
+  
+  // Período Gratuito
+  hasTrial: boolean;
+  trialDuration: number;
+  trialUnit: 'DAYS' | 'MONTHS';
+
+  // Promoção
+  hasPromotion: boolean;
+  promotionalPrice?: number;
+  promotionDuration?: number;
+  promotionUnit?: 'MONTHS' | 'CYCLES';
+  priceAfterPromotion?: number;
+
+  // Cronograma Calculado
+  scheduleStages: PlanBillingScheduleStage[];
+
+  // Funcionalidades Habilitadas
+  features: PlanFeatures;
+
+  // Limites
+  limits: PlanLimits;
+
+  // Mercado Pago
+  mercadopagoPlanId?: string;
+  subscribersCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface PlanConfig {
   id: PlanId;
@@ -17,7 +84,7 @@ export interface PlanConfig {
   description: string;
 }
 
-export const MY_BARBER_PLANS: Record<PlanId, PlanConfig> = {
+export const MY_BARBER_PLANS: Record<string, PlanConfig> = {
   PLANO_UNICO: {
     id: 'PLANO_UNICO',
     name: 'Plano Único & Fixo',
@@ -502,8 +569,10 @@ export interface Subscription {
   mercadopagoCustomerId?: string;
   status: SubscriptionStatus;
   plan: string; // 'Plano MY BARBER'
+  planId?: string; // ID do CustomPlan
+  customPlan?: CustomPlan;
   currentPrice: number; // 0.00 (Trial 14 dias), 49.90 (meses 1 a 3 pagos), 69.90 (do 4º mês pago em diante)
-  billingCycle: 'MONTHLY';
+  billingCycle: PlanBillingCycle | 'MONTHLY';
   
   // Controle detalhado dos 14 dias grátis
   isInTrial: boolean; // true durante os 14 dias

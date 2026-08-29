@@ -13,7 +13,8 @@ import {
   StockItem,
   ReturnMessage,
   GalleryWork,
-  AuditLog
+  AuditLog,
+  CustomPlan
 } from '../types';
 import { APP_ASSETS } from './assets';
 import { REALISTIC_BARBERSHOP_ASSETS } from '../lib/storage';
@@ -1045,6 +1046,185 @@ export const INITIAL_SUBSCRIPTION_PAYMENTS: import('../types').SubscriptionPayme
     billingNumber: 4,
     paymentMethod: 'Cartão de Crédito (Visa)',
     createdAt: '2026-02-20T10:00:00Z'
+  }
+];
+
+export const INITIAL_CUSTOM_PLANS: CustomPlan[] = [
+  {
+    id: 'PLANO_UNICO',
+    name: 'Plano Único & Fixo',
+    description: 'Até 10 profissionais (incluindo proprietário, gerente e barbeiros) — R$ 49,90 por mês com todas as ferramentas de gestão.',
+    status: 'ACTIVE',
+    priceMonthly: 49.90,
+    billingCycle: 'MONTHLY',
+    hasTrial: true,
+    trialDuration: 14,
+    trialUnit: 'DAYS',
+    hasPromotion: false,
+    promotionalPrice: 49.90,
+    promotionDuration: 0,
+    promotionUnit: 'MONTHS',
+    priceAfterPromotion: 49.90,
+    scheduleStages: [
+      {
+        id: 'stage-trial-1',
+        order: 1,
+        name: 'Período Gratuito',
+        duration: 14,
+        unit: 'DAYS',
+        price: 0.00
+      },
+      {
+        id: 'stage-regular-1',
+        order: 2,
+        name: 'Assinatura Recorrente',
+        duration: 0,
+        unit: 'INDEFINITE',
+        price: 49.90
+      }
+    ],
+    features: {
+      agenda: true,
+      clientes: true,
+      profissionais: true,
+      servicos: true,
+      pacotes: true,
+      comunicacoes: true,
+      promocoes: true,
+      sorteios: true,
+      galeria: true,
+      estoque: true,
+      relatorios_financeiros: true
+    },
+    limits: {
+      maxProfessionals: 10,
+      maxUnits: 1,
+      maxClients: 'UNLIMITED'
+    },
+    mercadopagoPlanId: 'mp-plan-unico-fixo',
+    subscribersCount: 2,
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'plano-profissional-completo',
+    name: 'Plano Profissional Completo',
+    description: 'Gestão robusta para barbearias em expansão. Inclui 14 dias grátis, 3 meses a R$ 49,90 e depois R$ 99,90/mês.',
+    status: 'ACTIVE',
+    priceMonthly: 99.90,
+    billingCycle: 'MONTHLY',
+    hasTrial: true,
+    trialDuration: 14,
+    trialUnit: 'DAYS',
+    hasPromotion: true,
+    promotionalPrice: 49.90,
+    promotionDuration: 3,
+    promotionUnit: 'MONTHS',
+    priceAfterPromotion: 99.90,
+    scheduleStages: [
+      {
+        id: 'stage-prof-trial',
+        order: 1,
+        name: 'Período Gratuito',
+        duration: 14,
+        unit: 'DAYS',
+        price: 0.00
+      },
+      {
+        id: 'stage-prof-promo',
+        order: 2,
+        name: 'Promoção de Lançamento',
+        duration: 3,
+        unit: 'MONTHS',
+        price: 49.90
+      },
+      {
+        id: 'stage-prof-regular',
+        order: 3,
+        name: 'Preço Normal Recorrente',
+        duration: 0,
+        unit: 'INDEFINITE',
+        price: 99.90
+      }
+    ],
+    features: {
+      agenda: true,
+      clientes: true,
+      profissionais: true,
+      servicos: true,
+      pacotes: true,
+      comunicacoes: true,
+      promocoes: true,
+      sorteios: true,
+      galeria: true,
+      estoque: true,
+      relatorios_financeiros: true
+    },
+    limits: {
+      maxProfessionals: 15,
+      maxUnits: 2,
+      maxClients: 'UNLIMITED'
+    },
+    mercadopagoPlanId: 'mp-plan-prof-9990',
+    subscribersCount: 0,
+    createdAt: '2026-02-01T00:00:00Z',
+    updatedAt: '2026-02-01T00:00:00Z'
+  },
+  {
+    id: 'plano-starter-essencial',
+    name: 'Plano Starter Essencial',
+    description: 'Para barbeiros autônomos ou pequenos estúdios com até 3 profissionais e agenda online automatizada.',
+    status: 'ACTIVE',
+    priceMonthly: 39.90,
+    billingCycle: 'MONTHLY',
+    hasTrial: true,
+    trialDuration: 7,
+    trialUnit: 'DAYS',
+    hasPromotion: false,
+    promotionalPrice: 39.90,
+    promotionDuration: 0,
+    promotionUnit: 'MONTHS',
+    priceAfterPromotion: 39.90,
+    scheduleStages: [
+      {
+        id: 'stage-starter-trial',
+        order: 1,
+        name: 'Período de Teste',
+        duration: 7,
+        unit: 'DAYS',
+        price: 0.00
+      },
+      {
+        id: 'stage-starter-regular',
+        order: 2,
+        name: 'Assinatura Mensal',
+        duration: 0,
+        unit: 'INDEFINITE',
+        price: 39.90
+      }
+    ],
+    features: {
+      agenda: true,
+      clientes: true,
+      profissionais: true,
+      servicos: true,
+      pacotes: true,
+      comunicacoes: true,
+      promocoes: false,
+      sorteios: false,
+      galeria: true,
+      estoque: false,
+      relatorios_financeiros: true
+    },
+    limits: {
+      maxProfessionals: 3,
+      maxUnits: 1,
+      maxClients: 'UNLIMITED'
+    },
+    mercadopagoPlanId: 'mp-plan-starter-3990',
+    subscribersCount: 0,
+    createdAt: '2026-02-15T00:00:00Z',
+    updatedAt: '2026-02-15T00:00:00Z'
   }
 ];
 

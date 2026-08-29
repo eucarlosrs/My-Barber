@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   Gift,
@@ -13,10 +13,13 @@ import {
   Clock,
   Camera,
   Image as ImageIcon,
-  Sparkles
+  Sparkles,
+  X
 } from 'lucide-react';
 import { Raffle } from '../../types';
 import { AppImage } from '../common/AppImage';
+import { SaveButton } from '../common/SaveButton';
+import { UnsavedChangesModal } from '../common/UnsavedChangesModal';
 
 const PRESET_RAFFLE_BANNERS = [
   'https://images.unsplash.com/photo-1512690459411-b9245aed614b?w=800&auto=format&fit=crop&q=80',
@@ -46,6 +49,35 @@ export const RafflesTab: React.FC = () => {
   const [showInHighlights, setShowInHighlights] = useState(true);
   const [highlightTag, setHighlightTag] = useState('SORTEIO');
 
+  // Unsaved Changes & Save States
+  const [initialFormState, setInitialFormState] = useState<any>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+
+  const isDirty = useMemo(() => {
+    if (!showCreateModal || !initialFormState) return false;
+    return (
+      title !== initialFormState.title ||
+      description !== initialFormState.description ||
+      prize !== initialFormState.prize ||
+      drawDate !== initialFormState.drawDate ||
+      imageUrl !== initialFormState.imageUrl ||
+      showInHighlights !== initialFormState.showInHighlights ||
+      highlightTag !== initialFormState.highlightTag
+    );
+  }, [
+    showCreateModal,
+    initialFormState,
+    title,
+    description,
+    prize,
+    drawDate,
+    imageUrl,
+    showInHighlights,
+    highlightTag
+  ]);
+
   // Live Draw Celebration Modal state
   const [drawResult, setDrawResult] = useState<{
     open: boolean;
@@ -59,26 +91,74 @@ export const RafflesTab: React.FC = () => {
   // Calculate eligible clients count in current tenant for 60-day rule
   const eligibleClients = clients.filter(c => isClientEligibleForRaffle(c.id).eligible);
 
-  const handleCreate = (e: React.FormEvent) => {
-    e.preventDefault();
-    createRaffle({
-      tenantId: currentBarbershop.id,
-      title: title.trim(),
-      description: description.trim(),
-      prize: prize.trim(),
-      drawDate: drawDate,
-      showInHighlights,
-      highlightTag: highlightTag.trim() || undefined,
-      imageUrl: imageUrl.trim() || undefined
+  const openAddModal = () => {
+    const nextMonth = new Date();
+    nextMonth.setDate(nextMonth.getDate() + 30);
+    const defaultDrawDate = nextMonth.toISOString().split('T')[0];
+    const defaultTitle = '';
+    const defaultDesc = '';
+    const defaultPrize = '';
+    const defaultImage = PRESET_RAFFLE_BANNERS[0];
+    const defaultShowInHighlights = true;
+    const defaultHighlightTag = 'SORTEIO';
+
+    setTitle(defaultTitle);
+    setDescription(defaultDesc);
+    setPrize(defaultPrize);
+    setDrawDate(defaultDrawDate);
+    setImageUrl(defaultImage);
+    setShowInHighlights(defaultShowInHighlights);
+    setHighlightTag(defaultHighlightTag);
+
+    setInitialFormState({
+      title: defaultTitle,
+      description: defaultDesc,
+      prize: defaultPrize,
+      drawDate: defaultDrawDate,
+      imageUrl: defaultImage,
+      showInHighlights: defaultShowInHighlights,
+      highlightTag: defaultHighlightTag
     });
 
-    setShowCreateModal(false);
-    setTitle('');
-    setDescription('');
-    setPrize('');
-    setDrawDate('');
-    setShowInHighlights(true);
-    setHighlightTag('SORTEIO');
+    setIsSaved(false);
+    setShowCreateModal(true);
+  };
+
+  const handleCreate = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!title.trim() || !prize.trim()) return;
+
+    setIsSaving(true);
+    try {
+      createRaffle({
+        tenantId: currentBarbershop.id,
+        title: title.trim(),
+        description: description.trim(),
+        prize: prize.trim(),
+        drawDate: drawDate,
+        showInHighlights,
+        highlightTag: highlightTag.trim() || undefined,
+        imageUrl: imageUrl.trim() || undefined
+      });
+
+      setIsSaved(true);
+      setTimeout(() => {
+        setShowCreateModal(false);
+        setInitialFormState(null);
+        setIsSaved(false);
+      }, 500);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCloseModal = () => {
+    if (isDirty) {
+      setShowUnsavedModal(true);
+    } else {
+      setShowCreateModal(false);
+      setInitialFormState(null);
+    }
   };
 
   const handleExecute = (raffle: Raffle) => {
@@ -116,15 +196,8 @@ export const RafflesTab: React.FC = () => {
         </div>
 
         <button
-          onClick={() => {
-            // Default draw date: 30 days from now
-            const defaultDate = new Date();
-            defaultDate.setDate(defaultDate.getDate() + 20);
-            setDrawDate(defaultDate.toISOString().split('T')[0]);
-            setImageUrl(PRESET_RAFFLE_BANNERS[0]);
-            setShowCreateModal(true);
-          }}
-          className="px-4 py-2.5 bg-orange-500 hover:bg-orange-400 text-neutral-950 rounded-xl text-xs font-black flex items-center gap-2 shadow-md active:scale-95 transition-all"
+          onClick={openAddModal}
+          className="px-4 py-2.5 bg-orange-500 hover:bg-orange-400 text-neutral-950 rounded-xl text-xs font-black flex items-center gap-2 shadow-md active:scale-95 transition-all cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>Cadastrar Novo Sorteio</span>
@@ -345,12 +418,23 @@ export const RafflesTab: React.FC = () => {
       {showCreateModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-neutral-900 border border-neutral-800 rounded-3xl max-w-lg w-full p-6 text-neutral-100 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-black font-heading text-neutral-100 mb-1">
-              Cadastrar Novo Sorteio
-            </h3>
-            <p className="text-xs text-neutral-400 mb-5">
-              Defina o prêmio, data e imagem. O sorteio ficará visível na área logada dos clientes para adesão.
-            </p>
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-black font-heading text-neutral-100 mb-1">
+                  Cadastrar Novo Sorteio
+                </h3>
+                <p className="text-xs text-neutral-400">
+                  Defina o prêmio, data e imagem. O sorteio ficará visível na área logada dos clientes para adesão.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseModal}
+                className="text-neutral-400 hover:text-white p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
@@ -463,25 +547,42 @@ export const RafflesTab: React.FC = () => {
                 )}
               </div>
 
-              <div className="flex justify-end gap-2.5 pt-4 border-t border-neutral-800">
+              <div className="flex justify-end items-center gap-2.5 pt-4 border-t border-neutral-800">
                 <button
                   type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs font-bold"
+                  onClick={handleCloseModal}
+                  className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-orange-500 hover:bg-orange-400 text-neutral-950 rounded-xl text-xs font-black shadow-md"
-                >
-                  Publicar Sorteio
-                </button>
+                <SaveButton
+                  isDirty={isDirty}
+                  isLoading={isSaving}
+                  isSaved={isSaved}
+                  onClick={() => handleCreate()}
+                  label="Publicar Sorteio"
+                  className="text-xs"
+                />
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Unsaved Changes Guard Modal */}
+      <UnsavedChangesModal
+        isOpen={showUnsavedModal}
+        onClose={() => setShowUnsavedModal(false)}
+        onDiscard={() => {
+          setShowUnsavedModal(false);
+          setShowCreateModal(false);
+          setInitialFormState(null);
+        }}
+        onSave={async () => {
+          setShowUnsavedModal(false);
+          await handleCreate();
+        }}
+      />
 
       {/* Winner Celebration Modal */}
       {drawResult && drawResult.open && (

@@ -18,7 +18,60 @@ app.use(
   })
 );
 
-// Types for backend subscriptions
+// Types for backend plans and subscriptions
+interface StoredPlanBillingScheduleStage {
+  id: string;
+  order: number;
+  name: string;
+  duration: number;
+  unit: 'DAYS' | 'MONTHS' | 'CYCLES' | 'INDEFINITE';
+  price: number;
+}
+
+interface StoredPlanFeatures {
+  agenda: boolean;
+  clientes: boolean;
+  profissionais: boolean;
+  servicos: boolean;
+  pacotes: boolean;
+  comunicacoes: boolean;
+  promocoes: boolean;
+  sorteios: boolean;
+  galeria: boolean;
+  estoque: boolean;
+  relatorios_financeiros: boolean;
+}
+
+interface StoredPlanLimits {
+  maxProfessionals: number | 'UNLIMITED';
+  maxUnits: number | 'UNLIMITED';
+  maxClients: number | 'UNLIMITED';
+}
+
+interface StoredPlan {
+  id: string;
+  name: string;
+  description: string;
+  status: 'ACTIVE' | 'INACTIVE';
+  priceMonthly: number;
+  billingCycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL';
+  hasTrial: boolean;
+  trialDuration: number;
+  trialUnit: 'DAYS' | 'MONTHS';
+  hasPromotion: boolean;
+  promotionalPrice?: number;
+  promotionDuration?: number;
+  promotionUnit?: 'MONTHS' | 'CYCLES';
+  priceAfterPromotion?: number;
+  scheduleStages: StoredPlanBillingScheduleStage[];
+  features: StoredPlanFeatures;
+  limits: StoredPlanLimits;
+  mercadopagoPlanId?: string;
+  subscribersCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface StoredSubscription {
   id: string;
   barbershopId: string;
@@ -30,8 +83,10 @@ interface StoredSubscription {
   mercadopagoCustomerId?: string;
   status: 'PENDING' | 'TRIAL_14_DAYS' | 'ACTIVE' | 'PAST_DUE' | 'SUSPENDED' | 'CANCELED';
   plan: string;
+  planId?: string;
+  customPlan?: StoredPlan;
   currentPrice: number; // 0.00 durante 14 dias grátis, 49.90 nos meses 1-3, 69.90 a partir do mês 4
-  billingCycle: 'MONTHLY';
+  billingCycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL';
   isInTrial: boolean;
   trialStartDate?: string;
   trialEndDate?: string;
@@ -84,6 +139,195 @@ function get14DaysFromDate(baseDate = new Date()): string {
   d.setDate(d.getDate() + 14);
   return d.toISOString().split('T')[0];
 }
+
+// Plans In-Memory Database with default plans
+const plansDB: Map<string, StoredPlan> = new Map([
+  [
+    'PLANO_UNICO',
+    {
+      id: 'PLANO_UNICO',
+      name: 'Plano Único & Fixo',
+      description: 'Até 10 profissionais (incluindo proprietário, gerente e barbeiros) — R$ 49,90 por mês com todas as ferramentas de gestão.',
+      status: 'ACTIVE',
+      priceMonthly: 49.90,
+      billingCycle: 'MONTHLY',
+      hasTrial: true,
+      trialDuration: 14,
+      trialUnit: 'DAYS',
+      hasPromotion: false,
+      promotionalPrice: 49.90,
+      promotionDuration: 0,
+      promotionUnit: 'MONTHS',
+      priceAfterPromotion: 49.90,
+      scheduleStages: [
+        {
+          id: 'stage-trial-1',
+          order: 1,
+          name: 'Período Gratuito',
+          duration: 14,
+          unit: 'DAYS',
+          price: 0.00
+        },
+        {
+          id: 'stage-regular-1',
+          order: 2,
+          name: 'Assinatura Recorrente',
+          duration: 0,
+          unit: 'INDEFINITE',
+          price: 49.90
+        }
+      ],
+      features: {
+        agenda: true,
+        clientes: true,
+        profissionais: true,
+        servicos: true,
+        pacotes: true,
+        comunicacoes: true,
+        promocoes: true,
+        sorteios: true,
+        galeria: true,
+        estoque: true,
+        relatorios_financeiros: true
+      },
+      limits: {
+        maxProfessionals: 10,
+        maxUnits: 1,
+        maxClients: 'UNLIMITED'
+      },
+      mercadopagoPlanId: 'mp-plan-unico-fixo',
+      subscribersCount: 2,
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z'
+    }
+  ],
+  [
+    'plano-profissional-completo',
+    {
+      id: 'plano-profissional-completo',
+      name: 'Plano Profissional Completo',
+      description: 'Gestão robusta para barbearias em expansão. Inclui 14 dias grátis, 3 meses a R$ 49,90 e depois R$ 99,90/mês.',
+      status: 'ACTIVE',
+      priceMonthly: 99.90,
+      billingCycle: 'MONTHLY',
+      hasTrial: true,
+      trialDuration: 14,
+      trialUnit: 'DAYS',
+      hasPromotion: true,
+      promotionalPrice: 49.90,
+      promotionDuration: 3,
+      promotionUnit: 'MONTHS',
+      priceAfterPromotion: 99.90,
+      scheduleStages: [
+        {
+          id: 'stage-prof-trial',
+          order: 1,
+          name: 'Período Gratuito',
+          duration: 14,
+          unit: 'DAYS',
+          price: 0.00
+        },
+        {
+          id: 'stage-prof-promo',
+          order: 2,
+          name: 'Promoção de Lançamento',
+          duration: 3,
+          unit: 'MONTHS',
+          price: 49.90
+        },
+        {
+          id: 'stage-prof-regular',
+          order: 3,
+          name: 'Preço Normal Recorrente',
+          duration: 0,
+          unit: 'INDEFINITE',
+          price: 99.90
+        }
+      ],
+      features: {
+        agenda: true,
+        clientes: true,
+        profissionais: true,
+        servicos: true,
+        pacotes: true,
+        comunicacoes: true,
+        promocoes: true,
+        sorteios: true,
+        galeria: true,
+        estoque: true,
+        relatorios_financeiros: true
+      },
+      limits: {
+        maxProfessionals: 15,
+        maxUnits: 2,
+        maxClients: 'UNLIMITED'
+      },
+      mercadopagoPlanId: 'mp-plan-prof-9990',
+      subscribersCount: 0,
+      createdAt: '2026-02-01T00:00:00Z',
+      updatedAt: '2026-02-01T00:00:00Z'
+    }
+  ],
+  [
+    'plano-starter-essencial',
+    {
+      id: 'plano-starter-essencial',
+      name: 'Plano Starter Essencial',
+      description: 'Para barbeiros autônomos ou pequenos estúdios com até 3 profissionais e agenda online automatizada.',
+      status: 'ACTIVE',
+      priceMonthly: 39.90,
+      billingCycle: 'MONTHLY',
+      hasTrial: true,
+      trialDuration: 7,
+      trialUnit: 'DAYS',
+      hasPromotion: false,
+      promotionalPrice: 39.90,
+      promotionDuration: 0,
+      promotionUnit: 'MONTHS',
+      priceAfterPromotion: 39.90,
+      scheduleStages: [
+        {
+          id: 'stage-starter-trial',
+          order: 1,
+          name: 'Período de Teste',
+          duration: 7,
+          unit: 'DAYS',
+          price: 0.00
+        },
+        {
+          id: 'stage-starter-regular',
+          order: 2,
+          name: 'Assinatura Mensal',
+          duration: 0,
+          unit: 'INDEFINITE',
+          price: 39.90
+        }
+      ],
+      features: {
+        agenda: true,
+        clientes: true,
+        profissionais: true,
+        servicos: true,
+        pacotes: true,
+        comunicacoes: true,
+        promocoes: false,
+        sorteios: false,
+        galeria: true,
+        estoque: false,
+        relatorios_financeiros: true
+      },
+      limits: {
+        maxProfessionals: 3,
+        maxUnits: 1,
+        maxClients: 'UNLIMITED'
+      },
+      mercadopagoPlanId: 'mp-plan-starter-3990',
+      subscribersCount: 0,
+      createdAt: '2026-02-15T00:00:00Z',
+      updatedAt: '2026-02-15T00:00:00Z'
+    }
+  ]
+]);
 
 // In-Memory Database with persistent initial seed
 const subscriptionsDB: Map<string, StoredSubscription> = new Map([
@@ -297,7 +541,277 @@ async function cancelMercadoPagoSubscription(mpSubscriptionId: string) {
 }
 
 // =========================================================================
-// API ENDPOINTS
+// API ENDPOINTS - PLANOS SAAS DO MY BARBER
+// =========================================================================
+
+// Helper to calculate schedule stages for a plan
+function calculatePlanScheduleStages(planData: Partial<StoredPlan>): StoredPlanBillingScheduleStage[] {
+  const stages: StoredPlanBillingScheduleStage[] = [];
+  let order = 1;
+
+  if (planData.hasTrial && (planData.trialDuration || 0) > 0) {
+    stages.push({
+      id: `stage-trial-${Date.now()}-${order}`,
+      order: order++,
+      name: 'Período Gratuito',
+      duration: planData.trialDuration || 14,
+      unit: (planData.trialUnit as any) || 'DAYS',
+      price: 0.00
+    });
+  }
+
+  if (planData.hasPromotion && (planData.promotionDuration || 0) > 0 && planData.promotionalPrice !== undefined) {
+    stages.push({
+      id: `stage-promo-${Date.now()}-${order}`,
+      order: order++,
+      name: 'Promoção de Lançamento',
+      duration: planData.promotionDuration || 3,
+      unit: (planData.promotionUnit as any) || 'MONTHS',
+      price: Number(planData.promotionalPrice)
+    });
+  }
+
+  stages.push({
+    id: `stage-regular-${Date.now()}-${order}`,
+    order: order++,
+    name: 'Preço Normal Recorrente',
+    duration: 0,
+    unit: 'INDEFINITE',
+    price: Number(planData.priceAfterPromotion || planData.priceMonthly || 49.90)
+  });
+
+  return stages;
+}
+
+// 0. Plans CRUD Endpoints
+app.get('/api/plans', (_req: Request, res: Response) => {
+  // Update subscribers count dynamically
+  const plansArray = Array.from(plansDB.values()).map(plan => {
+    let subscribers = 0;
+    subscriptionsDB.forEach(sub => {
+      if (sub.status !== 'CANCELED') {
+        if (sub.planId === plan.id || (plan.id === 'PLANO_UNICO' && (!sub.planId || sub.plan === 'Plano MY BARBER' || sub.plan === 'Plano Único & Fixo'))) {
+          subscribers++;
+        }
+      }
+    });
+    return {
+      ...plan,
+      subscribersCount: subscribers
+    };
+  });
+
+  res.json({
+    success: true,
+    plans: plansArray
+  });
+});
+
+app.post('/api/plans', (req: Request, res: Response) => {
+  try {
+    const {
+      name,
+      description,
+      status = 'ACTIVE',
+      priceMonthly,
+      billingCycle = 'MONTHLY',
+      hasTrial = false,
+      trialDuration = 0,
+      trialUnit = 'DAYS',
+      hasPromotion = false,
+      promotionalPrice,
+      promotionDuration = 0,
+      promotionUnit = 'MONTHS',
+      priceAfterPromotion,
+      features,
+      limits
+    } = req.body;
+
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      return res.status(400).json({ error: 'O nome do plano é obrigatório.' });
+    }
+
+    if (priceMonthly === undefined || isNaN(Number(priceMonthly)) || Number(priceMonthly) < 0) {
+      return res.status(400).json({ error: 'O preço regular base do plano deve ser um valor numérico positivo.' });
+    }
+
+    const planId = `plan-${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now().toString().slice(-4)}`;
+    const nowIso = new Date().toISOString();
+
+    const scheduleStages = calculatePlanScheduleStages({
+      hasTrial,
+      trialDuration,
+      trialUnit,
+      hasPromotion,
+      promotionalPrice,
+      promotionDuration,
+      promotionUnit,
+      priceAfterPromotion: priceAfterPromotion || priceMonthly,
+      priceMonthly
+    });
+
+    const defaultFeatures: StoredPlanFeatures = {
+      agenda: true,
+      clientes: true,
+      profissionais: true,
+      servicos: true,
+      pacotes: true,
+      comunicacoes: true,
+      promocoes: true,
+      sorteios: true,
+      galeria: true,
+      estoque: true,
+      relatorios_financeiros: true
+    };
+
+    const defaultLimits: StoredPlanLimits = {
+      maxProfessionals: 10,
+      maxUnits: 1,
+      maxClients: 'UNLIMITED'
+    };
+
+    const newPlan: StoredPlan = {
+      id: planId,
+      name: name.trim(),
+      description: description || `Plano de gestão para barbearias (${billingCycle}).`,
+      status: status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
+      priceMonthly: Number(priceMonthly),
+      billingCycle: billingCycle || 'MONTHLY',
+      hasTrial: Boolean(hasTrial),
+      trialDuration: Number(trialDuration) || 0,
+      trialUnit: trialUnit || 'DAYS',
+      hasPromotion: Boolean(hasPromotion),
+      promotionalPrice: promotionalPrice !== undefined ? Number(promotionalPrice) : undefined,
+      promotionDuration: Number(promotionDuration) || 0,
+      promotionUnit: promotionUnit || 'MONTHS',
+      priceAfterPromotion: priceAfterPromotion !== undefined ? Number(priceAfterPromotion) : Number(priceMonthly),
+      scheduleStages,
+      features: { ...defaultFeatures, ...(features || {}) },
+      limits: { ...defaultLimits, ...(limits || {}) },
+      mercadopagoPlanId: `mp-plan-${planId}`,
+      subscribersCount: 0,
+      createdAt: nowIso,
+      updatedAt: nowIso
+    };
+
+    plansDB.set(planId, newPlan);
+
+    res.status(201).json({
+      success: true,
+      plan: newPlan,
+      message: 'Plano criado com sucesso e pronto para contratação no Mercado Pago.'
+    });
+  } catch (err: any) {
+    console.error('Error creating custom plan:', err);
+    res.status(500).json({ error: err.message || 'Erro ao criar plano.' });
+  }
+});
+
+app.put('/api/plans/:id', (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const existingPlan = plansDB.get(id);
+
+    if (!existingPlan) {
+      return res.status(404).json({ error: 'Plano não encontrado.' });
+    }
+
+    const updates = req.body;
+    const nowIso = new Date().toISOString();
+
+    // Check subscribers count
+    let subscribers = 0;
+    subscriptionsDB.forEach(sub => {
+      if (sub.status !== 'CANCELED' && (sub.planId === id || (id === 'PLANO_UNICO' && !sub.planId))) {
+        subscribers++;
+      }
+    });
+
+    const updatedPlan: StoredPlan = {
+      ...existingPlan,
+      ...updates,
+      id: existingPlan.id, // Immutable ID
+      scheduleStages: calculatePlanScheduleStages({
+        ...existingPlan,
+        ...updates
+      }),
+      features: {
+        ...existingPlan.features,
+        ...(updates.features || {})
+      },
+      limits: {
+        ...existingPlan.limits,
+        ...(updates.limits || {})
+      },
+      subscribersCount: subscribers,
+      updatedAt: nowIso
+    };
+
+    plansDB.set(id, updatedPlan);
+
+    res.json({
+      success: true,
+      plan: updatedPlan,
+      message: 'Plano atualizado com sucesso.'
+    });
+  } catch (err: any) {
+    console.error('Error updating custom plan:', err);
+    res.status(500).json({ error: err.message || 'Erro ao atualizar plano.' });
+  }
+});
+
+app.post('/api/plans/:id/toggle-status', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const plan = plansDB.get(id);
+
+  if (!plan) {
+    return res.status(404).json({ error: 'Plano não encontrado.' });
+  }
+
+  plan.status = plan.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+  plan.updatedAt = new Date().toISOString();
+  plansDB.set(id, plan);
+
+  res.json({
+    success: true,
+    plan,
+    message: `Plano ${plan.status === 'ACTIVE' ? 'ativado' : 'inativado'} com sucesso.`
+  });
+});
+
+app.post('/api/plans/:id/duplicate', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const original = plansDB.get(id);
+
+  if (!original) {
+    return res.status(404).json({ error: 'Plano original não encontrado para duplicação.' });
+  }
+
+  const newId = `plan-${original.id}-copia-${Date.now().toString().slice(-4)}`;
+  const nowIso = new Date().toISOString();
+
+  const duplicatedPlan: StoredPlan = {
+    ...original,
+    id: newId,
+    name: `${original.name} (Cópia)`,
+    status: 'INACTIVE', // Starts inactive for safety
+    subscribersCount: 0,
+    mercadopagoPlanId: `mp-plan-${newId}`,
+    createdAt: nowIso,
+    updatedAt: nowIso
+  };
+
+  plansDB.set(newId, duplicatedPlan);
+
+  res.status(201).json({
+    success: true,
+    plan: duplicatedPlan,
+    message: 'Plano duplicado com sucesso em modo inativo. Revise e ative quando desejar.'
+  });
+});
+
+// =========================================================================
+// API ENDPOINTS - MERCADO PAGO E ASSINATURAS
 // =========================================================================
 
 // 1. Health check & Mercado Pago Credential Verification
@@ -364,11 +878,27 @@ app.get('/api/mercadopago/check-credentials', async (_req: Request, res: Respons
 // 2. Create / Initialize Recurring Subscription
 app.post('/api/subscriptions/create', async (req: Request, res: Response) => {
   try {
-    const { barbershopId, barbershopName, payerEmail, payerName, payerPhone } = req.body;
+    const { barbershopId, barbershopName, payerEmail, payerName, payerPhone, planId = 'PLANO_UNICO' } = req.body;
 
     if (!barbershopId || !payerEmail) {
       return res.status(400).json({ error: 'barbershopId e payerEmail são obrigatórios' });
     }
+
+    // Resolve plan configuration
+    const selectedPlan = plansDB.get(planId) || plansDB.get('PLANO_UNICO') || {
+      id: 'PLANO_UNICO',
+      name: 'Plano Único & Fixo',
+      priceMonthly: 49.90,
+      billingCycle: 'MONTHLY' as const,
+      hasTrial: true,
+      trialDuration: 14,
+      trialUnit: 'DAYS' as const,
+      hasPromotion: false,
+      promotionalPrice: 49.90,
+      promotionDuration: 0,
+      promotionUnit: 'MONTHS' as const,
+      priceAfterPromotion: 49.90
+    };
 
     const appUrl = process.env.APP_URL || `http://localhost:${PORT}`;
     const returnUrl = `${appUrl}?subscription_return=success&barbershopId=${encodeURIComponent(barbershopId)}`;
@@ -378,24 +908,45 @@ app.post('/api/subscriptions/create', async (req: Request, res: Response) => {
 
     const now = new Date();
     const trialStartDate = now.toISOString().split('T')[0];
-    const trialEndDate = get14DaysFromDate(now);
+
+    // Compute trial days and end date
+    const trialDays = selectedPlan.hasTrial
+      ? (selectedPlan.trialUnit === 'MONTHS' ? (selectedPlan.trialDuration || 1) * 30 : (selectedPlan.trialDuration || 14))
+      : 0;
+
+    const trialEndDate = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    // Frequency mapping
+    let frequency = 1;
+    let frequencyType: 'months' | 'days' = 'months';
+    if (selectedPlan.billingCycle === 'QUARTERLY') frequency = 3;
+    else if (selectedPlan.billingCycle === 'SEMIANNUAL') frequency = 6;
+    else if (selectedPlan.billingCycle === 'ANNUAL') frequency = 12;
+
+    // Initial transaction amount (promotional or regular)
+    const initialAmount = selectedPlan.hasPromotion && selectedPlan.promotionalPrice !== undefined
+      ? Number(selectedPlan.promotionalPrice)
+      : Number(selectedPlan.priceMonthly);
+
+    const planReason = `${selectedPlan.name}${trialDays > 0 ? ` - ${trialDays} Dias Grátis` : ''} + R$ ${initialAmount.toFixed(2).replace('.', ',')}/${selectedPlan.billingCycle === 'MONTHLY' ? 'mês' : 'ciclo'}`;
 
     // Call Mercado Pago API if access token is configured
-    // Start recurring monthly billing directly scheduled for 14 days later (end of trial)
     if (process.env.MERCADOPAGO_ACCESS_TOKEN) {
       const mpResponse = await callMercadoPago('/preapproval', {
         method: 'POST',
         body: JSON.stringify({
           payer_email: payerEmail,
           back_url: returnUrl,
-          reason: 'Plano MY BARBER - 14 Dias Grátis + R$ 49,90/mês (3 meses)',
+          reason: planReason,
           external_reference: barbershopId,
           auto_recurring: {
-            frequency: 1,
-            frequency_type: 'months',
-            transaction_amount: 49.90,
+            frequency,
+            frequency_type: frequencyType,
+            transaction_amount: initialAmount,
             currency_id: 'BRL',
-            start_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+            start_date: trialDays > 0 
+              ? new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toISOString()
+              : new Date().toISOString()
           },
           status: 'pending'
         })
@@ -416,17 +967,19 @@ app.post('/api/subscriptions/create', async (req: Request, res: Response) => {
       payerName: payerName || '',
       payerPhone: payerPhone || '',
       mercadopagoSubscriptionId: mpSubId,
-      status: 'PENDING', // Fica PENDING até o proprietário inserir e validar o cartão no checkout MP
-      plan: 'Plano MY BARBER',
-      currentPrice: 0.00, // 0.00 durante os 14 dias grátis
-      billingCycle: 'MONTHLY',
+      status: 'PENDING',
+      plan: selectedPlan.name,
+      planId: selectedPlan.id,
+      customPlan: selectedPlan as any,
+      currentPrice: trialDays > 0 ? 0.00 : initialAmount,
+      billingCycle: selectedPlan.billingCycle,
       isInTrial: false,
       trialStartDate,
-      trialEndDate,
+      trialEndDate: trialDays > 0 ? trialEndDate : undefined,
       paidBillingCount: 0,
-      trialOrLaunchPeriod: true,
+      trialOrLaunchPeriod: Boolean(selectedPlan.hasPromotion || selectedPlan.hasTrial),
       billingCount: 0,
-      nextBillingDate: trialEndDate,
+      nextBillingDate: trialDays > 0 ? trialEndDate : getNextBillingDate(now),
       initPointUrl: initPoint,
       cardValidated: false,
       toleranceDays: 7,

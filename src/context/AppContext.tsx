@@ -23,7 +23,8 @@ import {
   Subscription,
   SubscriptionPaymentRecord,
   SubscriptionStatus,
-  ColorMode
+  ColorMode,
+  CustomPlan
 } from '../types';
 import {
   INITIAL_BARBERSHOPS,
@@ -42,7 +43,8 @@ import {
   INITIAL_GALLERY_WORKS,
   INITIAL_AUDIT_LOGS,
   INITIAL_SUBSCRIPTIONS,
-  INITIAL_SUBSCRIPTION_PAYMENTS
+  INITIAL_SUBSCRIPTION_PAYMENTS,
+  INITIAL_CUSTOM_PLANS
 } from '../data/initialData';
 import { isTimeSlotAvailable, timeToMinutes, minutesToTime } from '../utils/scheduleEngine';
 import {
@@ -229,6 +231,13 @@ interface AppContextType {
   startImpersonation: (targetRole: UserRole, targetTenantId?: string, specificUserId?: string) => void;
   stopImpersonation: () => void;
 
+  // Plans Management (SaaS Custom Plans & Builder)
+  customPlans: CustomPlan[];
+  createCustomPlan: (planData: Partial<CustomPlan>) => Promise<{ success: boolean; plan?: CustomPlan; error?: string }>;
+  updateCustomPlan: (planId: string, updates: Partial<CustomPlan>) => Promise<{ success: boolean; plan?: CustomPlan; error?: string }>;
+  togglePlanStatus: (planId: string) => Promise<{ success: boolean; plan?: CustomPlan; error?: string }>;
+  duplicateCustomPlan: (planId: string) => Promise<{ success: boolean; plan?: CustomPlan; error?: string }>;
+
   // Recurring Subscriptions (Mercado Pago)
   subscriptions: Subscription[];
   subscriptionPayments: SubscriptionPaymentRecord[];
@@ -236,7 +245,7 @@ interface AppContextType {
   isPastDue: boolean;
   isSuspended: boolean;
   toleranceDaysRemaining: number;
-  createSubscription: (data: { barbershopId: string; barbershopName?: string; payerEmail: string; payerName?: string; payerPhone?: string }) => Promise<{ success: boolean; subscription?: Subscription; initPointUrl?: string; error?: string }>;
+  createSubscription: (data: { barbershopId: string; barbershopName?: string; payerEmail: string; payerName?: string; payerPhone?: string; planId?: string }) => Promise<{ success: boolean; subscription?: Subscription; initPointUrl?: string; error?: string }>;
   cancelSubscription: (barbershopId: string, reason?: string) => Promise<{ success: boolean; error?: string }>;
   syncSubscription: (barbershopId: string) => Promise<{ success: boolean; subscription?: Subscription; error?: string }>;
   simulateSubscriptionAction: (barbershopId: string, action: 'CONFIRM_PAYMENT' | 'TRIGGER_PAST_DUE' | 'TRIGGER_SUSPEND' | 'REGULARIZE' | 'CANCEL' | 'STEP_BILLING_COUNT' | 'VALIDATE_CARD_AND_START_TRIAL') => Promise<{ success: boolean; subscription?: Subscription; message?: string; error?: string }>;
@@ -382,6 +391,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>(INITIAL_SUBSCRIPTIONS);
   const [subscriptionPayments, setSubscriptionPayments] = useState<SubscriptionPaymentRecord[]>(INITIAL_SUBSCRIPTION_PAYMENTS);
+  const [customPlans, setCustomPlans] = useState<CustomPlan[]>(INITIAL_CUSTOM_PLANS);
 
   // Dark / Light Theme Color Mode
   const [colorMode, setColorModeState] = useState<ColorMode>(() => {
@@ -474,12 +484,81 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return Math.max(0, (currentSubscription.toleranceDays || 7) - elapsedDays);
   }, [currentSubscription]);
 
+  // Custom Plans Management Handlers
+  const createCustomPlan = async (planData: Partial<CustomPlan>) => {
+    try {
+      const res = await fetch('/api/plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(planData)
+      });
+      const result = await res.json();
+      if (result.success && result.plan) {
+        setCustomPlans(prev => {
+          const filtered = prev.filter(p => p.id !== result.plan.id);
+          return [result.plan, ...filtered];
+        });
+        syncDoc('plans', result.plan.id, result.plan);
+      }
+      return result;
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Erro ao criar plano personalizado' };
+    }
+  };
+
+  const updateCustomPlan = async (planId: string, updates: Partial<CustomPlan>) => {
+    try {
+      const res = await fetch(`/api/plans/${planId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      const result = await res.json();
+      if (result.success && result.plan) {
+        setCustomPlans(prev => prev.map(p => p.id === planId ? result.plan : p));
+        syncDoc('plans', result.plan.id, result.plan);
+      }
+      return result;
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Erro ao atualizar plano' };
+    }
+  };
+
+  const togglePlanStatus = async (planId: string) => {
+    try {
+      const res = await fetch(`/api/plans/${planId}/toggle-status`, { method: 'POST' });
+      const result = await res.json();
+      if (result.success && result.plan) {
+        setCustomPlans(prev => prev.map(p => p.id === planId ? result.plan : p));
+        syncDoc('plans', result.plan.id, result.plan);
+      }
+      return result;
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Erro ao alternar status do plano' };
+    }
+  };
+
+  const duplicateCustomPlan = async (planId: string) => {
+    try {
+      const res = await fetch(`/api/plans/${planId}/duplicate`, { method: 'POST' });
+      const result = await res.json();
+      if (result.success && result.plan) {
+        setCustomPlans(prev => [result.plan, ...prev]);
+        syncDoc('plans', result.plan.id, result.plan);
+      }
+      return result;
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Erro ao duplicar plano' };
+    }
+  };
+
   const createSubscription = async (data: {
     barbershopId: string;
     barbershopName?: string;
     payerEmail: string;
     payerName?: string;
     payerPhone?: string;
+    planId?: string;
   }) => {
     try {
       const res = await fetch('/api/subscriptions/create', {
@@ -607,6 +686,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubAuditLogs = subscribeCollection<AuditLog>('audit_logs', setAuditLogs, INITIAL_AUDIT_LOGS);
     const unsubSubscriptions = subscribeCollection<Subscription>('subscriptions', setSubscriptions, INITIAL_SUBSCRIPTIONS);
     const unsubSubscriptionPayments = subscribeCollection<SubscriptionPaymentRecord>('subscription_payments', setSubscriptionPayments, INITIAL_SUBSCRIPTION_PAYMENTS);
+    const unsubPlans = subscribeCollection<CustomPlan>('plans', setCustomPlans, INITIAL_CUSTOM_PLANS);
+
+    // Also fetch initial plans from backend server
+    fetch('/api/plans')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.plans) && data.plans.length > 0) {
+          setCustomPlans(data.plans);
+        }
+      })
+      .catch(() => {
+        // use initial custom plans fallback
+      });
 
     return () => {
       clearTimeout(safetyTimeout);
@@ -627,6 +719,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubAuditLogs();
       unsubSubscriptions();
       unsubSubscriptionPayments();
+      unsubPlans();
     };
   }, []);
 
@@ -2109,6 +2202,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         impersonationOriginUserId,
         startImpersonation,
         stopImpersonation,
+        // SaaS Custom Plans Management
+        customPlans,
+        createCustomPlan,
+        updateCustomPlan,
+        togglePlanStatus,
+        duplicateCustomPlan,
         // Recurring Subscriptions
         subscriptions,
         subscriptionPayments,

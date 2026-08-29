@@ -15,7 +15,8 @@ import {
   Check,
   X,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Layers
 } from 'lucide-react';
 import { MY_BARBER_PLANS } from '../../types';
 import { MasterAdminBarbershops } from './MasterAdminBarbershops';
@@ -24,8 +25,9 @@ import { MasterAdminServicesAppointments } from './MasterAdminServicesAppointmen
 import { MasterAdminAuditLogs } from './MasterAdminAuditLogs';
 import { MasterAdminImpersonate } from './MasterAdminImpersonate';
 import { MasterAdminSubscriptions } from './MasterAdminSubscriptions';
+import { MasterAdminPlansBuilder } from './MasterAdminPlansBuilder';
 
-export type MasterAdminTab = 'overview' | 'subscriptions' | 'barbershops' | 'users' | 'services_appointments' | 'audit' | 'impersonate';
+export type MasterAdminTab = 'overview' | 'plans' | 'subscriptions' | 'barbershops' | 'users' | 'services_appointments' | 'audit' | 'impersonate';
 
 export const MasterAdminView: React.FC = () => {
   const {
@@ -162,6 +164,18 @@ export const MasterAdminView: React.FC = () => {
         </button>
 
         <button
+          onClick={() => setActiveTab('plans')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === 'plans'
+              ? 'bg-orange-500 text-neutral-950 shadow-md shadow-orange-500/20'
+              : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span>Planos & Ofertas SaaS</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('subscriptions')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
             activeTab === 'subscriptions'
@@ -289,6 +303,10 @@ export const MasterAdminView: React.FC = () => {
             setShowRegisterModal={setShowRegisterModal}
           />
         </div>
+      )}
+
+      {activeTab === 'plans' && (
+        <MasterAdminPlansBuilder />
       )}
 
       {activeTab === 'subscriptions' && (

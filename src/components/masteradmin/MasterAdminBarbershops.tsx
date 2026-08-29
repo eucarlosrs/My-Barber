@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   Building2,
@@ -36,6 +36,8 @@ import {
 import { PlanId, MY_BARBER_PLANS, RegisterBarbershopInput, Barbershop, BarbershopStatus } from '../../types';
 import { AppImage } from '../common/AppImage';
 import { ImageEditModal } from '../common/ImageEditModal';
+import { SaveButton } from '../common/SaveButton';
+import { UnsavedChangesModal } from '../common/UnsavedChangesModal';
 import { getBarbershopEffectiveStatus, getTrialStatusInfo } from '../../utils/formatters';
 
 // Curated high quality presets for quick logo & banner selection
@@ -94,6 +96,13 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
   const [showAdditionalPassword, setShowAdditionalPassword] = useState(false);
 
   // Estados de edição do Proprietário / Gerente
+  const [initialEditingShop, setInitialEditingShop] = useState<Barbershop | null>(null);
+  const [initialEditManagerForm, setInitialEditManagerForm] = useState<any>(null);
+  const [initialEditAdditionalManagerForm, setInitialEditAdditionalManagerForm] = useState<any>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [isSavedEdit, setIsSavedEdit] = useState(false);
+  const [showUnsavedEditModal, setShowUnsavedEditModal] = useState(false);
+
   const [editManagerForm, setEditManagerForm] = useState<{
     id: string;
     name: string;
@@ -121,6 +130,45 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
     whatsapp: '',
     password: ''
   });
+
+  const isEditDirty = useMemo(() => {
+    if (!editingShop || !initialEditingShop) return false;
+    const shopChanged =
+      editingShop.name !== initialEditingShop.name ||
+      editingShop.whatsapp !== initialEditingShop.whatsapp ||
+      editingShop.slug !== initialEditingShop.slug ||
+      editingShop.customDomain !== initialEditingShop.customDomain ||
+      editingShop.status !== initialEditingShop.status ||
+      editingShop.commercialMode !== initialEditingShop.commercialMode ||
+      editingShop.planId !== initialEditingShop.planId ||
+      editingShop.logoUrl !== initialEditingShop.logoUrl ||
+      editingShop.bannerUrl !== initialEditingShop.bannerUrl ||
+      editingShop.trialStartedAt !== initialEditingShop.trialStartedAt ||
+      editingShop.trialExpiresAt !== initialEditingShop.trialExpiresAt;
+
+    const mgrChanged =
+      initialEditManagerForm &&
+      (editManagerForm.name !== initialEditManagerForm.name ||
+        editManagerForm.role !== initialEditManagerForm.role ||
+        editManagerForm.whatsapp !== initialEditManagerForm.whatsapp ||
+        editManagerForm.password !== initialEditManagerForm.password);
+
+    const addMgrChanged =
+      initialEditAdditionalManagerForm &&
+      (editAdditionalManagerForm.hasManager !== initialEditAdditionalManagerForm.hasManager ||
+        editAdditionalManagerForm.name !== initialEditAdditionalManagerForm.name ||
+        editAdditionalManagerForm.whatsapp !== initialEditAdditionalManagerForm.whatsapp ||
+        editAdditionalManagerForm.password !== initialEditAdditionalManagerForm.password);
+
+    return shopChanged || mgrChanged || addMgrChanged;
+  }, [
+    editingShop,
+    initialEditingShop,
+    editManagerForm,
+    initialEditManagerForm,
+    editAdditionalManagerForm,
+    initialEditAdditionalManagerForm
+  ]);
 
   const [showEditManagerPassword, setShowEditManagerPassword] = useState(false);
   const [showEditAdditionalPassword, setShowEditAdditionalPassword] = useState(false);
@@ -262,110 +310,134 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
 
   const handleStartEdit = (shop: Barbershop) => {
     setEditingShop(shop);
+    setInitialEditingShop(JSON.parse(JSON.stringify(shop)));
     const shopUsers = users.filter(u => u.tenantId === shop.id);
     const primaryMgr = shopUsers.find(u => u.role === 'PROPRIETARIO') || shopUsers.find(u => u.role === 'GERENTE');
     const secondMgr = shopUsers.find(u => u.role === 'GERENTE' && u.id !== primaryMgr?.id);
 
-    if (primaryMgr) {
-      setEditManagerForm({
-        id: primaryMgr.id,
-        name: primaryMgr.name || '',
-        role: primaryMgr.role === 'GERENTE' ? 'GERENTE' : 'PROPRIETARIO',
-        whatsapp: primaryMgr.whatsapp || primaryMgr.username || '',
-        password: primaryMgr.password || '123456'
-      });
-    } else {
-      setEditManagerForm({
-        id: '',
-        name: '',
-        role: 'PROPRIETARIO',
-        whatsapp: shop.whatsapp || '',
-        password: '123456'
-      });
-    }
+    const mgrState = primaryMgr
+      ? {
+          id: primaryMgr.id,
+          name: primaryMgr.name || '',
+          role: (primaryMgr.role === 'GERENTE' ? 'GERENTE' : 'PROPRIETARIO') as 'PROPRIETARIO' | 'GERENTE',
+          whatsapp: primaryMgr.whatsapp || primaryMgr.username || '',
+          password: primaryMgr.password || '123456'
+        }
+      : {
+          id: '',
+          name: '',
+          role: 'PROPRIETARIO' as 'PROPRIETARIO' | 'GERENTE',
+          whatsapp: shop.whatsapp || '',
+          password: '123456'
+        };
 
-    if (secondMgr) {
-      setEditAdditionalManagerForm({
-        id: secondMgr.id,
-        hasManager: true,
-        name: secondMgr.name || '',
-        whatsapp: secondMgr.whatsapp || secondMgr.username || '',
-        password: secondMgr.password || '123456'
-      });
-    } else {
-      setEditAdditionalManagerForm({
-        id: '',
-        hasManager: false,
-        name: '',
-        whatsapp: '',
-        password: ''
-      });
+    setEditManagerForm(mgrState);
+    setInitialEditManagerForm(JSON.parse(JSON.stringify(mgrState)));
+
+    const secondMgrState = secondMgr
+      ? {
+          id: secondMgr.id,
+          hasManager: true,
+          name: secondMgr.name || '',
+          whatsapp: secondMgr.whatsapp || secondMgr.username || '',
+          password: secondMgr.password || '123456'
+        }
+      : {
+          id: '',
+          hasManager: false,
+          name: '',
+          whatsapp: '',
+          password: ''
+        };
+
+    setEditAdditionalManagerForm(secondMgrState);
+    setInitialEditAdditionalManagerForm(JSON.parse(JSON.stringify(secondMgrState)));
+    setIsSavedEdit(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingShop) return;
+    setIsSavingEdit(true);
+
+    try {
+      // 1. Atualizar dados cadastrais da barbearia
+      updateBarbershop({
+        name: editingShop.name,
+        whatsapp: editingShop.whatsapp,
+        slug: editingShop.slug,
+        customDomain: editingShop.customDomain,
+        status: editingShop.status,
+        commercialMode: editingShop.commercialMode,
+        planId: editingShop.planId,
+        logoUrl: editingShop.logoUrl,
+        bannerUrl: editingShop.bannerUrl,
+        trialStartedAt: editingShop.trialStartedAt,
+        trialExpiresAt: editingShop.trialExpiresAt
+      }, editingShop.id);
+
+      // 2. Atualizar ou criar credenciais de login do gestor principal
+      if (editManagerForm.name.trim()) {
+        if (editManagerForm.id) {
+          updateUser(editManagerForm.id, {
+            name: editManagerForm.name.trim(),
+            role: editManagerForm.role,
+            whatsapp: editManagerForm.whatsapp.trim(),
+            username: editManagerForm.whatsapp.trim(),
+            password: editManagerForm.password?.trim() || '123456'
+          });
+        } else {
+          createManagerAccess({
+            tenantId: editingShop.id,
+            name: editManagerForm.name.trim(),
+            email: `${editManagerForm.whatsapp.replace(/\D/g, '') || 'gestor'}@mybarber.com.br`,
+            whatsapp: editManagerForm.whatsapp.trim(),
+            role: editManagerForm.role
+          });
+        }
+      }
+
+      // 3. Atualizar ou criar credenciais do segundo gerente se ativado
+      if (editAdditionalManagerForm.hasManager && editAdditionalManagerForm.name.trim()) {
+        if (editAdditionalManagerForm.id) {
+          updateUser(editAdditionalManagerForm.id, {
+            name: editAdditionalManagerForm.name.trim(),
+            role: 'GERENTE',
+            whatsapp: editAdditionalManagerForm.whatsapp.trim(),
+            username: editAdditionalManagerForm.whatsapp.trim(),
+            password: editAdditionalManagerForm.password?.trim() || '123456'
+          });
+        } else {
+          createManagerAccess({
+            tenantId: editingShop.id,
+            name: editAdditionalManagerForm.name.trim(),
+            email: `${editAdditionalManagerForm.whatsapp.replace(/\D/g, '') || 'gerente'}@mybarber.com.br`,
+            whatsapp: editAdditionalManagerForm.whatsapp.trim(),
+            role: 'GERENTE'
+          });
+        }
+      }
+
+      setIsSavedEdit(true);
+      setTimeout(() => {
+        setEditingShop(null);
+        setInitialEditingShop(null);
+        setIsSavedEdit(false);
+      }, 500);
+
+      setSuccessToast(`Dados da barbearia "${editingShop.name}" e credenciais de login atualizados com sucesso!`);
+      setTimeout(() => setSuccessToast(null), 3500);
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
-  const handleSaveEdit = () => {
-    if (!editingShop) return;
-
-    // 1. Atualizar dados cadastrais da barbearia
-    updateBarbershop({
-      name: editingShop.name,
-      whatsapp: editingShop.whatsapp,
-      slug: editingShop.slug,
-      customDomain: editingShop.customDomain,
-      status: editingShop.status,
-      commercialMode: editingShop.commercialMode,
-      planId: editingShop.planId,
-      logoUrl: editingShop.logoUrl,
-      bannerUrl: editingShop.bannerUrl,
-      trialStartedAt: editingShop.trialStartedAt,
-      trialExpiresAt: editingShop.trialExpiresAt
-    }, editingShop.id);
-
-    // 2. Atualizar ou criar credenciais de login do gestor principal
-    if (editManagerForm.name.trim()) {
-      if (editManagerForm.id) {
-        updateUser(editManagerForm.id, {
-          name: editManagerForm.name.trim(),
-          role: editManagerForm.role,
-          whatsapp: editManagerForm.whatsapp.trim(),
-          username: editManagerForm.whatsapp.trim(),
-          password: editManagerForm.password?.trim() || '123456'
-        });
-      } else {
-        createManagerAccess({
-          tenantId: editingShop.id,
-          name: editManagerForm.name.trim(),
-          email: `${editManagerForm.whatsapp.replace(/\D/g, '') || 'gestor'}@mybarber.com.br`,
-          whatsapp: editManagerForm.whatsapp.trim(),
-          role: editManagerForm.role
-        });
-      }
+  const handleCloseEditModal = () => {
+    if (isEditDirty) {
+      setShowUnsavedEditModal(true);
+    } else {
+      setEditingShop(null);
+      setInitialEditingShop(null);
     }
-
-    // 3. Atualizar ou criar credenciais do segundo gerente se ativado
-    if (editAdditionalManagerForm.hasManager && editAdditionalManagerForm.name.trim()) {
-      if (editAdditionalManagerForm.id) {
-        updateUser(editAdditionalManagerForm.id, {
-          name: editAdditionalManagerForm.name.trim(),
-          role: 'GERENTE',
-          whatsapp: editAdditionalManagerForm.whatsapp.trim(),
-          username: editAdditionalManagerForm.whatsapp.trim(),
-          password: editAdditionalManagerForm.password?.trim() || '123456'
-        });
-      } else {
-        createManagerAccess({
-          tenantId: editingShop.id,
-          name: editAdditionalManagerForm.name.trim(),
-          email: `${editAdditionalManagerForm.whatsapp.replace(/\D/g, '') || 'gerente'}@mybarber.com.br`,
-          whatsapp: editAdditionalManagerForm.whatsapp.trim(),
-          role: 'GERENTE'
-        });
-      }
-    }
-
-    setEditingShop(null);
-    setSuccessToast(`Dados da barbearia "${editingShop.name}" e credenciais de login atualizados com sucesso!`);
-    setTimeout(() => setSuccessToast(null), 3500);
   };
 
   const filteredShops = barbershops.filter(b =>
@@ -717,7 +789,7 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                 </p>
               </div>
               <button
-                onClick={() => setEditingShop(null)}
+                onClick={handleCloseEditModal}
                 className="text-neutral-400 hover:text-white p-1 cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -1100,23 +1172,38 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
             <div className="flex items-center justify-end gap-3 pt-4 border-t border-neutral-800 mt-6">
               <button
                 type="button"
-                onClick={() => setEditingShop(null)}
+                onClick={handleCloseEditModal}
                 className="px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold rounded-xl text-xs transition-all cursor-pointer"
               >
                 Cancelar
               </button>
-              <button
-                type="button"
+              <SaveButton
+                isDirty={isEditDirty}
+                isLoading={isSavingEdit}
+                isSaved={isSavedEdit}
                 onClick={handleSaveEdit}
-                className="px-6 py-2.5 bg-orange-500 hover:bg-orange-400 text-neutral-950 font-black rounded-xl text-xs shadow-lg shadow-orange-500/25 transition-all cursor-pointer active:scale-95 flex items-center gap-2"
-              >
-                <Check className="w-4 h-4 stroke-[3]" />
-                <span>Salvar Todas as Alterações</span>
-              </button>
+                label="Salvar alterações"
+                className="text-xs"
+              />
             </div>
           </div>
         </div>
       )}
+
+      {/* Unsaved Changes Guard Modal */}
+      <UnsavedChangesModal
+        isOpen={showUnsavedEditModal}
+        onClose={() => setShowUnsavedEditModal(false)}
+        onDiscard={() => {
+          setShowUnsavedEditModal(false);
+          setEditingShop(null);
+          setInitialEditingShop(null);
+        }}
+        onSave={async () => {
+          setShowUnsavedEditModal(false);
+          await handleSaveEdit();
+        }}
+      />
 
       {/* Modal: Confirmar Exclusão de Barbearia */}
       {shopToDelete && (

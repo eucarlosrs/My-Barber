@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   Tag,
@@ -16,10 +16,13 @@ import {
   Scissors,
   Copy,
   Check,
-  Sparkles
+  Sparkles,
+  X
 } from 'lucide-react';
 import { Promotion } from '../../types';
 import { AppImage } from '../common/AppImage';
+import { SaveButton } from '../common/SaveButton';
+import { UnsavedChangesModal } from '../common/UnsavedChangesModal';
 
 const PRESET_PROMO_IMAGES = [
   'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=800&auto=format&fit=crop&q=80',
@@ -52,72 +55,172 @@ export const PromotionsTab: React.FC = () => {
   const [highlightTag, setHighlightTag] = useState('PROMOÇÃO');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
+  // Unsaved Changes & Save State
+  const [initialFormState, setInitialFormState] = useState<any>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+
+  const isDirty = useMemo(() => {
+    if (!showModal || !initialFormState) return false;
+    return (
+      title !== initialFormState.title ||
+      description !== initialFormState.description ||
+      discountPercentage !== initialFormState.discountPercentage ||
+      serviceId !== initialFormState.serviceId ||
+      code !== initialFormState.code ||
+      validUntil !== initialFormState.validUntil ||
+      imageUrl !== initialFormState.imageUrl ||
+      showInHighlights !== initialFormState.showInHighlights ||
+      highlightTag !== initialFormState.highlightTag
+    );
+  }, [
+    showModal,
+    initialFormState,
+    title,
+    description,
+    discountPercentage,
+    serviceId,
+    code,
+    validUntil,
+    imageUrl,
+    showInHighlights,
+    highlightTag
+  ]);
+
   const openAddModal = () => {
     setEditingPromoId(null);
-    setTitle('');
-    setDescription('');
-    setDiscountPercentage(20);
-    setServiceId('ALL');
-    setCode('PROMO' + Math.floor(10 + Math.random() * 90));
+    const defaultTitle = '';
+    const defaultDesc = '';
+    const defaultDiscount = 20;
+    const defaultServiceId = 'ALL';
+    const defaultCode = 'PROMO' + Math.floor(10 + Math.random() * 90);
     const nextMonth = new Date();
     nextMonth.setDate(nextMonth.getDate() + 30);
-    setValidUntil(nextMonth.toISOString().split('T')[0]);
-    setImageUrl(PRESET_PROMO_IMAGES[0]);
-    setShowInHighlights(true);
-    setHighlightTag('PROMOÇÃO');
+    const defaultValidUntil = nextMonth.toISOString().split('T')[0];
+    const defaultImage = PRESET_PROMO_IMAGES[0];
+    const defaultShowInHighlights = true;
+    const defaultHighlightTag = 'PROMOÇÃO';
+
+    setTitle(defaultTitle);
+    setDescription(defaultDesc);
+    setDiscountPercentage(defaultDiscount);
+    setServiceId(defaultServiceId);
+    setCode(defaultCode);
+    setValidUntil(defaultValidUntil);
+    setImageUrl(defaultImage);
+    setShowInHighlights(defaultShowInHighlights);
+    setHighlightTag(defaultHighlightTag);
+
+    setInitialFormState({
+      title: defaultTitle,
+      description: defaultDesc,
+      discountPercentage: defaultDiscount,
+      serviceId: defaultServiceId,
+      code: defaultCode,
+      validUntil: defaultValidUntil,
+      imageUrl: defaultImage,
+      showInHighlights: defaultShowInHighlights,
+      highlightTag: defaultHighlightTag
+    });
+
+    setIsSaved(false);
     setShowModal(true);
   };
 
   const openEditModal = (promo: Promotion) => {
     setEditingPromoId(promo.id);
-    setTitle(promo.title);
-    setDescription(promo.description);
-    setDiscountPercentage(promo.discountPercentage || 0);
-    setServiceId(promo.serviceId || 'ALL');
-    setCode(promo.code || '');
-    setValidUntil(promo.validUntil || '');
-    setImageUrl(promo.imageUrl || PRESET_PROMO_IMAGES[0]);
-    setShowInHighlights(promo.showInHighlights !== false);
-    setHighlightTag(promo.highlightTag || 'PROMOÇÃO');
+    const pTitle = promo.title;
+    const pDesc = promo.description;
+    const pDiscount = promo.discountPercentage || 0;
+    const pServiceId = promo.serviceId || 'ALL';
+    const pCode = promo.code || '';
+    const pValidUntil = promo.validUntil || '';
+    const pImage = promo.imageUrl || PRESET_PROMO_IMAGES[0];
+    const pShowInHighlights = promo.showInHighlights !== false;
+    const pHighlightTag = promo.highlightTag || 'PROMOÇÃO';
+
+    setTitle(pTitle);
+    setDescription(pDesc);
+    setDiscountPercentage(pDiscount);
+    setServiceId(pServiceId);
+    setCode(pCode);
+    setValidUntil(pValidUntil);
+    setImageUrl(pImage);
+    setShowInHighlights(pShowInHighlights);
+    setHighlightTag(pHighlightTag);
+
+    setInitialFormState({
+      title: pTitle,
+      description: pDesc,
+      discountPercentage: pDiscount,
+      serviceId: pServiceId,
+      code: pCode,
+      validUntil: pValidUntil,
+      imageUrl: pImage,
+      showInHighlights: pShowInHighlights,
+      highlightTag: pHighlightTag
+    });
+
+    setIsSaved(false);
     setShowModal(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!title.trim()) return;
 
-    const matchedService = services.find(s => s.id === serviceId);
+    setIsSaving(true);
+    try {
+      const matchedService = services.find(s => s.id === serviceId);
 
-    if (editingPromoId) {
-      updatePromotion(editingPromoId, {
-        title: title.trim(),
-        description: description.trim(),
-        discountPercentage,
-        serviceId: serviceId !== 'ALL' ? serviceId : undefined,
-        serviceName: matchedService ? matchedService.name : undefined,
-        code: code.trim().toUpperCase() || undefined,
-        validUntil: validUntil || undefined,
-        showInHighlights,
-        highlightTag: highlightTag.trim() || undefined,
-        imageUrl: imageUrl.trim() || undefined
-      });
-    } else {
-      createPromotion({
-        tenantId: currentBarbershop.id,
-        title: title.trim(),
-        description: description.trim(),
-        discountPercentage,
-        serviceId: serviceId !== 'ALL' ? serviceId : undefined,
-        serviceName: matchedService ? matchedService.name : undefined,
-        code: code.trim().toUpperCase() || undefined,
-        validUntil: validUntil || undefined,
-        active: true,
-        showInHighlights,
-        highlightTag: highlightTag.trim() || undefined,
-        imageUrl: imageUrl.trim() || undefined
-      });
+      if (editingPromoId) {
+        updatePromotion(editingPromoId, {
+          title: title.trim(),
+          description: description.trim(),
+          discountPercentage,
+          serviceId: serviceId !== 'ALL' ? serviceId : undefined,
+          serviceName: matchedService ? matchedService.name : undefined,
+          code: code.trim().toUpperCase() || undefined,
+          validUntil: validUntil || undefined,
+          showInHighlights,
+          highlightTag: highlightTag.trim() || undefined,
+          imageUrl: imageUrl.trim() || undefined
+        });
+      } else {
+        createPromotion({
+          tenantId: currentBarbershop.id,
+          title: title.trim(),
+          description: description.trim(),
+          discountPercentage,
+          serviceId: serviceId !== 'ALL' ? serviceId : undefined,
+          serviceName: matchedService ? matchedService.name : undefined,
+          code: code.trim().toUpperCase() || undefined,
+          validUntil: validUntil || undefined,
+          active: true,
+          showInHighlights,
+          highlightTag: highlightTag.trim() || undefined,
+          imageUrl: imageUrl.trim() || undefined
+        });
+      }
+
+      setIsSaved(true);
+      setTimeout(() => {
+        setShowModal(false);
+        setIsSaved(false);
+      }, 500);
+    } finally {
+      setIsSaving(false);
     }
+  };
 
-    setShowModal(false);
+  const handleCloseModal = () => {
+    if (isDirty) {
+      setShowUnsavedModal(true);
+    } else {
+      setShowModal(false);
+      setInitialFormState(null);
+    }
   };
 
   const handleCopyCode = (promoCode: string) => {
@@ -320,12 +423,23 @@ export const PromotionsTab: React.FC = () => {
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-neutral-900 border border-neutral-800 rounded-3xl max-w-lg w-full p-6 text-neutral-100 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-black font-heading text-neutral-100 mb-1">
-              {editingPromoId ? 'Editar Promoção' : 'Criar Nova Promoção'}
-            </h3>
-            <p className="text-xs text-neutral-400 mb-5">
-              Configure os detalhes da oferta que aparecerão para os clientes na área logada.
-            </p>
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-black font-heading text-neutral-100 mb-1">
+                  {editingPromoId ? 'Editar Promoção' : 'Criar Nova Promoção'}
+                </h3>
+                <p className="text-xs text-neutral-400">
+                  Configure os detalhes da oferta que aparecerão para os clientes na área logada.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseModal}
+                className="text-neutral-400 hover:text-white p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -470,25 +584,42 @@ export const PromotionsTab: React.FC = () => {
                 )}
               </div>
 
-              <div className="flex justify-end gap-2.5 pt-4 border-t border-neutral-800">
+              <div className="flex justify-end items-center gap-2.5 pt-4 border-t border-neutral-800">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs font-bold"
+                  onClick={handleCloseModal}
+                  className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-orange-500 hover:bg-orange-400 text-neutral-950 rounded-xl text-xs font-black shadow-md"
-                >
-                  {editingPromoId ? 'Salvar Alterações' : 'Publicar Promoção'}
-                </button>
+                <SaveButton
+                  isDirty={isDirty}
+                  isLoading={isSaving}
+                  isSaved={isSaved}
+                  onClick={() => handleSubmit()}
+                  label={editingPromoId ? 'Salvar alterações' : 'Publicar Promoção'}
+                  className="text-xs"
+                />
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Unsaved Changes Guard Modal */}
+      <UnsavedChangesModal
+        isOpen={showUnsavedModal}
+        onClose={() => setShowUnsavedModal(false)}
+        onDiscard={() => {
+          setShowUnsavedModal(false);
+          setShowModal(false);
+          setInitialFormState(null);
+        }}
+        onSave={async () => {
+          setShowUnsavedModal(false);
+          await handleSubmit();
+        }}
+      />
     </div>
   );
 };

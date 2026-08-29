@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   Users,
@@ -26,6 +26,8 @@ import {
 import { MY_BARBER_PLANS, User } from '../../types';
 import { AppImage } from '../common/AppImage';
 import { ImageEditModal, ImagePreset } from '../common/ImageEditModal';
+import { SaveButton } from '../common/SaveButton';
+import { UnsavedChangesModal } from '../common/UnsavedChangesModal';
 
 // Curated high quality barber avatar presets
 const PRESET_AVATARS = [
@@ -57,6 +59,7 @@ export const ProfessionalsTab: React.FC = () => {
 
   const [showModal, setShowModal] = useState(false);
   const [editingProfId, setEditingProfId] = useState<string | null>(null);
+  const [initialProf, setInitialProf] = useState<User | null>(null);
   const [name, setName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [email, setEmail] = useState('');
@@ -69,9 +72,51 @@ export const ProfessionalsTab: React.FC = () => {
   const [newSpecialtyInput, setNewSpecialtyInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
 
   const [showAvatarEditModal, setShowAvatarEditModal] = useState(false);
   const [avatarEditProf, setAvatarEditProf] = useState<User | null>(null);
+
+  const isDirty = useMemo(() => {
+    if (!showModal) return false;
+    if (editingProfId && initialProf) {
+      const initialSpecs = initialProf.specialties || ['Cortes em Geral'];
+      const specsChanged = JSON.stringify(specialties) !== JSON.stringify(initialSpecs);
+      return (
+        name !== initialProf.name ||
+        whatsapp !== initialProf.whatsapp ||
+        email !== (initialProf.email || '') ||
+        (password !== '' && password !== (initialProf.password || '')) ||
+        avatarUrl !== (initialProf.avatarUrl || PRESET_AVATARS[0]) ||
+        commissionPercentage !== (initialProf.commissionPercentage || 40) ||
+        canViewAllProfessionals !== (!!initialProf.canViewAllProfessionals) ||
+        specsChanged ||
+        newSpecialtyInput.trim().length > 0
+      );
+    }
+    return (
+      name.trim().length > 0 ||
+      whatsapp.trim().length > 0 ||
+      email.trim().length > 0 ||
+      password.trim().length > 0 ||
+      newSpecialtyInput.trim().length > 0
+    );
+  }, [
+    showModal,
+    editingProfId,
+    initialProf,
+    name,
+    whatsapp,
+    email,
+    password,
+    avatarUrl,
+    commissionPercentage,
+    canViewAllProfessionals,
+    specialties,
+    newSpecialtyInput
+  ]);
 
   const openAvatarEdit = (prof: User) => {
     setAvatarEditProf(prof);
@@ -100,6 +145,7 @@ export const ProfessionalsTab: React.FC = () => {
 
   const openAddModal = () => {
     setEditingProfId(null);
+    setInitialProf(null);
     setName('');
     setWhatsapp('');
     setEmail('');
@@ -112,11 +158,13 @@ export const ProfessionalsTab: React.FC = () => {
     setNewSpecialtyInput('');
     setError(null);
     setIsUploadingPhoto(false);
+    setIsSaved(false);
     setShowModal(true);
   };
 
   const openEditModal = (prof: User) => {
     setEditingProfId(prof.id);
+    setInitialProf(prof);
     setName(prof.name);
     setWhatsapp(prof.whatsapp);
     setEmail(prof.email || '');
@@ -129,54 +177,78 @@ export const ProfessionalsTab: React.FC = () => {
     setNewSpecialtyInput('');
     setError(null);
     setIsUploadingPhoto(false);
+    setIsSaved(false);
     setShowModal(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleCloseModal = () => {
+    if (isDirty) {
+      setShowUnsavedModal(true);
+    } else {
+      setShowModal(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsSaving(true);
 
-    // If user typed something in specialty input and forgot to click +, include it
-    let finalSpecialties = [...specialties];
-    if (newSpecialtyInput.trim() && !finalSpecialties.some(s => s.toLowerCase() === newSpecialtyInput.trim().toLowerCase())) {
-      finalSpecialties.push(newSpecialtyInput.trim());
-    }
-
-    if (finalSpecialties.length === 0) {
-      finalSpecialties = ['Cortes em Geral'];
-    }
-
-    if (editingProfId) {
-      updateProfessional(editingProfId, {
-        name: name.trim(),
-        whatsapp: whatsapp.trim(),
-        email: email.trim() || undefined,
-        password: password.trim() || undefined,
-        avatarUrl: avatarUrl.trim() || undefined,
-        commissionPercentage,
-        canViewAllProfessionals,
-        specialties: finalSpecialties
-      });
-      setShowModal(false);
-    } else {
-      const result = createProfessionalAccess({
-        tenantId: currentBarbershop.id,
-        role: 'PROFISSIONAL',
-        name: name.trim(),
-        whatsapp: whatsapp.trim(),
-        email: email.trim() || undefined,
-        password: password.trim() || undefined,
-        avatarUrl: avatarUrl.trim() || undefined,
-        commissionPercentage,
-        canViewAllProfessionals,
-        specialties: finalSpecialties
-      });
-
-      if (result.success) {
-        setShowModal(false);
-      } else {
-        setError(result.error || 'Erro ao cadastrar profissional');
+    try {
+      // If user typed something in specialty input and forgot to click +, include it
+      let finalSpecialties = [...specialties];
+      if (newSpecialtyInput.trim() && !finalSpecialties.some(s => s.toLowerCase() === newSpecialtyInput.trim().toLowerCase())) {
+        finalSpecialties.push(newSpecialtyInput.trim());
       }
+
+      if (finalSpecialties.length === 0) {
+        finalSpecialties = ['Cortes em Geral'];
+      }
+
+      if (editingProfId) {
+        updateProfessional(editingProfId, {
+          name: name.trim(),
+          whatsapp: whatsapp.trim(),
+          email: email.trim() || undefined,
+          password: password.trim() || undefined,
+          avatarUrl: avatarUrl.trim() || undefined,
+          commissionPercentage,
+          canViewAllProfessionals,
+          specialties: finalSpecialties
+        });
+        setIsSaved(true);
+        setTimeout(() => {
+          setShowModal(false);
+          setIsSaved(false);
+        }, 600);
+      } else {
+        const result = createProfessionalAccess({
+          tenantId: currentBarbershop.id,
+          role: 'PROFISSIONAL',
+          name: name.trim(),
+          whatsapp: whatsapp.trim(),
+          email: email.trim() || undefined,
+          password: password.trim() || undefined,
+          avatarUrl: avatarUrl.trim() || undefined,
+          commissionPercentage,
+          canViewAllProfessionals,
+          specialties: finalSpecialties
+        });
+
+        if (result.success) {
+          setIsSaved(true);
+          setTimeout(() => {
+            setShowModal(false);
+            setIsSaved(false);
+          }, 600);
+        } else {
+          setError(result.error || 'Erro ao cadastrar profissional');
+        }
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Erro ao salvar profissional');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -596,25 +668,38 @@ export const ProfessionalsTab: React.FC = () => {
                 </label>
               </div>
 
-              <div className="flex justify-end gap-2.5 pt-4 border-t border-neutral-800">
+              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-neutral-800">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs font-bold"
+                  onClick={handleCloseModal}
+                  className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
-                <button
+                <SaveButton
+                  isDirty={isDirty}
+                  isLoading={isSaving}
+                  isSaved={isSaved}
                   type="submit"
-                  className="px-5 py-2 bg-orange-500 hover:bg-orange-400 text-neutral-950 rounded-xl text-xs font-black shadow-md"
-                >
-                  {editingProfId ? 'Salvar Alterações' : 'Cadastrar Profissional'}
-                </button>
+                  label={editingProfId ? 'Salvar alterações' : 'Cadastrar Profissional'}
+                />
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Unsaved changes confirmation for professional modal */}
+      <UnsavedChangesModal
+        isOpen={showUnsavedModal}
+        onContinueEditing={() => setShowUnsavedModal(false)}
+        onDiscard={() => {
+          setShowUnsavedModal(false);
+          setShowModal(false);
+          setEditingProfId(null);
+          setInitialProf(null);
+        }}
+      />
 
       {/* Quick Avatar Edit Modal */}
       {showAvatarEditModal && avatarEditProf && (

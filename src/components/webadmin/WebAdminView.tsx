@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   Building2,
@@ -44,6 +44,8 @@ import { ImageEditModal, ImagePreset } from '../common/ImageEditModal';
 import { ThemeSelectorCard } from './ThemeSelectorCard';
 import { getThemeCssVariables } from '../../utils/theme';
 import { ThemeModeToggle } from '../common/ThemeModeToggle';
+import { SaveButton } from '../common/SaveButton';
+import { UnsavedChangesModal } from '../common/UnsavedChangesModal';
 
 export const WebAdminView: React.FC = () => {
   const {
@@ -108,14 +110,112 @@ export const WebAdminView: React.FC = () => {
   const [isAddingSalonImage, setIsAddingSalonImage] = useState(false);
   const [editingServiceForImage, setEditingServiceForImage] = useState<Service | null>(null);
 
-  // Form states
+  // Barbershop Settings Form state (Buffered for explicit saving)
+  const [settingsName, setSettingsName] = useState(currentBarbershop.name || '');
+  const [settingsAbout, setSettingsAbout] = useState(currentBarbershop.about || '');
+  const [settingsWhatsapp, setSettingsWhatsapp] = useState(currentBarbershop.whatsapp || '');
+  const [settingsInstagram, setSettingsInstagram] = useState(currentBarbershop.socialMedia?.instagram || '');
+  const [settingsReminderMinutes, setSettingsReminderMinutes] = useState(currentBarbershop.reminderConfig?.advanceMinutes || 60);
+  const [settingsLogoUrl, setSettingsLogoUrl] = useState(currentBarbershop.logoUrl || '');
+  const [settingsBannerUrl, setSettingsBannerUrl] = useState(currentBarbershop.bannerUrl || '');
+  const [settingsSalonImages, setSettingsSalonImages] = useState<string[]>(currentBarbershop.salonImages || []);
+
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [isSettingsSaved, setIsSettingsSaved] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+
+  // Guard when leaving settings tab with unsaved changes
+  const [pendingTabChange, setPendingTabChange] = useState<typeof activeTab | null>(null);
+  const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState(false);
+
+  // Sync settings when currentBarbershop ID or instance changes externally
+  useEffect(() => {
+    setSettingsName(currentBarbershop.name || '');
+    setSettingsAbout(currentBarbershop.about || '');
+    setSettingsWhatsapp(currentBarbershop.whatsapp || '');
+    setSettingsInstagram(currentBarbershop.socialMedia?.instagram || '');
+    setSettingsReminderMinutes(currentBarbershop.reminderConfig?.advanceMinutes || 60);
+    setSettingsLogoUrl(currentBarbershop.logoUrl || '');
+    setSettingsBannerUrl(currentBarbershop.bannerUrl || '');
+    setSettingsSalonImages(currentBarbershop.salonImages || []);
+  }, [currentBarbershop.id]);
+
+  const isSettingsDirty = useMemo(() => {
+    return (
+      settingsName.trim() !== (currentBarbershop.name || '').trim() ||
+      settingsAbout.trim() !== (currentBarbershop.about || '').trim() ||
+      settingsWhatsapp.trim() !== (currentBarbershop.whatsapp || '').trim() ||
+      settingsInstagram.trim() !== (currentBarbershop.socialMedia?.instagram || '').trim() ||
+      Number(settingsReminderMinutes) !== (currentBarbershop.reminderConfig?.advanceMinutes || 60) ||
+      settingsLogoUrl !== (currentBarbershop.logoUrl || '') ||
+      settingsBannerUrl !== (currentBarbershop.bannerUrl || '') ||
+      JSON.stringify(settingsSalonImages) !== JSON.stringify(currentBarbershop.salonImages || [])
+    );
+  }, [
+    settingsName,
+    settingsAbout,
+    settingsWhatsapp,
+    settingsInstagram,
+    settingsReminderMinutes,
+    settingsLogoUrl,
+    settingsBannerUrl,
+    settingsSalonImages,
+    currentBarbershop
+  ]);
+
+  const handleSaveSettings = async () => {
+    try {
+      setIsSavingSettings(true);
+      setSettingsError(null);
+      await updateBarbershop({
+        name: settingsName.trim(),
+        about: settingsAbout.trim(),
+        whatsapp: settingsWhatsapp.trim(),
+        socialMedia: {
+          ...currentBarbershop.socialMedia,
+          instagram: settingsInstagram.trim()
+        },
+        reminderConfig: {
+          ...currentBarbershop.reminderConfig,
+          advanceMinutes: Number(settingsReminderMinutes) || 60
+        },
+        logoUrl: settingsLogoUrl,
+        bannerUrl: settingsBannerUrl,
+        salonImages: settingsSalonImages
+      });
+      setIsSettingsSaved(true);
+      setTimeout(() => {
+        setIsSettingsSaved(false);
+      }, 3000);
+    } catch (err: any) {
+      setSettingsError(err?.message || 'Erro ao salvar alterações da barbearia.');
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  const handleTabClick = (nextTab: typeof activeTab) => {
+    if (activeTab === 'SETTINGS' && isSettingsDirty && nextTab !== 'SETTINGS') {
+      setPendingTabChange(nextTab);
+      setShowUnsavedChangesModal(true);
+      return;
+    }
+    setActiveTab(nextTab);
+  };
+
+  // Service modal states & dirty tracking
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
+  const [editingService, setEditingService] = useState<Service | null>(null);
   const [newServiceName, setNewServiceName] = useState('');
   const [newServicePrice, setNewServicePrice] = useState(50);
   const [newServiceDuration, setNewServiceDuration] = useState(30);
   const [newServiceCategory, setNewServiceCategory] = useState('Cabelo');
   const [newServiceReturnDays, setNewServiceReturnDays] = useState(25);
   const [newServiceImageUrl, setNewServiceImageUrl] = useState('https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=600');
+  const [isSavingService, setIsSavingService] = useState(false);
+  const [isServiceSaved, setIsServiceSaved] = useState(false);
+  const [serviceError, setServiceError] = useState<string | null>(null);
+  const [showServiceUnsavedModal, setShowServiceUnsavedModal] = useState(false);
 
   const plan = MY_BARBER_PLANS[currentBarbershop.planId] || Object.values(MY_BARBER_PLANS)[0];
   const staffMembers = tenantUsers.filter(
@@ -145,21 +245,103 @@ export const WebAdminView: React.FC = () => {
     return birthMonth === currentMonth;
   });
 
-  const handleAddService = (e: React.FormEvent) => {
-    e.preventDefault();
-    addService({
-      tenantId: currentBarbershop.id,
-      name: newServiceName,
-      description: 'Serviço profissional de barbearia',
-      price: newServicePrice,
-      durationMinutes: newServiceDuration,
-      category: newServiceCategory,
-      imageUrl: newServiceImageUrl,
-      returnReminderDays: newServiceReturnDays,
-      active: true
-    });
-    setShowAddServiceModal(false);
+  const openAddServiceModal = () => {
+    setEditingService(null);
     setNewServiceName('');
+    setNewServicePrice(50);
+    setNewServiceDuration(30);
+    setNewServiceCategory('Cabelo');
+    setNewServiceReturnDays(25);
+    setNewServiceImageUrl('https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=600');
+    setServiceError(null);
+    setShowAddServiceModal(true);
+  };
+
+  const openEditServiceModal = (service: Service) => {
+    setEditingService(service);
+    setNewServiceName(service.name);
+    setNewServicePrice(service.price);
+    setNewServiceDuration(service.durationMinutes);
+    setNewServiceCategory(service.category);
+    setNewServiceReturnDays(service.returnReminderDays || 25);
+    setNewServiceImageUrl(service.imageUrl || 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=600');
+    setServiceError(null);
+    setShowAddServiceModal(true);
+  };
+
+  const isServiceDirty = useMemo(() => {
+    if (!editingService) {
+      return newServiceName.trim().length > 0;
+    }
+    return (
+      newServiceName.trim() !== editingService.name ||
+      newServicePrice !== editingService.price ||
+      newServiceDuration !== editingService.durationMinutes ||
+      newServiceCategory !== editingService.category ||
+      newServiceReturnDays !== (editingService.returnReminderDays || 25) ||
+      newServiceImageUrl !== (editingService.imageUrl || '')
+    );
+  }, [
+    editingService,
+    newServiceName,
+    newServicePrice,
+    newServiceDuration,
+    newServiceCategory,
+    newServiceReturnDays,
+    newServiceImageUrl
+  ]);
+
+  const handleSaveService = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newServiceName.trim()) {
+      setServiceError('Por favor, informe o nome do serviço.');
+      return;
+    }
+    try {
+      setIsSavingService(true);
+      setServiceError(null);
+      if (editingService) {
+        await updateService(editingService.id, {
+          name: newServiceName.trim(),
+          price: Number(newServicePrice),
+          durationMinutes: Number(newServiceDuration),
+          category: newServiceCategory,
+          imageUrl: newServiceImageUrl,
+          returnReminderDays: Number(newServiceReturnDays)
+        });
+      } else {
+        await addService({
+          tenantId: currentBarbershop.id,
+          name: newServiceName.trim(),
+          description: 'Serviço profissional de barbearia',
+          price: Number(newServicePrice),
+          durationMinutes: Number(newServiceDuration),
+          category: newServiceCategory,
+          imageUrl: newServiceImageUrl,
+          returnReminderDays: Number(newServiceReturnDays),
+          active: true
+        });
+      }
+      setIsServiceSaved(true);
+      setTimeout(() => {
+        setIsServiceSaved(false);
+        setShowAddServiceModal(false);
+        setEditingService(null);
+      }, 700);
+    } catch (err: any) {
+      setServiceError(err?.message || 'Erro ao salvar serviço.');
+    } finally {
+      setIsSavingService(false);
+    }
+  };
+
+  const handleCloseServiceModal = () => {
+    if (isServiceDirty && !isServiceSaved) {
+      setShowServiceUnsavedModal(true);
+      return;
+    }
+    setShowAddServiceModal(false);
+    setEditingService(null);
   };
 
   return (
@@ -287,7 +469,7 @@ export const WebAdminView: React.FC = () => {
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => handleTabClick(tab.id as any)}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors ${
                 isActive
                   ? 'bg-neutral-800 text-amber-400 border border-neutral-700'
@@ -309,7 +491,7 @@ export const WebAdminView: React.FC = () => {
           {/* Quick Metrics Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div
-              onClick={() => setActiveTab('APPOINTMENTS')}
+              onClick={() => handleTabClick('APPOINTMENTS')}
               className="bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 hover:border-amber-500/40 rounded-2xl p-4 transition-all cursor-pointer shadow-md"
             >
               <div className="flex items-center justify-between">
@@ -326,7 +508,7 @@ export const WebAdminView: React.FC = () => {
             </div>
 
             <div
-              onClick={() => setActiveTab('FINANCIAL')}
+              onClick={() => handleTabClick('FINANCIAL')}
               className="bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 hover:border-emerald-500/40 rounded-2xl p-4 transition-all cursor-pointer shadow-md"
             >
               <div className="flex items-center justify-between">
@@ -455,8 +637,8 @@ export const WebAdminView: React.FC = () => {
             </div>
 
             <button
-              onClick={() => setShowAddServiceModal(true)}
-              className="bg-amber-500 hover:bg-amber-400 text-neutral-950 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
+              onClick={openAddServiceModal}
+              className="bg-amber-500 hover:bg-amber-400 text-neutral-950 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Novo Serviço</span>
@@ -501,7 +683,17 @@ export const WebAdminView: React.FC = () => {
 
                 <div className="p-4 flex-1 flex flex-col justify-between">
                   <div>
-                    <h4 className="font-bold text-neutral-100 text-sm mb-1">{srv.name}</h4>
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <h4 className="font-bold text-neutral-100 text-sm">{srv.name}</h4>
+                      <button
+                        type="button"
+                        onClick={() => openEditServiceModal(srv)}
+                        className="p-1 text-neutral-400 hover:text-amber-400 hover:bg-neutral-800 rounded transition-colors cursor-pointer"
+                        title="Editar Serviço"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                     <p className="text-xs text-neutral-400 leading-relaxed mb-3">{srv.description}</p>
                   </div>
 
@@ -524,12 +716,25 @@ export const WebAdminView: React.FC = () => {
             ))}
           </div>
 
-          {/* Add Service Modal */}
+          {/* Add / Edit Service Modal */}
           {showAddServiceModal && (
             <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-              <div className="bg-neutral-900 border border-neutral-800 rounded-2xl max-w-md w-full p-6 text-neutral-100">
-                <h3 className="text-lg font-bold mb-1 font-heading">Cadastrar Novo Serviço</h3>
-                <form onSubmit={handleAddService} className="space-y-4 mt-4">
+              <div className="bg-neutral-900 border border-neutral-800 rounded-2xl max-w-md w-full p-6 text-neutral-100 shadow-2xl">
+                <h3 className="text-lg font-bold mb-1 font-heading">
+                  {editingService ? 'Editar Serviço' : 'Cadastrar Novo Serviço'}
+                </h3>
+                <p className="text-xs text-neutral-400 mb-4">
+                  {editingService ? 'Altere as informações abaixo e clique em salvar.' : 'Preencha os dados do novo serviço da barbearia.'}
+                </p>
+
+                {serviceError && (
+                  <div className="mb-4 p-3 bg-red-950/50 border border-red-800 rounded-xl text-red-300 text-xs flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-red-400" />
+                    <span>{serviceError}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleSaveService} className="space-y-4">
                   <div>
                     <label className="block text-xs font-semibold text-neutral-300 mb-1">Nome do Serviço</label>
                     <input
@@ -634,25 +839,37 @@ export const WebAdminView: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex justify-end gap-2 pt-4">
+                  <div className="flex items-center justify-end gap-3 pt-4 border-t border-neutral-800">
                     <button
                       type="button"
-                      onClick={() => setShowAddServiceModal(false)}
-                      className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-lg text-xs font-semibold"
+                      onClick={handleCloseServiceModal}
+                      className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
                     >
                       Cancelar
                     </button>
-                    <button
+                    <SaveButton
+                      isDirty={isServiceDirty}
+                      isLoading={isSavingService}
+                      isSaved={isServiceSaved}
                       type="submit"
-                      className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 rounded-lg text-xs font-bold"
-                    >
-                      Salvar Serviço
-                    </button>
+                      label={editingService ? 'Salvar alterações' : 'Salvar Serviço'}
+                    />
                   </div>
                 </form>
               </div>
             </div>
           )}
+
+          {/* Unsaved changes confirmation for service modal */}
+          <UnsavedChangesModal
+            isOpen={showServiceUnsavedModal}
+            onContinueEditing={() => setShowServiceUnsavedModal(false)}
+            onDiscard={() => {
+              setShowServiceUnsavedModal(false);
+              setShowAddServiceModal(false);
+              setEditingService(null);
+            }}
+          />
         </div>
       )}
 
@@ -822,239 +1039,296 @@ export const WebAdminView: React.FC = () => {
           <ThemeSelectorCard />
 
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 space-y-6">
-            <div>
-              <h3 className="font-bold text-neutral-100 font-heading text-lg">
-                Identidade Visual & Informações do Estabelecimento (Seções 4 e 25)
-              </h3>
-              <p className="text-xs text-neutral-400">
-                Esses dados personalizam todo o aplicativo que o seu cliente visualiza.
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-800">
+              <div>
+                <h3 className="font-bold text-neutral-100 font-heading text-lg">
+                  Identidade Visual & Informações do Estabelecimento (Seções 4 e 25)
+                </h3>
+                <p className="text-xs text-neutral-400">
+                  Esses dados personalizam todo o aplicativo que o seu cliente visualiza.
+                </p>
+              </div>
+
+              <SaveButton
+                isDirty={isSettingsDirty}
+                isLoading={isSavingSettings}
+                isSaved={isSettingsSaved}
+                onClick={handleSaveSettings}
+                label="Salvar alterações"
+              />
             </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-neutral-300 mb-1">Nome da Barbearia</label>
-                <input
-                  type="text"
-                  value={currentBarbershop.name}
-                  onChange={e => updateBarbershop({ name: e.target.value })}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-amber-500"
-                />
+            {settingsError && (
+              <div className="p-3 bg-red-950/50 border border-red-800 rounded-xl text-red-300 text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-red-400" />
+                <span>{settingsError}</span>
               </div>
+            )}
 
-              <div>
-                <label className="block text-xs font-semibold text-neutral-300 mb-1">
-                  Endereço Exclusivo da Barbearia (My Barber)
-                </label>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs font-mono text-orange-400 font-bold">
-                    https://{currentBarbershop.slug}.mybarberbr.com.br
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const url = `https://${currentBarbershop.slug}.mybarberbr.com.br`;
-                      navigator.clipboard.writeText(url);
-                      setCopiedLink(true);
-                      setTimeout(() => setCopiedLink(false), 3000);
-                    }}
-                    className="px-3 py-2 bg-neutral-800 hover:bg-neutral-750 text-neutral-200 border border-neutral-700 rounded-xl text-xs font-bold shrink-0 transition-colors"
-                  >
-                    {copiedLink ? 'Copiado!' : 'Copiar'}
-                  </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1">Nome da Barbearia</label>
+                  <input
+                    type="text"
+                    value={settingsName}
+                    onChange={e => setSettingsName(e.target.value)}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-amber-500"
+                  />
                 </div>
-                <span className="text-[10px] text-neutral-500 mt-1 block">
-                  Identificação exclusiva dentro do domínio oficial mybarberbr.com.br.
-                </span>
-              </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-neutral-300 mb-1">Sobre a Barbearia</label>
-                <textarea
-                  rows={3}
-                  value={currentBarbershop.about}
-                  onChange={e => updateBarbershop({ about: e.target.value })}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-neutral-300 mb-1">WhatsApp de Atendimento</label>
-                <input
-                  type="text"
-                  value={currentBarbershop.whatsapp}
-                  onChange={e => updateBarbershop({ whatsapp: e.target.value })}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-amber-500"
-                />
-              </div>
-            </div>
-
-            {/* Social Media & Salon Images */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-neutral-300 mb-1">Logo da Barbearia</label>
-                <div className="flex items-center gap-3">
-                  <div
-                    onClick={() => setShowLogoEditModal(true)}
-                    className="relative group cursor-pointer w-14 h-14 rounded-2xl overflow-hidden border-2 border-neutral-700 hover:border-orange-500 bg-neutral-950 shrink-0 transition-colors shadow-md"
-                  >
-                    <AppImage
-                      src={currentBarbershop.logoUrl}
-                      alt="Logo"
-                      fallbackType="logo"
-                      className="w-full h-full object-cover"
-                    />
-                    <div
-                      className="absolute inset-0 bg-neutral-950/70 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
-                      title="Editar Logo"
-                    >
-                      <Pencil className="w-4 h-4 text-orange-400" />
-                    </div>
-                  </div>
-
-                  <div className="flex-1 space-y-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setShowLogoEditModal(true)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-orange-500 hover:text-neutral-950 text-neutral-200 rounded-xl text-xs font-bold transition-all border border-neutral-700 hover:border-orange-500 shadow-sm"
-                    >
-                      <Pencil className="w-3.5 h-3.5 text-orange-400" />
-                      <span>Alterar Logo (Upload ou Link)</span>
-                    </button>
-                    <p className="text-[10px] text-neutral-500">
-                      Recomendado formato quadrado (PNG com fundo transparente ou JPG).
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-neutral-300 mb-1">Banner de Capa</label>
-                <div className="flex items-center gap-3">
-                  <div
-                    onClick={() => setShowBannerEditModal(true)}
-                    className="relative group cursor-pointer w-24 h-14 rounded-2xl overflow-hidden border-2 border-neutral-700 hover:border-orange-500 bg-neutral-950 shrink-0 transition-colors shadow-md"
-                  >
-                    <AppImage
-                      src={currentBarbershop.bannerUrl}
-                      alt="Banner"
-                      fallbackType="banner"
-                      className="w-full h-full object-cover"
-                    />
-                    <div
-                      className="absolute inset-0 bg-neutral-950/70 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
-                      title="Editar Capa"
-                    >
-                      <Pencil className="w-4 h-4 text-orange-400" />
-                    </div>
-                  </div>
-
-                  <div className="flex-1 space-y-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setShowBannerEditModal(true)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-orange-500 hover:text-neutral-950 text-neutral-200 rounded-xl text-xs font-bold transition-all border border-neutral-700 hover:border-orange-500 shadow-sm"
-                    >
-                      <Pencil className="w-3.5 h-3.5 text-orange-400" />
-                      <span>Alterar Capa (Upload ou Link)</span>
-                    </button>
-                    <p className="text-[10px] text-neutral-500">
-                      Exibido no topo do aplicativo e página de agendamentos.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-neutral-300 mb-1">Instagram da Barbearia</label>
-                <input
-                  type="text"
-                  value={currentBarbershop.socialMedia.instagram || ''}
-                  onChange={e => updateBarbershop({
-                    socialMedia: { ...currentBarbershop.socialMedia, instagram: e.target.value }
-                  })}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-2">
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1">
+                    Endereço Exclusivo da Barbearia (My Barber)
+                  </label>
                   <div className="flex items-center gap-2">
-                    <label className="block text-xs font-semibold text-neutral-300">
-                      Fotos do Salão & Fachada ({Math.min(3, currentBarbershop.salonImages.length)}/3)
-                    </label>
-                    {currentBarbershop.salonImages.length >= 3 && (
-                      <span className="text-[10px] bg-neutral-800 text-amber-400 font-bold px-2 py-0.5 rounded-full border border-neutral-700">
-                        Máximo de 3 fotos atingido
-                      </span>
-                    )}
-                  </div>
-                  {currentBarbershop.salonImages.length < 3 && (
+                    <div className="flex-1 bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs font-mono text-orange-400 font-bold">
+                      https://{currentBarbershop.slug}.mybarberbr.com.br
+                    </div>
                     <button
                       type="button"
-                      onClick={() => setIsAddingSalonImage(true)}
-                      className="inline-flex items-center gap-1.5 text-xs text-orange-400 font-bold bg-orange-500/10 hover:bg-orange-500 hover:text-neutral-950 px-3 py-1.5 rounded-xl border border-orange-500/30 transition-all cursor-pointer"
+                      onClick={() => {
+                        const url = `https://${currentBarbershop.slug}.mybarberbr.com.br`;
+                        navigator.clipboard.writeText(url);
+                        setCopiedLink(true);
+                        setTimeout(() => setCopiedLink(false), 3000);
+                      }}
+                      className="px-3 py-2 bg-neutral-800 hover:bg-neutral-750 text-neutral-200 border border-neutral-700 rounded-xl text-xs font-bold shrink-0 transition-colors cursor-pointer"
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Adicionar Foto do Salão</span>
+                      {copiedLink ? 'Copiado!' : 'Copiar'}
                     </button>
-                  )}
+                  </div>
+                  <span className="text-[10px] text-neutral-500 mt-1 block">
+                    Identificação exclusiva dentro do domínio oficial mybarberbr.com.br.
+                  </span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {currentBarbershop.salonImages.slice(0, 3).map((img, i) => (
-                    <div key={i} className="relative group rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-950 shadow-md">
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1">Sobre a Barbearia</label>
+                  <textarea
+                    rows={3}
+                    value={settingsAbout}
+                    onChange={e => setSettingsAbout(e.target.value)}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1">WhatsApp de Atendimento</label>
+                  <input
+                    type="text"
+                    value={settingsWhatsapp}
+                    onChange={e => setSettingsWhatsapp(e.target.value)}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* Social Media & Salon Images */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1">Logo da Barbearia</label>
+                  <div className="flex items-center gap-3">
+                    <div
+                      onClick={() => setShowLogoEditModal(true)}
+                      className="relative group cursor-pointer w-14 h-14 rounded-2xl overflow-hidden border-2 border-neutral-700 hover:border-orange-500 bg-neutral-950 shrink-0 transition-colors shadow-md"
+                    >
                       <AppImage
-                        src={img}
-                        alt={`Salão ${i + 1}`}
-                        fallbackType="gallery"
-                        className="w-full h-28 object-cover group-hover:scale-105 transition-transform duration-300"
+                        src={settingsLogoUrl}
+                        alt="Logo"
+                        fallbackType="logo"
+                        className="w-full h-full object-cover"
                       />
-                      
-                      {/* Pencil Edit Overlay Button */}
+                      <div
+                        className="absolute inset-0 bg-neutral-950/70 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                        title="Editar Logo"
+                      >
+                        <Pencil className="w-4 h-4 text-orange-400" />
+                      </div>
+                    </div>
+
+                    <div className="flex-1 space-y-1.5">
                       <button
                         type="button"
-                        onClick={() => setEditingSalonImageIdx(i)}
-                        className="absolute bottom-2 left-2 bg-neutral-950/85 hover:bg-orange-500 hover:text-neutral-950 text-neutral-200 p-1.5 rounded-lg text-xs font-bold opacity-0 group-hover:opacity-100 transition-all border border-neutral-700 hover:border-orange-500 flex items-center gap-1"
-                        title="Trocar esta foto"
+                        onClick={() => setShowLogoEditModal(true)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-orange-500 hover:text-neutral-950 text-neutral-200 rounded-xl text-xs font-bold transition-all border border-neutral-700 hover:border-orange-500 shadow-sm cursor-pointer"
                       >
-                        <Pencil className="w-3 h-3 text-orange-400 group-hover:text-neutral-950" />
-                        <span>Editar</span>
+                        <Pencil className="w-3.5 h-3.5 text-orange-400" />
+                        <span>Alterar Logo (Upload ou Link)</span>
                       </button>
+                      <p className="text-[10px] text-neutral-500">
+                        Recomendado formato quadrado (PNG com fundo transparente ou JPG).
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
-                      {currentBarbershop.salonImages.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            updateBarbershop({
-                              salonImages: currentBarbershop.salonImages.filter((_, idx) => idx !== i)
-                            });
-                          }}
-                          className="absolute top-2 right-2 bg-red-600/90 hover:bg-red-600 text-white p-1.5 rounded-lg text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
-                          title="Remover foto"
-                        >
-                          ✕
-                        </button>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1">Banner de Capa</label>
+                  <div className="flex items-center gap-3">
+                    <div
+                      onClick={() => setShowBannerEditModal(true)}
+                      className="relative group cursor-pointer w-24 h-14 rounded-2xl overflow-hidden border-2 border-neutral-700 hover:border-orange-500 bg-neutral-950 shrink-0 transition-colors shadow-md"
+                    >
+                      <AppImage
+                        src={settingsBannerUrl}
+                        alt="Banner"
+                        fallbackType="banner"
+                        className="w-full h-full object-cover"
+                      />
+                      <div
+                        className="absolute inset-0 bg-neutral-950/70 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                        title="Editar Capa"
+                      >
+                        <Pencil className="w-4 h-4 text-orange-400" />
+                      </div>
+                    </div>
+
+                    <div className="flex-1 space-y-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setShowBannerEditModal(true)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-orange-500 hover:text-neutral-950 text-neutral-200 rounded-xl text-xs font-bold transition-all border border-neutral-700 hover:border-orange-500 shadow-sm cursor-pointer"
+                      >
+                        <Pencil className="w-3.5 h-3.5 text-orange-400" />
+                        <span>Alterar Capa (Upload ou Link)</span>
+                      </button>
+                      <p className="text-[10px] text-neutral-500">
+                        Exibido no topo do aplicativo e página de agendamentos.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1">Instagram da Barbearia</label>
+                  <input
+                    type="text"
+                    value={settingsInstagram}
+                    onChange={e => setSettingsInstagram(e.target.value)}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Fotos do Salão & Fachada ({Math.min(3, settingsSalonImages.length)}/3)
+                      </label>
+                      {settingsSalonImages.length >= 3 && (
+                        <span className="text-[10px] bg-neutral-800 text-amber-400 font-bold px-2 py-0.5 rounded-full border border-neutral-700">
+                          Máximo de 3 fotos atingido
+                        </span>
                       )}
                     </div>
-                  ))}
-                </div>
-              </div>
+                    {settingsSalonImages.length < 3 && (
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingSalonImage(true)}
+                        className="inline-flex items-center gap-1.5 text-xs text-orange-400 font-bold bg-orange-500/10 hover:bg-orange-500 hover:text-neutral-950 px-3 py-1.5 rounded-xl border border-orange-500/30 transition-all cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Adicionar Foto do Salão</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {settingsSalonImages.slice(0, 3).map((img, i) => (
+                      <div key={i} className="relative group rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-950 shadow-md">
+                        <AppImage
+                          src={img}
+                          alt={`Salão ${i + 1}`}
+                          fallbackType="gallery"
+                          className="w-full h-28 object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        
+                        {/* Pencil Edit Overlay Button */}
+                        <button
+                          type="button"
+                          onClick={() => setEditingSalonImageIdx(i)}
+                          className="absolute bottom-2 left-2 bg-neutral-950/85 hover:bg-orange-500 hover:text-neutral-950 text-neutral-200 p-1.5 rounded-lg text-xs font-bold opacity-0 group-hover:opacity-100 transition-all border border-neutral-700 hover:border-orange-500 flex items-center gap-1 cursor-pointer"
+                          title="Trocar esta foto"
+                        >
+                          <Pencil className="w-3 h-3 text-orange-400 group-hover:text-neutral-950" />
+                          <span>Editar</span>
+                        </button>
 
-              {/* WhatsApp Reminders config (Seção 11) */}
-              <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-800 space-y-2">
-                <div className="font-semibold text-xs text-amber-400">Configuração de Lembretes WhatsApp</div>
-                <div className="flex items-center justify-between text-xs text-neutral-300">
-                  <span>Antecedência do envio:</span>
-                  <strong className="font-mono text-amber-300">
-                    {currentBarbershop.reminderConfig.advanceMinutes} minutos antes
-                  </strong>
+                        {settingsSalonImages.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSettingsSalonImages(prev => prev.filter((_, idx) => idx !== i));
+                            }}
+                            className="absolute top-2 right-2 bg-red-600/90 hover:bg-red-600 text-white p-1.5 rounded-lg text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow-md cursor-pointer"
+                            title="Remover foto"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* WhatsApp Reminders config (Seção 11) */}
+                <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-800 space-y-3">
+                  <div className="font-semibold text-xs text-amber-400">Configuração de Lembretes WhatsApp</div>
+                  <div className="flex items-center justify-between text-xs text-neutral-300">
+                    <span>Antecedência do envio:</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="10"
+                        max="1440"
+                        step="10"
+                        value={settingsReminderMinutes}
+                        onChange={e => setSettingsReminderMinutes(Number(e.target.value))}
+                        className="w-20 bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1 text-xs text-amber-300 font-mono font-bold text-center focus:outline-none focus:border-amber-500"
+                      />
+                      <span className="text-neutral-400">minutos antes</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
+
+            {/* Bottom Actions Bar */}
+            <div className="flex items-center justify-between pt-4 border-t border-neutral-800">
+              <span className="text-xs text-neutral-400">
+                {isSettingsDirty ? 'Há alterações pendentes nesta tela.' : 'Todas as alterações foram salvas.'}
+              </span>
+              <SaveButton
+                isDirty={isSettingsDirty}
+                isLoading={isSavingSettings}
+                isSaved={isSettingsSaved}
+                onClick={handleSaveSettings}
+                label="Salvar alterações"
+              />
+            </div>
           </div>
+
+          {/* Unsaved changes modal for tab change */}
+          <UnsavedChangesModal
+            isOpen={showUnsavedChangesModal}
+            onContinueEditing={() => setShowUnsavedChangesModal(false)}
+            onDiscard={() => {
+              setShowUnsavedChangesModal(false);
+              if (pendingTabChange) {
+                setActiveTab(pendingTabChange);
+                setPendingTabChange(null);
+              }
+            }}
+            onSaveAndContinue={async () => {
+              await handleSaveSettings();
+              setShowUnsavedChangesModal(false);
+              if (pendingTabChange) {
+                setActiveTab(pendingTabChange);
+                setPendingTabChange(null);
+              }
+            }}
+          />
         </div>
-      </div>
       )}
 
       {/* MINHA ASSINATURA */}
