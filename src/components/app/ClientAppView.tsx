@@ -2667,12 +2667,6 @@ export const ClientAppView: React.FC = () => {
                     <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span>WhatsApp: <strong>{currentBarbershop.whatsapp}</strong></span>
                   </div>
-                  {currentBarbershop.businessHours && (
-                    <div className="flex items-center gap-2 pt-2 border-t border-neutral-800">
-                      <Clock className="w-4 h-4 text-amber-400 shrink-0" />
-                      <span>Horário: <strong>{currentBarbershop.businessHours}</strong></span>
-                    </div>
-                  )}
                   {currentBarbershop.socialMedia.instagram && (
                     <div className="flex items-center gap-2">
                       <Instagram className="w-4 h-4 text-pink-400 shrink-0" />
@@ -3705,16 +3699,6 @@ export const ClientAppView: React.FC = () => {
                     <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">CEP</span>
                     <p className="text-xs font-mono text-neutral-300 mt-0.5">
                       {currentBarbershop.address.zipCode}
-                    </p>
-                  </div>
-                )}
-
-                {currentBarbershop.businessHours && (
-                  <div className="pt-2 border-t border-neutral-900">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">Horário de Atendimento</span>
-                    <p className="text-xs font-semibold text-neutral-200 mt-0.5 flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                      <span>{currentBarbershop.businessHours}</span>
                     </p>
                   </div>
                 )}

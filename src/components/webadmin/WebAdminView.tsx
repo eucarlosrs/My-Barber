@@ -114,7 +114,6 @@ export const WebAdminView: React.FC = () => {
   const [settingsName, setSettingsName] = useState(currentBarbershop.name || '');
   const [settingsAbout, setSettingsAbout] = useState(currentBarbershop.about || '');
   const [settingsWhatsapp, setSettingsWhatsapp] = useState(currentBarbershop.whatsapp || '');
-  const [settingsBusinessHours, setSettingsBusinessHours] = useState(currentBarbershop.businessHours || '');
   const [settingsInstagram, setSettingsInstagram] = useState(currentBarbershop.socialMedia?.instagram || '');
   const [settingsReminderMinutes, setSettingsReminderMinutes] = useState(currentBarbershop.reminderConfig?.advanceMinutes || 60);
   const [settingsLogoUrl, setSettingsLogoUrl] = useState(currentBarbershop.logoUrl || '');
@@ -134,7 +133,6 @@ export const WebAdminView: React.FC = () => {
     setSettingsName(currentBarbershop.name || '');
     setSettingsAbout(currentBarbershop.about || '');
     setSettingsWhatsapp(currentBarbershop.whatsapp || '');
-    setSettingsBusinessHours(currentBarbershop.businessHours || '');
     setSettingsInstagram(currentBarbershop.socialMedia?.instagram || '');
     setSettingsReminderMinutes(currentBarbershop.reminderConfig?.advanceMinutes || 60);
     setSettingsLogoUrl(currentBarbershop.logoUrl || '');
@@ -147,7 +145,6 @@ export const WebAdminView: React.FC = () => {
       settingsName.trim() !== (currentBarbershop.name || '').trim() ||
       settingsAbout.trim() !== (currentBarbershop.about || '').trim() ||
       settingsWhatsapp.trim() !== (currentBarbershop.whatsapp || '').trim() ||
-      settingsBusinessHours.trim() !== (currentBarbershop.businessHours || '').trim() ||
       settingsInstagram.trim() !== (currentBarbershop.socialMedia?.instagram || '').trim() ||
       Number(settingsReminderMinutes) !== (currentBarbershop.reminderConfig?.advanceMinutes || 60) ||
       settingsLogoUrl !== (currentBarbershop.logoUrl || '') ||
@@ -158,7 +155,6 @@ export const WebAdminView: React.FC = () => {
     settingsName,
     settingsAbout,
     settingsWhatsapp,
-    settingsBusinessHours,
     settingsInstagram,
     settingsReminderMinutes,
     settingsLogoUrl,
@@ -175,7 +171,6 @@ export const WebAdminView: React.FC = () => {
         name: settingsName.trim(),
         about: settingsAbout.trim(),
         whatsapp: settingsWhatsapp.trim(),
-        businessHours: settingsBusinessHours.trim(),
         socialMedia: {
           ...currentBarbershop.socialMedia,
           instagram: settingsInstagram.trim()
@@ -1126,20 +1121,6 @@ export const WebAdminView: React.FC = () => {
                     onChange={e => setSettingsWhatsapp(e.target.value)}
                     className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-amber-500"
                   />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-300 mb-1">Horário de Atendimento</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: Seg a Sáb: 09:00 às 20:00 | Dom: Fechado"
-                    value={settingsBusinessHours}
-                    onChange={e => setSettingsBusinessHours(e.target.value)}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-amber-500"
-                  />
-                  <span className="text-[10px] text-neutral-500 mt-1 block">
-                    Exibido para os clientes no aplicativo e nas informações de contato.
-                  </span>
                 </div>
               </div>
 

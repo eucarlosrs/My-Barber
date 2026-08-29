@@ -1739,7 +1739,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       about: input.about.trim() || `${input.name} — Barbearia e cuidados masculinos de alto padrão.`,
       phone: input.phone.trim(),
       whatsapp: input.whatsapp.trim(),
-      businessHours: input.businessHours?.trim() || 'Segunda a Sábado das 09:00 às 20:00',
       address: {
         street: input.street.trim(),
         number: input.number.trim(),
