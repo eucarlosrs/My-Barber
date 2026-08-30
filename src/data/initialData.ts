@@ -14,10 +14,105 @@ import {
   ReturnMessage,
   GalleryWork,
   AuditLog,
-  CustomPlan
+  CustomPlan,
+  WeeklyBusinessHours
 } from '../types';
 import { APP_ASSETS } from './assets';
 import { REALISTIC_BARBERSHOP_ASSETS } from '../lib/storage';
+
+export const DEFAULT_WEEKLY_BUSINESS_HOURS: WeeklyBusinessHours = [
+  {
+    dayOfWeek: 1,
+    dayName: 'Segunda-feira',
+    shortDayName: 'Seg',
+    isOpen: true,
+    morningStart: '08:30',
+    morningEnd: '12:00',
+    hasLunchBreak: true,
+    lunchStart: '12:00',
+    lunchEnd: '13:30',
+    afternoonStart: '13:30',
+    afternoonEnd: '19:30'
+  },
+  {
+    dayOfWeek: 2,
+    dayName: 'Terça-feira',
+    shortDayName: 'Ter',
+    isOpen: true,
+    morningStart: '08:30',
+    morningEnd: '12:00',
+    hasLunchBreak: true,
+    lunchStart: '12:00',
+    lunchEnd: '13:30',
+    afternoonStart: '13:30',
+    afternoonEnd: '19:30'
+  },
+  {
+    dayOfWeek: 3,
+    dayName: 'Quarta-feira',
+    shortDayName: 'Qua',
+    isOpen: true,
+    morningStart: '08:30',
+    morningEnd: '12:00',
+    hasLunchBreak: true,
+    lunchStart: '12:00',
+    lunchEnd: '13:30',
+    afternoonStart: '13:30',
+    afternoonEnd: '19:30'
+  },
+  {
+    dayOfWeek: 4,
+    dayName: 'Quinta-feira',
+    shortDayName: 'Qui',
+    isOpen: true,
+    morningStart: '08:30',
+    morningEnd: '12:00',
+    hasLunchBreak: true,
+    lunchStart: '12:00',
+    lunchEnd: '13:30',
+    afternoonStart: '13:30',
+    afternoonEnd: '20:00'
+  },
+  {
+    dayOfWeek: 5,
+    dayName: 'Sexta-feira',
+    shortDayName: 'Sex',
+    isOpen: true,
+    morningStart: '08:30',
+    morningEnd: '12:00',
+    hasLunchBreak: true,
+    lunchStart: '12:00',
+    lunchEnd: '13:30',
+    afternoonStart: '13:30',
+    afternoonEnd: '20:30'
+  },
+  {
+    dayOfWeek: 6,
+    dayName: 'Sábado',
+    shortDayName: 'Sáb',
+    isOpen: true,
+    morningStart: '08:00',
+    morningEnd: '12:00',
+    hasLunchBreak: true,
+    lunchStart: '12:00',
+    lunchEnd: '13:00',
+    afternoonStart: '13:00',
+    afternoonEnd: '19:00'
+  },
+  {
+    dayOfWeek: 0,
+    dayName: 'Domingo',
+    shortDayName: 'Dom',
+    isOpen: false,
+    morningStart: '09:00',
+    morningEnd: '12:00',
+    hasLunchBreak: false,
+    lunchStart: '12:00',
+    lunchEnd: '13:00',
+    afternoonStart: '13:00',
+    afternoonEnd: '14:00'
+  }
+];
 
 export const INITIAL_BARBERSHOPS: Barbershop[] = [
   {
@@ -59,6 +154,7 @@ export const INITIAL_BARBERSHOPS: Barbershop[] = [
       enabled: true,
       whatsappTemplate: 'Olá {cliente}! Lembramos do seu agendamento de {servico} com {profissional} hoje às {horario} na {barbearia}.'
     },
+    businessHours: DEFAULT_WEEKLY_BUSINESS_HOURS,
     createdAt: '2026-01-15T10:00:00Z'
   },
   {
@@ -98,6 +194,7 @@ export const INITIAL_BARBERSHOPS: Barbershop[] = [
       enabled: true,
       whatsappTemplate: 'Fala {cliente}! Tudo pronto para seu atendimento na {barbearia} às {horario}. Te esperamos!'
     },
+    businessHours: DEFAULT_WEEKLY_BUSINESS_HOURS,
     createdAt: '2026-02-01T09:00:00Z'
   }
 ];

@@ -159,6 +159,25 @@ export type BarbershopThemeId = 'CURRENT' | 'GOLD' | 'BLUE' | 'NEON_GREEN';
 
 export type ColorMode = 'dark' | 'light';
 
+export interface DayBusinessHours {
+  dayOfWeek: number; // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
+  dayName: string;   // "Segunda-feira"
+  shortDayName: string; // "Seg"
+  isOpen: boolean;   // true = Aberto, false = Fechado
+  // Antes do almoço (Turno Manhã)
+  morningStart: string; // Ex: "08:30"
+  morningEnd: string;   // Ex: "12:00"
+  // Pausa para almoço
+  hasLunchBreak: boolean; // Se há intervalo de almoço
+  lunchStart: string;   // Ex: "12:00"
+  lunchEnd: string;     // Ex: "13:30"
+  // Depois do almoço (Turno Tarde/Noite)
+  afternoonStart: string; // Ex: "13:30"
+  afternoonEnd: string;   // Ex: "19:30"
+}
+
+export type WeeklyBusinessHours = DayBusinessHours[];
+
 export interface Barbershop {
   id: string;
   name: string; // Ex: "Barbearia do João"
@@ -175,6 +194,7 @@ export interface Barbershop {
   socialMedia: BarbershopSocialMedia;
   planId: PlanId;
   reminderConfig: BarbershopReminderConfig;
+  businessHours?: WeeklyBusinessHours; // Horário de atendimento semanal da barbearia
   primaryColor?: string;
   theme?: BarbershopThemeId; // 'CURRENT' | 'GOLD' | 'BLUE' | 'NEON_GREEN'
   status?: BarbershopStatus | 'ACTIVE' | 'INACTIVE';

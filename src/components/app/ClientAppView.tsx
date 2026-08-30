@@ -5,7 +5,8 @@ import {
   generateAvailableSlots,
   generateUpcomingDays,
   getTodayLocalDateString,
-  getBarbershopRealOpenStatus
+  getBarbershopRealOpenStatus,
+  getTodayBusinessHours
 } from '../../utils/scheduleEngine';
 import {
   Calendar,
@@ -62,6 +63,7 @@ import { triggerGooglePopupLogin } from '../../lib/googleAuth';
 import { formatPhoneNumber } from '../../utils/formatters';
 import { getThemeCssVariables } from '../../utils/theme';
 import { ThemeModeToggle } from '../common/ThemeModeToggle';
+import { BusinessHoursModal } from './BusinessHoursModal';
 
 export const ClientAppView: React.FC = () => {
   const {
@@ -195,6 +197,7 @@ export const ClientAppView: React.FC = () => {
   const [selectedHighlightRaffle, setSelectedHighlightRaffle] = useState<Raffle | null>(null);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showBusinessHoursModal, setShowBusinessHoursModal] = useState(false);
 
   // Dynamic Destaques list (configured by owner/manager)
   const highlightedPromos = useMemo(() => {
@@ -227,9 +230,14 @@ export const ClientAppView: React.FC = () => {
     return getBarbershopRealOpenStatus({
       schedules,
       professionalIds,
+      businessHours: currentBarbershop.businessHours,
       referenceDate: currentDateTime
     });
-  }, [schedules, professionals, currentDateTime]);
+  }, [schedules, professionals, currentBarbershop.businessHours, currentDateTime]);
+
+  const todayBusinessHours = useMemo(() => {
+    return getTodayBusinessHours(currentBarbershop.businessHours, currentDateTime);
+  }, [currentBarbershop.businessHours, currentDateTime]);
 
   // Booking Flow Steps & State
   const [selectedCategory, setSelectedCategory] = useState<string>('TODOS');
@@ -782,18 +790,22 @@ export const ClientAppView: React.FC = () => {
             {/* Soft gradient from banner to bottom */}
             <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/50 to-transparent pointer-events-none"></div>
             
-            {/* Real-time Verified Open/Closed Status Tag - Translucent Glassmorphism */}
-            <div
-              className={`absolute top-3.5 left-3.5 bg-black/35 backdrop-blur-md px-3 py-1.5 rounded-full text-[10px] font-extrabold flex items-center gap-1.5 shadow-lg border transition-all ${
+            {/* Real-time Verified Open/Closed Status Tag - Translucent Glassmorphism (Clickable to view full business hours table) */}
+            <button
+              type="button"
+              onClick={() => setShowBusinessHoursModal(true)}
+              className={`absolute top-3.5 left-3.5 bg-black/55 hover:bg-black/75 backdrop-blur-md px-3 py-1.5 rounded-full text-[10px] font-extrabold flex items-center gap-1.5 shadow-lg border transition-all cursor-pointer ${
                 realOpenStatus.isOpen
                   ? 'border-emerald-500/50 text-emerald-400'
+                  : realOpenStatus.isLunchBreak
+                  ? 'border-orange-500/50 text-orange-400'
                   : 'border-amber-500/50 text-amber-400'
               }`}
-              title={realOpenStatus.detailLabel}
+              title="Clique para ver a tabela completa de horários de atendimento"
             >
               <span
                 className={`w-1.5 h-1.5 rounded-full ${
-                  realOpenStatus.isOpen ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'
+                  realOpenStatus.isOpen ? 'bg-emerald-400 animate-ping' : realOpenStatus.isLunchBreak ? 'bg-orange-400' : 'bg-amber-400'
                 }`}
               />
               <span className="tracking-wide">{realOpenStatus.statusLabel}</span>
@@ -802,7 +814,8 @@ export const ClientAppView: React.FC = () => {
                   {realOpenStatus.detailLabel}
                 </span>
               )}
-            </div>
+              <Clock className="w-3 h-3 ml-0.5 text-neutral-400" />
+            </button>
 
             {/* Dark / Light Mode Switch in Banner */}
             <div className="absolute top-3.5 right-3.5 z-10">
@@ -839,6 +852,26 @@ export const ClientAppView: React.FC = () => {
                       <MapPin className="w-3.5 h-3.5 shrink-0 hover:scale-110 transition-transform" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
                     </a>
                   </div>
+
+                  {/* Direct Business Hours Indicator on Top Header */}
+                  <button
+                    type="button"
+                    onClick={() => setShowBusinessHoursModal(true)}
+                    className="mt-1 flex items-center gap-1.5 text-[11px] text-neutral-300 hover:text-orange-400 bg-neutral-900/90 hover:bg-neutral-850 px-2 py-0.5 rounded-lg border border-neutral-800 transition-colors cursor-pointer w-fit shadow-sm"
+                    title="Ver tabela completa de horários de funcionamento"
+                  >
+                    <Clock className="w-3 h-3 text-orange-400 shrink-0" />
+                    <span>
+                      {todayBusinessHours?.isOpen
+                        ? `Hoje: ${todayBusinessHours.morningStart} às ${todayBusinessHours.morningEnd}${
+                            todayBusinessHours.hasLunchBreak
+                              ? ` • ${todayBusinessHours.afternoonStart} às ${todayBusinessHours.afternoonEnd}`
+                              : ` às ${todayBusinessHours.afternoonEnd}`
+                          }`
+                        : 'Hoje: Fechado'}
+                    </span>
+                    <span className="text-[9px] text-orange-400 font-bold ml-0.5">• Ver horários</span>
+                  </button>
                 </div>
               </div>
 
@@ -3836,6 +3869,14 @@ export const ClientAppView: React.FC = () => {
           isOpen={showTermsModal}
           onClose={() => setShowTermsModal(false)}
           barbershopName={currentBarbershop.name}
+        />
+
+        {/* Horário de Atendimento e Funcionamento Modal */}
+        <BusinessHoursModal
+          isOpen={showBusinessHoursModal}
+          onClose={() => setShowBusinessHoursModal(false)}
+          barbershop={currentBarbershop}
+          openStatus={realOpenStatus}
         />
       </div>
     );

@@ -1,4 +1,4 @@
-import { Appointment, ProfessionalScheduleConfig, TimeShift } from '../types';
+import { Appointment, ProfessionalScheduleConfig, TimeShift, DayBusinessHours, WeeklyBusinessHours } from '../types';
 
 /**
  * Retorna a data local atual no formato "YYYY-MM-DD"
@@ -364,6 +364,7 @@ export function generateAvailableSlots(params: {
 
 export interface BarbershopOpenStatus {
   isOpen: boolean;
+  isLunchBreak?: boolean;
   statusLabel: string;
   detailLabel: string;
   nextShiftStart?: string;
@@ -371,20 +372,143 @@ export interface BarbershopOpenStatus {
 }
 
 /**
+ * Retorna o horário de atendimento configurado para a data especificada
+ */
+export function getTodayBusinessHours(
+  businessHours?: WeeklyBusinessHours,
+  referenceDate: Date = new Date()
+): DayBusinessHours | undefined {
+  if (!businessHours || businessHours.length === 0) return undefined;
+  const dayOfWeek = referenceDate.getDay();
+  return businessHours.find(d => d.dayOfWeek === dayOfWeek);
+}
+
+/**
+ * Formata um dia de atendimento em texto legível
+ */
+export function formatDayBusinessHours(day?: DayBusinessHours): string {
+  if (!day || !day.isOpen) return 'Fechado';
+  if (day.hasLunchBreak) {
+    return `${day.morningStart} às ${day.morningEnd} • ${day.afternoonStart} às ${day.afternoonEnd}`;
+  }
+  return `${day.morningStart} às ${day.afternoonEnd || day.morningEnd}`;
+}
+
+/**
  * Calcula em tempo real e de forma verídica se a barbearia está ABERTA ou FECHADA agora,
- * baseando-se na escala real dos profissionais da barbearia para o dia e horário correntes.
+ * baseando-se no horário de funcionamento oficial e escala dos profissionais.
  */
 export function getBarbershopRealOpenStatus(params: {
-  schedules: ProfessionalScheduleConfig[];
-  professionalIds: string[];
+  schedules?: ProfessionalScheduleConfig[];
+  professionalIds?: string[];
+  businessHours?: WeeklyBusinessHours;
   referenceDate?: Date;
 }): BarbershopOpenStatus {
-  const { schedules, professionalIds, referenceDate = new Date() } = params;
+  const { schedules = [], professionalIds = [], businessHours, referenceDate = new Date() } = params;
 
-  const todayStr = getTodayLocalDateString(referenceDate);
   const currentMinutes = getCurrentTimeMinutes(referenceDate);
+  const dayOfWeek = referenceDate.getDay();
 
-  // Coleta todos os turnos de trabalho ativos de todos os profissionais da barbearia no dia de hoje
+  // 1. Se a barbearia tiver a tabela oficial de horário de funcionamento configurada:
+  if (businessHours && businessHours.length > 0) {
+    const todayConfig = businessHours.find(b => b.dayOfWeek === dayOfWeek);
+    if (!todayConfig || !todayConfig.isOpen) {
+      return {
+        isOpen: false,
+        statusLabel: 'FECHADO HOJE',
+        detailLabel: 'Sem expediente neste dia'
+      };
+    }
+
+    const morningStartMin = timeToMinutes(todayConfig.morningStart);
+    const morningEndMin = timeToMinutes(todayConfig.morningEnd);
+    const afternoonStartMin = timeToMinutes(todayConfig.afternoonStart);
+    const afternoonEndMin = timeToMinutes(todayConfig.afternoonEnd);
+
+    if (todayConfig.hasLunchBreak) {
+      const lunchStartMin = timeToMinutes(todayConfig.lunchStart || todayConfig.morningEnd);
+      const lunchEndMin = timeToMinutes(todayConfig.lunchEnd || todayConfig.afternoonStart);
+
+      // Antes do horário de abertura da manhã
+      if (currentMinutes < morningStartMin) {
+        return {
+          isOpen: false,
+          statusLabel: 'FECHADO NO MOMENTO',
+          detailLabel: `Abre hoje às ${todayConfig.morningStart}`,
+          nextShiftStart: todayConfig.morningStart
+        };
+      }
+
+      // Durante o turno da manhã (antes do almoço)
+      if (currentMinutes >= morningStartMin && currentMinutes < lunchStartMin) {
+        return {
+          isOpen: true,
+          statusLabel: 'ABERTO AGORA',
+          detailLabel: `Pausa para almoço às ${todayConfig.lunchStart || todayConfig.morningEnd}`,
+          nextShiftEnd: todayConfig.lunchStart || todayConfig.morningEnd
+        };
+      }
+
+      // Durante a pausa para almoço
+      if (currentMinutes >= lunchStartMin && currentMinutes < lunchEndMin) {
+        return {
+          isOpen: false,
+          isLunchBreak: true,
+          statusLabel: 'PAUSA PARA ALMOÇO',
+          detailLabel: `Retorno às ${todayConfig.lunchEnd || todayConfig.afternoonStart}`,
+          nextShiftStart: todayConfig.lunchEnd || todayConfig.afternoonStart
+        };
+      }
+
+      // Durante o turno da tarde (depois do almoço)
+      if (currentMinutes >= lunchEndMin && currentMinutes < afternoonEndMin) {
+        return {
+          isOpen: true,
+          statusLabel: 'ABERTO AGORA',
+          detailLabel: `Fecha às ${todayConfig.afternoonEnd}`,
+          nextShiftEnd: todayConfig.afternoonEnd
+        };
+      }
+
+      // Após o horário de encerramento da tarde
+      return {
+        isOpen: false,
+        statusLabel: 'FECHADO AGORA',
+        detailLabel: 'Expediente de hoje encerrado'
+      };
+    } else {
+      // Sem pausa para o almoço (turno contínuo)
+      const openStartMin = morningStartMin;
+      const openEndMin = afternoonEndMin || morningEndMin;
+
+      if (currentMinutes < openStartMin) {
+        return {
+          isOpen: false,
+          statusLabel: 'FECHADO NO MOMENTO',
+          detailLabel: `Abre hoje às ${todayConfig.morningStart}`,
+          nextShiftStart: todayConfig.morningStart
+        };
+      }
+
+      if (currentMinutes >= openStartMin && currentMinutes < openEndMin) {
+        return {
+          isOpen: true,
+          statusLabel: 'ABERTO AGORA',
+          detailLabel: `Fecha às ${todayConfig.afternoonEnd || todayConfig.morningEnd}`,
+          nextShiftEnd: todayConfig.afternoonEnd || todayConfig.morningEnd
+        };
+      }
+
+      return {
+        isOpen: false,
+        statusLabel: 'FECHADO AGORA',
+        detailLabel: 'Expediente de hoje encerrado'
+      };
+    }
+  }
+
+  // 2. Fallback baseado nos profissionais cadastrados
+  const todayStr = getTodayLocalDateString(referenceDate);
   const relevantSchedules = schedules.filter(s =>
     professionalIds.length === 0 || professionalIds.includes(s.professionalId)
   );
@@ -399,10 +523,9 @@ export function getBarbershopRealOpenStatus(params: {
       }
     });
   } else {
-    // Fallback padrão se não houver profissionais cadastrados: Seg-Sáb 09:00 - 19:00
-    const dayOfWeek = getDayOfWeekFromDate(todayStr);
+    // Fallback padrão: Seg-Sáb 08:30 - 19:30
     if (dayOfWeek !== 0) {
-      todayActiveShifts.push({ start: '09:00', end: '19:00' });
+      todayActiveShifts.push({ start: '08:30', end: '19:30' });
     }
   }
 
@@ -414,7 +537,6 @@ export function getBarbershopRealOpenStatus(params: {
     };
   }
 
-  // Verifica se o minuto atual está dentro de qualquer um dos turnos ativos
   let currentlyOpenShift: TimeShift | null = null;
   for (const shift of todayActiveShifts) {
     const sMin = timeToMinutes(shift.start);
@@ -426,7 +548,6 @@ export function getBarbershopRealOpenStatus(params: {
   }
 
   if (currentlyOpenShift) {
-    // Encontra o horário máximo de encerramento de hoje entre todos os turnos que continuam ativos
     const closingMinutes = Math.max(
       ...todayActiveShifts
         .filter(s => currentMinutes < timeToMinutes(s.end))
@@ -442,7 +563,6 @@ export function getBarbershopRealOpenStatus(params: {
     };
   }
 
-  // Se não está aberto agora, verifica se ainda abrirá hoje mais tarde
   const upcomingTodayShifts = todayActiveShifts
     .filter(s => timeToMinutes(s.start) > currentMinutes)
     .sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
@@ -457,7 +577,6 @@ export function getBarbershopRealOpenStatus(params: {
     };
   }
 
-  // Se já encerrou os expedientes de hoje
   return {
     isOpen: false,
     statusLabel: 'FECHADO AGORA',

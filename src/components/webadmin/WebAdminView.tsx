@@ -32,12 +32,14 @@ import {
   CreditCard,
   ArrowUp
 } from 'lucide-react';
-import { MY_BARBER_PLANS, UserRole, Service } from '../../types';
+import { MY_BARBER_PLANS, UserRole, Service, WeeklyBusinessHours } from '../../types';
+import { DEFAULT_WEEKLY_BUSINESS_HOURS } from '../../data/initialData';
 import { ProfessionalsTab } from './ProfessionalsTab';
 import { AppointmentsTab } from './AppointmentsTab';
 import { RafflesTab } from './RafflesTab';
 import { PromotionsTab } from './PromotionsTab';
 import { GalleryTab } from './GalleryTab';
+import { BusinessHoursTable } from './BusinessHoursTable';
 import { MySubscriptionView } from '../subscription/MySubscriptionView';
 import { AppImage } from '../common/AppImage';
 import { ImageEditModal, ImagePreset } from '../common/ImageEditModal';
@@ -119,6 +121,9 @@ export const WebAdminView: React.FC = () => {
   const [settingsLogoUrl, setSettingsLogoUrl] = useState(currentBarbershop.logoUrl || '');
   const [settingsBannerUrl, setSettingsBannerUrl] = useState(currentBarbershop.bannerUrl || '');
   const [settingsSalonImages, setSettingsSalonImages] = useState<string[]>(currentBarbershop.salonImages || []);
+  const [settingsBusinessHours, setSettingsBusinessHours] = useState<WeeklyBusinessHours>(
+    currentBarbershop.businessHours || DEFAULT_WEEKLY_BUSINESS_HOURS
+  );
 
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isSettingsSaved, setIsSettingsSaved] = useState(false);
@@ -138,7 +143,8 @@ export const WebAdminView: React.FC = () => {
     setSettingsLogoUrl(currentBarbershop.logoUrl || '');
     setSettingsBannerUrl(currentBarbershop.bannerUrl || '');
     setSettingsSalonImages(currentBarbershop.salonImages || []);
-  }, [currentBarbershop.id]);
+    setSettingsBusinessHours(currentBarbershop.businessHours || DEFAULT_WEEKLY_BUSINESS_HOURS);
+  }, [currentBarbershop.id, currentBarbershop.businessHours]);
 
   const isSettingsDirty = useMemo(() => {
     return (
@@ -149,7 +155,8 @@ export const WebAdminView: React.FC = () => {
       Number(settingsReminderMinutes) !== (currentBarbershop.reminderConfig?.advanceMinutes || 60) ||
       settingsLogoUrl !== (currentBarbershop.logoUrl || '') ||
       settingsBannerUrl !== (currentBarbershop.bannerUrl || '') ||
-      JSON.stringify(settingsSalonImages) !== JSON.stringify(currentBarbershop.salonImages || [])
+      JSON.stringify(settingsSalonImages) !== JSON.stringify(currentBarbershop.salonImages || []) ||
+      JSON.stringify(settingsBusinessHours) !== JSON.stringify(currentBarbershop.businessHours || DEFAULT_WEEKLY_BUSINESS_HOURS)
     );
   }, [
     settingsName,
@@ -160,6 +167,7 @@ export const WebAdminView: React.FC = () => {
     settingsLogoUrl,
     settingsBannerUrl,
     settingsSalonImages,
+    settingsBusinessHours,
     currentBarbershop
   ]);
 
@@ -181,7 +189,8 @@ export const WebAdminView: React.FC = () => {
         },
         logoUrl: settingsLogoUrl,
         bannerUrl: settingsBannerUrl,
-        salonImages: settingsSalonImages
+        salonImages: settingsSalonImages,
+        businessHours: settingsBusinessHours
       });
       setIsSettingsSaved(true);
       setTimeout(() => {
@@ -1290,6 +1299,13 @@ export const WebAdminView: React.FC = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Tabela Oficial de Horários de Atendimento (Manhã / Almoço / Tarde) */}
+                <BusinessHoursTable
+                  value={settingsBusinessHours}
+                  onChange={setSettingsBusinessHours}
+                  disabled={isSavingSettings}
+                />
               </div>
             </div>
 
