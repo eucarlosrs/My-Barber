@@ -96,16 +96,83 @@ export function generateUpcomingDays(daysCount = 14, baseDate: Date = new Date()
 }
 
 /**
+ * Helper interno para limitar os turnos do profissional aos turnos oficiais de funcionamento da barbearia
+ */
+function clampShiftsToBarbershop(
+  profShifts: TimeShift[],
+  barbershopShifts: TimeShift[] | null
+): TimeShift[] {
+  if (!barbershopShifts || barbershopShifts.length === 0) {
+    return profShifts;
+  }
+
+  const result: TimeShift[] = [];
+
+  for (const bShift of barbershopShifts) {
+    const bStart = timeToMinutes(bShift.start);
+    const bEnd = timeToMinutes(bShift.end);
+
+    for (const pShift of profShifts) {
+      const pStart = timeToMinutes(pShift.start);
+      const pEnd = timeToMinutes(pShift.end);
+
+      const overlapStart = Math.max(pStart, bStart);
+      const overlapEnd = Math.min(pEnd, bEnd);
+
+      if (overlapEnd > overlapStart) {
+        result.push({
+          start: minutesToTime(overlapStart),
+          end: minutesToTime(overlapEnd)
+        });
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
  * Obtém os turnos de trabalho ativos do profissional para a data especificada
- * considerando exceções/bloqueios (periodOverrides) e jornada semanal padrão (weeklySchedule)
+ * considerando exceções/bloqueios (periodOverrides), jornada semanal padrão (weeklySchedule)
+ * e o horário soberano de atendimento da barbearia (businessHours).
  */
 export function getProfessionalShiftsForDate(
   scheduleConfig: ProfessionalScheduleConfig | undefined,
-  dateStr: string
+  dateStr: string,
+  businessHours?: WeeklyBusinessHours
 ): { enabled: boolean; shifts: TimeShift[]; reason?: string } {
+  const dayOfWeek = getDayOfWeekFromDate(dateStr);
+
+  // 1. Barbearia Business Hours (Operating Schedule soberano da barbearia)
+  let barbershopShifts: TimeShift[] | null = null;
+  if (businessHours && businessHours.length > 0) {
+    const bDay = businessHours.find(d => d.dayOfWeek === dayOfWeek);
+    if (bDay) {
+      if (!bDay.isOpen) {
+        return {
+          enabled: false,
+          shifts: [],
+          reason: `Barbearia sem expediente neste dia da semana (${bDay.dayName || 'Fechado'}).`
+        };
+      }
+      if (bDay.hasLunchBreak && bDay.lunchStart && bDay.lunchEnd && bDay.afternoonStart && bDay.afternoonEnd) {
+        barbershopShifts = [
+          { start: bDay.morningStart || '09:00', end: bDay.morningEnd || '12:00' },
+          { start: bDay.afternoonStart || '13:00', end: bDay.afternoonEnd || '19:00' }
+        ];
+      } else {
+        barbershopShifts = [
+          { start: bDay.morningStart || '09:00', end: bDay.afternoonEnd || bDay.morningEnd || '19:00' }
+        ];
+      }
+    }
+  }
+
   if (!scheduleConfig) {
-    // Fallback padrão se não houver configuração específica: 09:00 às 19:00 (exceto Domingo)
-    const dayOfWeek = getDayOfWeekFromDate(dateStr);
+    if (barbershopShifts && barbershopShifts.length > 0) {
+      return { enabled: true, shifts: barbershopShifts };
+    }
+    // Fallback padrão se não houver configuração alguma: 09:00 às 19:00 (exceto Domingo)
     if (dayOfWeek === 0) {
       return { enabled: false, shifts: [], reason: 'Profissional não atende aos domingos.' };
     }
@@ -118,7 +185,7 @@ export function getProfessionalShiftsForDate(
     };
   }
 
-  // 1. Verificar se existe uma exceção de período (ex: férias, folga especial, feriado)
+  // 2. Verificar se existe uma exceção de período do profissional (ex: férias, folga especial, atestado)
   if (scheduleConfig.periodOverrides && scheduleConfig.periodOverrides.length > 0) {
     const override = scheduleConfig.periodOverrides.find(
       o => dateStr >= o.startDate && dateStr <= o.endDate
@@ -133,17 +200,25 @@ export function getProfessionalShiftsForDate(
       }
       return {
         enabled: true,
-        shifts: override.shifts,
+        shifts: clampShiftsToBarbershop(override.shifts, barbershopShifts),
         reason: override.reason
       };
     }
   }
 
-  // 2. Verificar a jornada semanal regular
-  const dayOfWeek = getDayOfWeekFromDate(dateStr);
+  // 3. Verificar a jornada semanal regular do profissional
   const daySchedule = scheduleConfig.weeklySchedule?.find(w => w.dayOfWeek === dayOfWeek);
 
+  // Se a barbearia estiver aberta (ex: domingo configurado como aberto pelo proprietário),
+  // e o profissional estava desabilitado ou sem shifts no registro antigo padrão,
+  // o profissional herda e atende nos horários oficiais da barbearia!
   if (!daySchedule || !daySchedule.enabled || !daySchedule.shifts || daySchedule.shifts.length === 0) {
+    if (barbershopShifts && barbershopShifts.length > 0) {
+      return {
+        enabled: true,
+        shifts: barbershopShifts
+      };
+    }
     return {
       enabled: false,
       shifts: [],
@@ -151,9 +226,19 @@ export function getProfessionalShiftsForDate(
     };
   }
 
+  // Se o profissional possui turnos cadastrados, limitar e cruzar estritamente com os limites da barbearia
+  const finalShifts = clampShiftsToBarbershop(daySchedule.shifts, barbershopShifts);
+  if (finalShifts.length === 0) {
+    return {
+      enabled: false,
+      shifts: [],
+      reason: 'Horário do profissional fora do expediente de funcionamento da barbearia.'
+    };
+  }
+
   return {
     enabled: true,
-    shifts: daySchedule.shifts
+    shifts: finalShifts
   };
 }
 
@@ -163,6 +248,7 @@ export interface SlotValidationParams {
   durationMinutes: number;
   professionalId: string;
   scheduleConfig?: ProfessionalScheduleConfig;
+  businessHours?: WeeklyBusinessHours;
   existingAppointments: Appointment[];
   excludeAppointmentId?: string; // Para validação de remarcação
   isEncaixe?: boolean;
@@ -184,6 +270,7 @@ export function isTimeSlotAvailable(params: SlotValidationParams): {
     durationMinutes,
     professionalId,
     scheduleConfig,
+    businessHours,
     existingAppointments,
     excludeAppointmentId,
     isEncaixe,
@@ -220,8 +307,8 @@ export function isTimeSlotAvailable(params: SlotValidationParams): {
     };
   }
 
-  // 1. Validar jornada de trabalho e turnos do profissional
-  const shiftInfo = getProfessionalShiftsForDate(scheduleConfig, date);
+  // 1. Validar jornada de trabalho e turnos do profissional (respeitando a tabela da barbearia)
+  const shiftInfo = getProfessionalShiftsForDate(scheduleConfig, date, businessHours);
   if (!shiftInfo.enabled || shiftInfo.shifts.length === 0) {
     return {
       available: false,
@@ -239,7 +326,7 @@ export function isTimeSlotAvailable(params: SlotValidationParams): {
   if (!fitsInShift) {
     return {
       available: false,
-      reason: `O serviço (${durationMinutes} min) ultrapassa o turno de trabalho ou coincide com o intervalo do profissional.`
+      reason: `O serviço (${durationMinutes} min) ultrapassa o turno de trabalho ou coincide com o intervalo de funcionamento.`
     };
   }
 
@@ -283,6 +370,7 @@ export function generateAvailableSlots(params: {
   durationMinutes: number;
   professionalId: string;
   scheduleConfig?: ProfessionalScheduleConfig;
+  businessHours?: WeeklyBusinessHours;
   existingAppointments: Appointment[];
   stepMinutes?: number;
   referenceDate?: Date;
@@ -297,12 +385,13 @@ export function generateAvailableSlots(params: {
     durationMinutes,
     professionalId,
     scheduleConfig,
+    businessHours,
     existingAppointments,
     stepMinutes = 30,
     referenceDate = new Date()
   } = params;
 
-  const shiftInfo = getProfessionalShiftsForDate(scheduleConfig, date);
+  const shiftInfo = getProfessionalShiftsForDate(scheduleConfig, date, businessHours);
   const allSlots: GeneratedSlot[] = [];
 
   if (!shiftInfo.enabled || shiftInfo.shifts.length === 0) {
@@ -334,6 +423,7 @@ export function generateAvailableSlots(params: {
       durationMinutes,
       professionalId,
       scheduleConfig,
+      businessHours,
       existingAppointments,
       referenceDate
     });

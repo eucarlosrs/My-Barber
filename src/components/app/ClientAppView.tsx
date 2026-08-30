@@ -298,10 +298,11 @@ export const ClientAppView: React.FC = () => {
       durationMinutes: serviceDuration,
       professionalId: selectedProfessional.id,
       scheduleConfig: selectedScheduleConfig,
+      businessHours: currentBarbershop.businessHours,
       existingAppointments: appointments,
       stepMinutes: 30
     });
-  }, [selectedDate, serviceDuration, selectedProfessional, selectedScheduleConfig, appointments]);
+  }, [selectedDate, serviceDuration, selectedProfessional, selectedScheduleConfig, currentBarbershop.businessHours, appointments]);
 
   // Sincroniza automaticamente a seleção de horário com o primeiro horário disponível
   useEffect(() => {
@@ -852,26 +853,6 @@ export const ClientAppView: React.FC = () => {
                       <MapPin className="w-3.5 h-3.5 shrink-0 hover:scale-110 transition-transform" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
                     </a>
                   </div>
-
-                  {/* Direct Business Hours Indicator on Top Header */}
-                  <button
-                    type="button"
-                    onClick={() => setShowBusinessHoursModal(true)}
-                    className="mt-1 flex items-center gap-1.5 text-[11px] text-neutral-300 hover:text-orange-400 bg-neutral-900/90 hover:bg-neutral-850 px-2 py-0.5 rounded-lg border border-neutral-800 transition-colors cursor-pointer w-fit shadow-sm"
-                    title="Ver tabela completa de horários de funcionamento"
-                  >
-                    <Clock className="w-3 h-3 text-orange-400 shrink-0" />
-                    <span>
-                      {todayBusinessHours?.isOpen
-                        ? `Hoje: ${todayBusinessHours.morningStart} às ${todayBusinessHours.morningEnd}${
-                            todayBusinessHours.hasLunchBreak
-                              ? ` • ${todayBusinessHours.afternoonStart} às ${todayBusinessHours.afternoonEnd}`
-                              : ` às ${todayBusinessHours.afternoonEnd}`
-                          }`
-                        : 'Hoje: Fechado'}
-                    </span>
-                    <span className="text-[9px] text-orange-400 font-bold ml-0.5">• Ver horários</span>
-                  </button>
                 </div>
               </div>
 

@@ -996,6 +996,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // REGRA FUNDAMENTAL DO MY BARBER: Validação estrita de disponibilidade e jornada
     if (!newApp.isEncaixe) {
       const sched = schedules.find(s => s.professionalId === newApp.professionalId);
+      const targetBarbershop = barbershops.find(b => b.id === newApp.tenantId) || currentBarbershop;
 
       const validation = isTimeSlotAvailable({
         date: newApp.date,
@@ -1003,6 +1004,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         durationMinutes: officialDuration > 0 ? officialDuration : 30,
         professionalId: newApp.professionalId,
         scheduleConfig: sched,
+        businessHours: targetBarbershop?.businessHours,
         existingAppointments: appointments,
         isEncaixe: false
       });
@@ -1048,6 +1050,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const srv = services.find(s => s.id === apt.serviceId);
     const officialDuration = srv?.durationMinutes || apt.serviceDuration || 30;
     const sched = schedules.find(s => s.professionalId === apt.professionalId);
+    const targetBarbershop = barbershops.find(b => b.id === apt.tenantId) || currentBarbershop;
 
     const validation = isTimeSlotAvailable({
       date: newDate,
@@ -1055,6 +1058,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       durationMinutes: officialDuration > 0 ? officialDuration : 30,
       professionalId: apt.professionalId,
       scheduleConfig: sched,
+      businessHours: targetBarbershop?.businessHours,
       existingAppointments: appointments,
       excludeAppointmentId: appointmentId,
       isEncaixe: apt.isEncaixe
