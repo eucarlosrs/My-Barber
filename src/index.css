@@ -288,3 +288,20 @@ body.light-mode ::-webkit-scrollbar-thumb:hover {
   transform-origin: center center;
 }
 
+/* Date picker calendar indicator visibility in dark theme */
+input[type="date"] {
+  color-scheme: dark;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(0.8) sepia(100%) saturate(300%) hue-rotate(350deg);
+  opacity: 0.9;
+  transition: filter 0.2s, opacity 0.2s;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  filter: invert(0.9) sepia(100%) saturate(600%) hue-rotate(360deg);
+  opacity: 1;
+}
+

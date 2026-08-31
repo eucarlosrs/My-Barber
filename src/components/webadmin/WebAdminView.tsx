@@ -519,12 +519,12 @@ export const WebAdminView: React.FC = () => {
           { id: 'DASHBOARD', label: 'Visão Geral', icon: Building2 },
           { id: 'SUBSCRIPTION', label: 'Minha Assinatura', icon: CreditCard, highlight: isPastDue || isSuspended },
           { id: 'SETTINGS', label: 'Identidade & Fotos', icon: Settings },
+          { id: 'PROFESSIONALS', label: `Profissionais (${professionals.length})`, icon: Users },
+          { id: 'SERVICES', label: `Serviços (${services.length})`, icon: Scissors },
           { id: 'APPOINTMENTS', label: `Agendamentos (${appointments.length})`, icon: CalendarCheck },
           { id: 'GALLERY', label: `Galeria & Portfólio (${galleryWorks.length})`, icon: Camera },
-          { id: 'PROFESSIONALS', label: `Profissionais (${professionals.length})`, icon: Users },
           { id: 'RAFFLES', label: `Sorteios (${raffles.filter(r => r.status === 'ATIVO').length})`, icon: Gift },
           { id: 'PROMOTIONS', label: `Promoções (${promotions.filter(p => p.active).length})`, icon: Tag },
-          { id: 'SERVICES', label: `Serviços (${services.length})`, icon: Scissors },
           { id: 'CLIENTS', label: `Clientes (${clients.length})`, icon: Calendar },
           { id: 'FINANCIAL', label: 'Relatórios & Comissões', icon: DollarSign }
         ].map(tab => {

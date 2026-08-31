@@ -1437,25 +1437,56 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="col-span-2">
-                    <label className="block text-[11px] font-semibold text-neutral-300 mb-1">Endereço (Rua e Bairro)</label>
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                  <div className="sm:col-span-6">
+                    <label className="block text-[11px] font-semibold text-neutral-300 mb-1">Rua / Logradouro</label>
                     <input
                       type="text"
-                      placeholder="Rua / Av. e Bairro"
-                      value={`${formState.street}, ${formState.neighborhood}`}
+                      placeholder="Ex: Av. Paulista, 1000"
+                      value={formState.street}
                       onChange={e => setFormState(prev => ({ ...prev, street: e.target.value }))}
                       className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
                     />
                   </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-neutral-300 mb-1">Cidade / UF</label>
+                  <div className="sm:col-span-6">
+                    <label className="block text-[11px] font-semibold text-neutral-300 mb-1">Bairro</label>
                     <input
                       type="text"
-                      placeholder="São Paulo - SP"
-                      value={`${formState.city} - ${formState.state}`}
+                      placeholder="Ex: Bela Vista"
+                      value={formState.neighborhood}
+                      onChange={e => setFormState(prev => ({ ...prev, neighborhood: e.target.value }))}
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div className="sm:col-span-5">
+                    <label className="block text-[11px] font-semibold text-neutral-300 mb-1">Cidade</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: São Paulo"
+                      value={formState.city}
                       onChange={e => setFormState(prev => ({ ...prev, city: e.target.value }))}
                       className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div className="sm:col-span-3">
+                    <label className="block text-[11px] font-semibold text-neutral-300 mb-1">Estado (UF)</label>
+                    <input
+                      type="text"
+                      maxLength={2}
+                      placeholder="SP"
+                      value={formState.state}
+                      onChange={e => setFormState(prev => ({ ...prev, state: e.target.value.toUpperCase() }))}
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 uppercase font-mono text-center"
+                    />
+                  </div>
+                  <div className="sm:col-span-4">
+                    <label className="block text-[11px] font-semibold text-neutral-300 mb-1">CEP</label>
+                    <input
+                      type="text"
+                      placeholder="01310-100"
+                      value={formState.zipCode}
+                      onChange={e => setFormState(prev => ({ ...prev, zipCode: e.target.value }))}
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
                     />
                   </div>
                 </div>

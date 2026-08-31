@@ -42,7 +42,10 @@ export const AppointmentsTab: React.FC = () => {
   const todayStr = getTodayLocalDateString();
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
-  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
+  const [startDate, setStartDate] = useState<string>(todayStr);
+  const [endDate, setEndDate] = useState<string>(todayStr);
+  const [isRangeMode, setIsRangeMode] = useState<boolean>(false);
+  const [activeDatePreset, setActiveDatePreset] = useState<'TODAY' | 'TOMORROW' | 'WEEK' | 'CUSTOM'>('TODAY');
   const [viewMode, setViewMode] = useState<'AGENDA' | 'LIST'>('AGENDA');
   
   // Modals
@@ -60,6 +63,44 @@ export const AppointmentsTab: React.FC = () => {
   const [isEncaixe, setIsEncaixe] = useState<boolean>(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Quick Date Selectors
+  const selectToday = () => {
+    const today = getTodayLocalDateString();
+    setStartDate(today);
+    setEndDate(today);
+    setIsRangeMode(false);
+    setActiveDatePreset('TODAY');
+  };
+
+  const selectTomorrow = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    const tmrw = getTodayLocalDateString(d);
+    setStartDate(tmrw);
+    setEndDate(tmrw);
+    setIsRangeMode(false);
+    setActiveDatePreset('TOMORROW');
+  };
+
+  const selectCurrentWeek = () => {
+    const now = new Date();
+    const currentDayOfWeek = now.getDay(); // 0 = Dom, 1 = Seg, ..., 6 = Sab
+    
+    // Segunda-feira como início da semana (se domingo = 0, recua 6 dias)
+    const distanceToMonday = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + distanceToMonday);
+
+    // Domingo como fim da semana (6 dias após a segunda)
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    setStartDate(getTodayLocalDateString(monday));
+    setEndDate(getTodayLocalDateString(sunday));
+    setIsRangeMode(true);
+    setActiveDatePreset('WEEK');
+  };
+
   // Filter appointments
   const filteredAppointments = appointments
     .filter(apt => {
@@ -69,15 +110,22 @@ export const AppointmentsTab: React.FC = () => {
       if (selectedStatus !== 'ALL' && apt.status !== selectedStatus) {
         return false;
       }
-      if (selectedDate && apt.date !== selectedDate) {
-        return false;
+      if (isRangeMode) {
+        if (startDate && apt.date < startDate) return false;
+        if (endDate && apt.date > endDate) return false;
+      } else {
+        if (startDate && apt.date !== startDate) return false;
       }
       return true;
     })
-    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+    .sort((a, b) => {
+      // Sort by date first, then by startTime
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
+      return a.startTime.localeCompare(b.startTime);
+    });
 
-  // Calculate day metrics
-  const dayAppointments = appointments.filter(a => a.date === selectedDate);
+  // Calculate metrics for selected range/day
+  const dayAppointments = filteredAppointments;
   const totalDayRevenue = dayAppointments
     .filter(a => a.status === 'AGENDADO' || a.status === 'CONCLUIDO')
     .reduce((sum, a) => sum + a.servicePrice, 0);
@@ -241,39 +289,101 @@ export const AppointmentsTab: React.FC = () => {
 
       {/* Visual Filter Bar & Metrics */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-3.5 sm:p-4 space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
-          {/* Date Selector & Quick Buttons */}
-          <div className="sm:col-span-5 flex items-center gap-1.5">
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={e => setSelectedDate(e.target.value)}
-              className="flex-1 bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 font-mono focus:outline-none focus:border-orange-500"
-            />
+        {/* Row 1: Date Range / Single Day & Quick Preset Buttons */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          {/* Quick Date Presets */}
+          <div className="flex items-center gap-1.5 flex-wrap">
             <button
-              onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
-              className={`px-3 py-2 rounded-xl text-xs font-bold transition-colors ${
-                selectedDate === new Date().toISOString().split('T')[0]
-                  ? 'bg-orange-500 text-neutral-950'
+              onClick={selectToday}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-sm ${
+                activeDatePreset === 'TODAY'
+                  ? 'bg-orange-500 text-neutral-950 font-black ring-2 ring-orange-500/40'
                   : 'bg-neutral-950 hover:bg-neutral-800 text-neutral-300 border border-neutral-800'
               }`}
             >
               Hoje
             </button>
             <button
-              onClick={() => {
-                const tmrw = new Date();
-                tmrw.setDate(tmrw.getDate() + 1);
-                setSelectedDate(tmrw.toISOString().split('T')[0]);
-              }}
-              className="px-3 py-2 bg-neutral-950 hover:bg-neutral-800 text-neutral-300 border border-neutral-800 rounded-xl text-xs font-bold"
+              onClick={selectTomorrow}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-sm ${
+                activeDatePreset === 'TOMORROW'
+                  ? 'bg-orange-500 text-neutral-950 font-black ring-2 ring-orange-500/40'
+                  : 'bg-neutral-950 hover:bg-neutral-800 text-neutral-300 border border-neutral-800'
+              }`}
             >
               Amanhã
             </button>
+            <button
+              onClick={selectCurrentWeek}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-sm flex items-center gap-1.5 ${
+                activeDatePreset === 'WEEK'
+                  ? 'bg-orange-500 text-neutral-950 font-black ring-2 ring-orange-500/40'
+                  : 'bg-neutral-950 hover:bg-neutral-800 text-neutral-300 border border-neutral-800'
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Semanal Atual</span>
+            </button>
+
+            {/* Toggle Range Mode */}
+            <button
+              onClick={() => {
+                setIsRangeMode(!isRangeMode);
+                setActiveDatePreset('CUSTOM');
+              }}
+              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                isRangeMode
+                  ? 'bg-neutral-800 text-orange-400 border-orange-500/40'
+                  : 'bg-neutral-950 text-neutral-400 border-neutral-800 hover:text-neutral-200'
+              }`}
+              title="Ativar seleção de múltiplos dias / período personalizado"
+            >
+              {isRangeMode ? '📅 Período Ativo' : '📅 Vários Dias'}
+            </button>
           </div>
 
+          {/* Date Picker Inputs (Single or Range) */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative flex items-center">
+              <Calendar className="w-4 h-4 text-orange-400 absolute left-3 pointer-events-none" />
+              <input
+                type="date"
+                value={startDate}
+                onChange={e => {
+                  setStartDate(e.target.value);
+                  if (!isRangeMode) setEndDate(e.target.value);
+                  setActiveDatePreset('CUSTOM');
+                }}
+                className="bg-neutral-950 border border-neutral-800 focus:border-orange-500 rounded-xl pl-9 pr-3 py-1.5 text-xs text-neutral-100 font-mono focus:outline-none transition-colors"
+                style={{ colorScheme: 'dark' }}
+              />
+            </div>
+
+            {isRangeMode && (
+              <>
+                <span className="text-neutral-500 text-xs font-bold">até</span>
+                <div className="relative flex items-center">
+                  <Calendar className="w-4 h-4 text-orange-400 absolute left-3 pointer-events-none" />
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={e => {
+                      setEndDate(e.target.value);
+                      setActiveDatePreset('CUSTOM');
+                    }}
+                    className="bg-neutral-950 border border-neutral-800 focus:border-orange-500 rounded-xl pl-9 pr-3 py-1.5 text-xs text-neutral-100 font-mono focus:outline-none transition-colors"
+                    style={{ colorScheme: 'dark' }}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Row 2: Selectors (Barber & Status) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-neutral-800/60">
           {/* Barbeiro Selector */}
-          <div className="sm:col-span-4">
+          <div>
             <select
               value={selectedProfessionalId}
               onChange={e => setSelectedProfessionalId(e.target.value)}
@@ -289,7 +399,7 @@ export const AppointmentsTab: React.FC = () => {
           </div>
 
           {/* Status Selector */}
-          <div className="sm:col-span-3">
+          <div>
             <select
               value={selectedStatus}
               onChange={e => setSelectedStatus(e.target.value)}
@@ -306,7 +416,9 @@ export const AppointmentsTab: React.FC = () => {
         {/* Compact Visual Indicators */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-neutral-800/80">
           <div className="bg-neutral-950 px-3 py-2 rounded-xl border border-neutral-800 flex items-center justify-between">
-            <span className="text-neutral-400 text-[11px] font-bold">Total no Dia</span>
+            <span className="text-neutral-400 text-[11px] font-bold">
+              {isRangeMode ? 'Total no Período' : 'Total no Dia'}
+            </span>
             <span className="text-xs font-extrabold text-neutral-100">{dayAppointments.length}</span>
           </div>
           <div className="bg-neutral-950 px-3 py-2 rounded-xl border border-neutral-800 flex items-center justify-between">
