@@ -669,6 +669,8 @@ export const RafflesTab: React.FC = () => {
           }))}
           barbershopName={currentBarbershop.name}
           barbershopLogo={currentBarbershop.logoUrl}
+          barbershopTheme={currentBarbershop.theme}
+          barbershopPrimaryColor={currentBarbershop.primaryColor}
           onCompleteRaffle={handleCompleteLiveRaffle}
         />
       )}
