@@ -369,10 +369,23 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
         <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 w-72 h-72 bg-gradient-to-t from-red-500/20 to-blue-500/0 rounded-full blur-3xl pointer-events-none" />
 
         {/* Top Controls: Sound & Close */}
-        <div className="w-full flex items-center justify-between pb-2 border-b border-neutral-800/80 relative z-10">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-neutral-400">
-            <Sparkles className="w-4 h-4 text-amber-400" />
-            <span className="text-white">{barbershopName}</span>
+        <div className="w-full flex items-center justify-between pb-2.5 border-b border-neutral-800/80 relative z-10">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-neutral-900 border border-amber-400/80 p-0.5 flex items-center justify-center shadow-[0_0_8px_rgba(251,191,36,0.3)] overflow-hidden shrink-0">
+              {barbershopLogo ? (
+                <AppImage
+                  src={barbershopLogo}
+                  alt={barbershopName}
+                  className="w-full h-full object-cover rounded-full"
+                  fallbackType="logo"
+                />
+              ) : (
+                <Scissors className="w-3 h-3 text-amber-400 stroke-[2.5]" />
+              )}
+            </div>
+            <span className="text-xs font-black tracking-wide text-neutral-200 uppercase font-heading truncate max-w-[190px]">
+              {barbershopName}
+            </span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -394,14 +407,22 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
           </div>
         </div>
 
-        {/* Header Title & Prize */}
-        <div className="text-center my-2 relative z-10 w-full">
-          <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-orange-500/15 border border-orange-500/40 text-orange-400 text-[10px] font-black uppercase tracking-wider mb-1">
-            {raffle.title}
-          </span>
-          <h2 className="text-lg sm:text-xl font-black font-heading text-amber-400 tracking-tight">
-            Prêmio: <span className="text-white font-bold">{raffle.prize}</span>
-          </h2>
+        {/* Header Title & Prize - Vintage / Premium Barber Aesthetic */}
+        <div className="text-center my-2.5 relative z-10 w-full px-2">
+          <div className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1 rounded-full bg-gradient-to-r from-amber-500/10 via-orange-500/20 to-amber-500/10 border border-amber-500/50 text-amber-300 text-[10px] font-black uppercase tracking-[0.2em] shadow-sm mb-1.5">
+            <span className="text-amber-400">✦</span>
+            <span>{raffle.title}</span>
+            <span className="text-amber-400">✦</span>
+          </div>
+
+          <div className="flex flex-col items-center justify-center">
+            <span className="text-[10px] font-black tracking-[0.25em] text-neutral-400 uppercase">
+              PRÊMIO EM DISPUTA
+            </span>
+            <h2 className="text-base sm:text-lg font-black font-heading bg-gradient-to-r from-amber-200 via-amber-400 to-yellow-300 bg-clip-text text-transparent tracking-tight leading-snug max-w-xs drop-shadow-md">
+              {raffle.prize}
+            </h2>
+          </div>
         </div>
 
         {/* ========================================================================= */}
