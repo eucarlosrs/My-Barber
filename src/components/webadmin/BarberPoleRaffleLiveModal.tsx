@@ -399,12 +399,9 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
           <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-orange-500/15 border border-orange-500/40 text-orange-400 text-[10px] font-black uppercase tracking-wider mb-1">
             {raffle.title}
           </span>
-          <h2 className="text-xl sm:text-2xl font-black font-heading text-white tracking-tight">
-            Sorteador Barber Pole
+          <h2 className="text-lg sm:text-xl font-black font-heading text-amber-400 tracking-tight">
+            Prêmio: <span className="text-white font-bold">{raffle.prize}</span>
           </h2>
-          <p className="text-xs text-neutral-400 mt-0.5">
-            Prêmio: <strong className="text-amber-400">{raffle.prize}</strong>
-          </p>
         </div>
 
         {/* ========================================================================= */}
