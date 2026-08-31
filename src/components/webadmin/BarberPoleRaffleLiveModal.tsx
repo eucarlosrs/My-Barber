@@ -9,13 +9,10 @@ import {
   X,
   Volume2,
   VolumeX,
-  Share2,
   RefreshCw,
-  Video,
-  Award,
-  Users
+  Play
 } from 'lucide-react';
-import { Raffle, UserType } from '../../types';
+import { Raffle } from '../../types';
 import { AppImage } from '../common/AppImage';
 import { BarbershopCelebration } from '../common/BarbershopCelebration';
 
@@ -25,6 +22,7 @@ interface BarberPoleRaffleLiveModalProps {
   raffle: Raffle;
   eligibleClients: Array<{ id: string; name: string; whatsapp?: string; avatarUrl?: string }>;
   barbershopName: string;
+  barbershopLogo?: string;
   onCompleteRaffle: (winnerId: string, winnerName: string, shouldHighlight: boolean) => void;
 }
 
@@ -34,6 +32,7 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
   raffle,
   eligibleClients,
   barbershopName,
+  barbershopLogo,
   onCompleteRaffle,
 }) => {
   // States: 'READY' -> 'SPINNING' -> 'DECELERATING' -> 'WINNER'
@@ -200,22 +199,16 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
       {/* Visual Celebration Confetti on Winner */}
       {phase === 'WINNER' && <BarbershopCelebration active={true} />}
 
-      <div className="bg-gradient-to-b from-neutral-900 via-neutral-950 to-black border-2 border-orange-500/80 rounded-3xl max-w-lg w-full p-5 sm:p-6 text-neutral-100 shadow-2xl relative overflow-hidden flex flex-col items-center">
+      <div className="bg-gradient-to-b from-neutral-900 via-neutral-950 to-black border-2 border-orange-500/70 rounded-3xl max-w-md w-full p-5 sm:p-6 text-neutral-100 shadow-2xl relative overflow-hidden flex flex-col items-center">
         {/* Decorative Ambient Glows */}
-        <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-72 h-72 bg-gradient-to-b from-orange-500/25 to-amber-500/0 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-72 h-72 bg-gradient-to-b from-orange-500/20 to-amber-500/0 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 w-72 h-72 bg-gradient-to-t from-red-500/20 to-blue-500/0 rounded-full blur-3xl pointer-events-none" />
 
         {/* Top Controls: Sound & Close */}
-        <div className="w-full flex items-center justify-between pb-3 border-b border-neutral-800 relative z-10">
-          <div className="flex items-center gap-2">
-            <span className="flex h-2.5 w-2.5 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
-            </span>
-            <div className="flex items-center gap-1 text-[11px] font-black uppercase tracking-wider text-neutral-300">
-              <Video className="w-3.5 h-3.5 text-red-500" />
-              <span>Modo Gravação / Ao Vivo</span>
-            </div>
+        <div className="w-full flex items-center justify-between pb-2 border-b border-neutral-800/80 relative z-10">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-neutral-400">
+            <Sparkles className="w-4 h-4 text-amber-400" />
+            <span className="text-white">{barbershopName}</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -237,124 +230,145 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
           </div>
         </div>
 
-        {/* Header Title */}
-        <div className="text-center my-3 relative z-10 w-full">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-500/15 border border-orange-500/40 text-orange-400 text-[10px] font-black uppercase tracking-wider mb-1.5">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>{raffle.title}</span>
+        {/* Header Title & Prize */}
+        <div className="text-center my-2.5 relative z-10 w-full">
+          <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-orange-500/15 border border-orange-500/40 text-orange-400 text-[10px] font-black uppercase tracking-wider mb-1">
+            {raffle.title}
           </span>
           <h2 className="text-xl sm:text-2xl font-black font-heading text-white tracking-tight">
             Sorteador Barber Pole
           </h2>
           <p className="text-xs text-neutral-400 mt-0.5">
-            Prêmio: <strong className="text-amber-400">{raffle.prize}</strong> • {participants.length} clientes concorrendo
+            Prêmio: <strong className="text-amber-400">{raffle.prize}</strong>
           </p>
         </div>
 
         {/* ========================================================================= */}
-        {/* BARBER POLE 3D CYLINDER & ROULETTE STAGE */}
+        {/* VERTICAL AUTHENTIC BARBER POLE 3D CYLINDER & STAGE */}
         {/* ========================================================================= */}
-        <div className="relative w-full my-3 flex flex-col items-center justify-center">
-          {/* Main Pole Container */}
-          <div className="relative w-72 sm:w-80 flex flex-col items-center">
+        <div className="relative w-full my-2 flex flex-col items-center justify-center">
+          {/* Authentic Vertical Barber Pole Structure */}
+          <div className="relative flex flex-col items-center">
             
-            {/* Top Chrome Cap & Light Bulb */}
-            <div className="w-28 h-6 bg-gradient-to-r from-neutral-400 via-neutral-100 to-neutral-500 rounded-t-full border-t-2 border-x-2 border-white/60 shadow-lg relative flex items-center justify-center">
-              <div className="w-6 h-3 bg-amber-300 rounded-t-full shadow-[0_0_12px_rgba(251,191,36,0.9)] animate-pulse" />
+            {/* Top Glowing Glass Globe Bulb */}
+            <div className="relative flex items-center justify-center -mb-1 z-20">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-b from-amber-100 via-amber-300 to-amber-500 shadow-[0_0_24px_rgba(251,191,36,0.85)] border border-white/60 flex items-center justify-center animate-pulse">
+                <div className="w-4 h-4 rounded-full bg-white/80 blur-xs" />
+              </div>
             </div>
-            <div className="w-36 h-4 bg-gradient-to-r from-neutral-600 via-neutral-300 to-neutral-700 rounded-md shadow-md border-y border-neutral-400" />
 
-            {/* Central Glass Tube with Rotating Stripes & Internal Participants */}
-            <div className="w-full h-44 sm:h-48 relative rounded-2xl overflow-hidden border-2 border-neutral-600 bg-neutral-950/90 shadow-2xl flex items-center justify-center p-3">
+            {/* Top Chrome Cap & Ornamental Crown */}
+            <div className="w-32 h-4 bg-gradient-to-r from-neutral-400 via-neutral-100 to-neutral-500 rounded-t-xl border-t-2 border-x-2 border-white/70 shadow-md relative z-10" />
+            <div className="w-40 h-3 bg-gradient-to-r from-neutral-600 via-neutral-300 to-neutral-700 rounded-sm shadow-md border-y border-neutral-400 relative z-10" />
+
+            {/* Vertical Barber Pole Glass Cylinder */}
+            <div className="w-48 sm:w-52 h-64 sm:h-72 relative rounded-2xl overflow-hidden border-4 border-neutral-700/80 bg-neutral-950 shadow-[0_0_30px_rgba(0,0,0,0.9)] flex items-center justify-center">
               
-              {/* Left Barber Pole Animated Strip */}
+              {/* Full-width Animated Barber Pole Stripes Background */}
               <div
-                className={`absolute left-0 top-0 bottom-0 w-7 sm:w-8 barber-pole-stripe opacity-90 border-r border-neutral-700 shadow-inner ${
-                  phase === 'SPINNING' ? 'brightness-125' : ''
+                className={`absolute inset-0 barber-pole-vertical-cylinder opacity-90 ${
+                  phase === 'SPINNING' ? 'fast brightness-125' : phase === 'DECELERATING' ? 'medium' : ''
                 }`}
-                style={{
-                  animationDuration: phase === 'SPINNING' ? '0.4s' : phase === 'DECELERATING' ? '0.9s' : '1.8s'
-                }}
               />
 
-              {/* Right Barber Pole Animated Strip */}
-              <div
-                className={`absolute right-0 top-0 bottom-0 w-7 sm:w-8 barber-pole-stripe opacity-90 border-l border-neutral-700 shadow-inner ${
-                  phase === 'SPINNING' ? 'brightness-125' : ''
-                }`}
-                style={{
-                  animationDuration: phase === 'SPINNING' ? '0.4s' : phase === 'DECELERATING' ? '0.9s' : '1.8s'
-                }}
-              />
+              {/* Glass Cylinder 3D Specular Highlight and Reflections */}
+              <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-white/30 via-white/10 to-transparent pointer-events-none z-20" />
+              <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white/20 via-white/5 to-transparent pointer-events-none z-20" />
+              <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-white/25 to-transparent pointer-events-none z-20" />
+              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent pointer-events-none z-20" />
 
-              {/* Glass Reflection Highlight */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none z-20" />
-              <div className="absolute top-0 left-8 right-8 h-1/2 bg-gradient-to-b from-white/15 to-transparent rounded-t-xl pointer-events-none z-20" />
-
-              {/* Center Spotlight & Selection Frame */}
-              <div className="relative z-10 w-full px-8 flex flex-col items-center justify-center text-center">
+              {/* Center Medallion (Logo before starting / Participants during spin / Winner on stop) */}
+              <div className="relative z-30 w-full px-3 flex flex-col items-center justify-center text-center">
+                
+                {/* READY PHASE: BARBERSHOP LOGO IN THE CENTER */}
                 {phase === 'READY' && (
                   <motion.div
                     initial={{ scale: 0.9, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className="flex flex-col items-center gap-2"
+                    className="flex flex-col items-center justify-center p-3 rounded-2xl bg-neutral-950/80 backdrop-blur-md border border-amber-500/50 shadow-2xl"
                   >
-                    <div className="w-14 h-14 rounded-full bg-orange-500/20 border-2 border-orange-500 flex items-center justify-center text-orange-400 shadow-lg shadow-orange-500/20">
-                      <Scissors className="w-7 h-7 stroke-[2.5]" />
+                    <div className="w-20 h-20 rounded-full bg-neutral-900 border-2 border-amber-400 p-1 flex items-center justify-center shadow-[0_0_20px_rgba(251,191,36,0.4)] overflow-hidden">
+                      {barbershopLogo ? (
+                        <AppImage
+                          src={barbershopLogo}
+                          alt={barbershopName}
+                          className="w-full h-full object-cover rounded-full"
+                          fallbackType="logo"
+                        />
+                      ) : (
+                        <div className="w-full h-full rounded-full bg-gradient-to-tr from-orange-500 to-amber-400 flex items-center justify-center text-neutral-950 font-black text-2xl">
+                          <Scissors className="w-8 h-8 stroke-[2.5]" />
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <span className="text-xs font-black uppercase text-amber-400 tracking-wider">
-                        Barber Pole Carregado
-                      </span>
-                      <p className="text-[11px] text-neutral-300">
-                        {participants.length} participantes com agendamento nos últimos 60 dias
-                      </p>
-                    </div>
+                    <span className="text-[11px] font-black uppercase text-amber-300 tracking-wider mt-2 max-w-[130px] truncate">
+                      {barbershopName}
+                    </span>
                   </motion.div>
                 )}
 
+                {/* SPINNING / DECELERATING PHASE: CLIENT NAMES ROLLING */}
                 {(phase === 'SPINNING' || phase === 'DECELERATING') && (
                   <motion.div
                     key={currentDisplayedParticipant.id + '-' + currentIndex}
-                    initial={{ y: 20, opacity: 0.4, scale: 0.9 }}
+                    initial={{ y: 24, opacity: 0.3, scale: 0.9 }}
                     animate={{ y: 0, opacity: 1, scale: 1 }}
-                    exit={{ y: -20, opacity: 0.4 }}
-                    transition={{ duration: 0.06 }}
-                    className="flex flex-col items-center justify-center w-full"
+                    exit={{ y: -24, opacity: 0.3 }}
+                    transition={{ duration: 0.05 }}
+                    className="flex flex-col items-center justify-center w-full p-3 rounded-2xl bg-neutral-950/85 backdrop-blur-md border border-amber-400 shadow-2xl"
                   >
-                    <div className="w-12 h-12 rounded-full bg-neutral-900 border-2 border-amber-400/80 flex items-center justify-center text-white font-black text-base shadow-[0_0_15px_rgba(251,191,36,0.4)] mb-1">
-                      {currentDisplayedParticipant.name.charAt(0)}
+                    <div className="w-14 h-14 rounded-full bg-neutral-900 border-2 border-amber-400 flex items-center justify-center text-white font-black text-xl shadow-[0_0_16px_rgba(251,191,36,0.6)] mb-1.5 overflow-hidden">
+                      {currentDisplayedParticipant.avatarUrl ? (
+                        <AppImage
+                          src={currentDisplayedParticipant.avatarUrl}
+                          alt={currentDisplayedParticipant.name}
+                          className="w-full h-full object-cover"
+                          fallbackType="avatar"
+                        />
+                      ) : (
+                        currentDisplayedParticipant.name.charAt(0)
+                      )}
                     </div>
-                    <span className="text-lg sm:text-xl font-black font-heading text-white tracking-tight truncate max-w-[200px] drop-shadow-md">
+                    <span className="text-base sm:text-lg font-black font-heading text-white tracking-tight truncate max-w-[150px] drop-shadow-md">
                       {currentDisplayedParticipant.name}
                     </span>
-                    <span className="text-[10px] font-mono text-amber-400 font-bold tracking-widest mt-0.5">
-                      GIRANDO NO BARBER POLE...
+                    <span className="text-[9px] font-mono text-amber-400 font-bold tracking-widest mt-0.5">
+                      SORTEANDO...
                     </span>
                   </motion.div>
                 )}
 
+                {/* WINNER PHASE: GRAND REVEAL WITH TROPHY */}
                 {phase === 'WINNER' && winner && (
                   <motion.div
                     initial={{ scale: 0.5, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ type: 'spring', damping: 12, stiffness: 180 }}
-                    className="flex flex-col items-center justify-center w-full"
+                    className="flex flex-col items-center justify-center w-full p-3 rounded-2xl bg-neutral-950/90 backdrop-blur-md border-2 border-amber-400 shadow-[0_0_30px_rgba(251,191,36,0.6)]"
                   >
                     <div className="relative mb-1">
-                      <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-300 text-neutral-950 font-black text-xl flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.8)] ring-4 ring-orange-500/60 animate-bounce">
-                        {winner.name.charAt(0)}
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-300 text-neutral-950 font-black text-2xl flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.9)] ring-4 ring-orange-500/80 animate-bounce overflow-hidden">
+                        {winner.avatarUrl ? (
+                          <AppImage
+                            src={winner.avatarUrl}
+                            alt={winner.name}
+                            className="w-full h-full object-cover"
+                            fallbackType="avatar"
+                          />
+                        ) : (
+                          winner.name.charAt(0)
+                        )}
                       </div>
                       <div className="absolute -top-2 -right-1 bg-red-500 text-white rounded-full p-1 shadow-md">
-                        <Trophy className="w-3.5 h-3.5" />
+                        <Trophy className="w-4 h-4" />
                       </div>
                     </div>
 
-                    <span className="text-[10px] font-black uppercase bg-amber-400 text-neutral-950 px-2.5 py-0.5 rounded-full shadow-md tracking-wider mb-1">
-                      🏆 GANHADOR(A) OFICIAL!
+                    <span className="text-[9px] font-black uppercase bg-amber-400 text-neutral-950 px-2 py-0.5 rounded-full shadow-md tracking-wider mb-1">
+                      🏆 GANHADOR(A)!
                     </span>
 
-                    <h4 className="text-xl sm:text-2xl font-black font-heading text-white tracking-tight drop-shadow-lg truncate max-w-[220px]">
+                    <h4 className="text-base sm:text-lg font-black font-heading text-white tracking-tight drop-shadow-lg truncate max-w-[150px]">
                       {winner.name}
                     </h4>
                   </motion.div>
@@ -362,24 +376,24 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
               </div>
             </div>
 
-            {/* Bottom Chrome Cap & Stand */}
-            <div className="w-36 h-4 bg-gradient-to-r from-neutral-600 via-neutral-300 to-neutral-700 rounded-md shadow-md border-y border-neutral-400" />
-            <div className="w-32 h-5 bg-gradient-to-r from-neutral-500 via-neutral-200 to-neutral-600 rounded-b-full border-b-2 border-x-2 border-white/40 shadow-xl" />
+            {/* Bottom Chrome Cap & Ornamental Base */}
+            <div className="w-40 h-3 bg-gradient-to-r from-neutral-600 via-neutral-300 to-neutral-700 rounded-sm shadow-md border-y border-neutral-400 relative z-10" />
+            <div className="w-32 h-4 bg-gradient-to-r from-neutral-500 via-neutral-200 to-neutral-600 rounded-b-xl border-b-2 border-x-2 border-white/50 shadow-xl relative z-10" />
           </div>
         </div>
 
         {/* ========================================================================= */}
         {/* ACTION BUTTONS: START / STOP / FINISH */}
         {/* ========================================================================= */}
-        <div className="w-full mt-3 space-y-3 relative z-10">
+        <div className="w-full mt-2.5 space-y-2.5 relative z-10">
           {phase === 'READY' && (
             <button
               type="button"
               onClick={startSpinning}
-              className="w-full py-4 bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 hover:from-orange-400 hover:to-amber-400 text-neutral-950 font-black text-sm rounded-2xl shadow-xl shadow-orange-500/30 flex items-center justify-center gap-2 cursor-pointer active:scale-98 transition-all tracking-wide animate-pulse"
+              className="w-full py-3.5 bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 hover:from-orange-400 hover:to-amber-400 text-neutral-950 font-black text-sm rounded-2xl shadow-xl shadow-orange-500/30 flex items-center justify-center gap-2 cursor-pointer active:scale-98 transition-all tracking-wide animate-pulse"
             >
-              <Scissors className="w-5 h-5 stroke-[2.5]" />
-              <span>💈 INICIAR SORTEIO NO BARBER POLE</span>
+              <Play className="w-4 h-4 fill-current" />
+              <span>Iniciar Sorteio</span>
             </button>
           )}
 
@@ -387,7 +401,7 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
             <button
               type="button"
               onClick={stopSpinning}
-              className="w-full py-4 bg-gradient-to-r from-red-600 via-rose-500 to-red-600 hover:from-red-500 hover:to-rose-400 text-white font-black text-sm rounded-2xl shadow-xl shadow-red-500/40 flex items-center justify-center gap-2 cursor-pointer active:scale-98 transition-all tracking-wider animate-bounce"
+              className="w-full py-3.5 bg-gradient-to-r from-red-600 via-rose-500 to-red-600 hover:from-red-500 hover:to-rose-400 text-white font-black text-sm rounded-2xl shadow-xl shadow-red-500/40 flex items-center justify-center gap-2 cursor-pointer active:scale-98 transition-all tracking-wider animate-bounce"
             >
               <Trophy className="w-5 h-5" />
               <span>🛑 PARAR E REVELAR GANHADOR!</span>
@@ -395,14 +409,14 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
           )}
 
           {phase === 'DECELERATING' && (
-            <div className="w-full py-4 bg-neutral-900/90 border border-amber-500/50 text-amber-300 font-black text-xs rounded-2xl flex items-center justify-center gap-2 shadow-inner">
+            <div className="w-full py-3.5 bg-neutral-900/90 border border-amber-500/50 text-amber-300 font-black text-xs rounded-2xl flex items-center justify-center gap-2 shadow-inner">
               <RefreshCw className="w-4 h-4 animate-spin text-amber-400" />
-              <span>PARANDO O BARBER POLE... SEGURE A GRAVAÇÃO!</span>
+              <span>PARANDO O BARBER POLE...</span>
             </div>
           )}
 
           {phase === 'WINNER' && winner && (
-            <div className="space-y-3 animate-fade-in">
+            <div className="space-y-2.5 animate-fade-in">
               {/* Option to Pin to Highlights */}
               <div className="bg-neutral-900 border border-amber-500/40 p-3 rounded-2xl flex items-center justify-between gap-3 shadow-inner">
                 <div className="flex items-center gap-2.5">
@@ -414,7 +428,7 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
                       Fixar no "Destaques & Novidades"
                     </div>
                     <div className="text-[10px] text-neutral-400">
-                      Exibe o card do ganhador na página inicial do App do Cliente
+                      Exibe o card do ganhador na tela inicial do App do Cliente
                     </div>
                   </div>
                 </div>
@@ -453,7 +467,7 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
                     setPhase('READY');
                     setWinner(null);
                   }}
-                  className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold rounded-2xl text-xs transition-colors flex items-center gap-1.5"
+                  className="px-3.5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold rounded-2xl text-xs transition-colors flex items-center gap-1.5"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>Girar Novamente</span>
@@ -462,10 +476,10 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
                 <button
                   type="button"
                   onClick={handleSaveAndClose}
-                  className="flex-1 py-3 bg-orange-500 hover:bg-orange-400 text-neutral-950 font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 active:scale-95 transition-all cursor-pointer"
+                  className="flex-1 py-2.5 bg-orange-500 hover:bg-orange-400 text-neutral-950 font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 active:scale-95 transition-all cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Salvar & Concluir Sorteio</span>
+                  <span>Salvar & Concluir</span>
                 </button>
               </div>
             </div>

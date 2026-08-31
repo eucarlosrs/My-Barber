@@ -668,6 +668,7 @@ export const RafflesTab: React.FC = () => {
             avatarUrl: c.avatarUrl
           }))}
           barbershopName={currentBarbershop.name}
+          barbershopLogo={currentBarbershop.logoUrl}
           onCompleteRaffle={handleCompleteLiveRaffle}
         />
       )}
