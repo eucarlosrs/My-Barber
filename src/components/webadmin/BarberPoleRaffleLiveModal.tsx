@@ -16,6 +16,162 @@ import { Raffle } from '../../types';
 import { AppImage } from '../common/AppImage';
 import { BarbershopCelebration } from '../common/BarbershopCelebration';
 
+// ============================================================================
+// 3D HELICAL CYLINDER BARBER POLE CANVAS COMPONENT
+// ============================================================================
+interface BarberPoleCanvasProps {
+  speedMultiplier: number;
+  width?: number;
+  height?: number;
+}
+
+const BarberPoleCanvas: React.FC<BarberPoleCanvasProps> = ({
+  speedMultiplier,
+  width = 150,
+  height = 290
+}) => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const animFrameIdRef = useRef<number | null>(null);
+  const rotationRef = useRef<number>(0);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Retina display support
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.scale(dpr, dpr);
+
+    const W = width;
+    const H = height;
+    const radius = W / 2;
+    const numHelixes = 3.5; // Number of complete spiral turns along vertical height
+
+    // Pre-allocate buffer
+    const imgData = ctx.createImageData(W, H);
+    const data = imgData.data;
+
+    // Precalculate cylinder X mapping to avoid Math.asin in inner loop
+    const xToAngle = new Float32Array(W);
+    const xShade = new Float32Array(W);
+    const xValid = new Uint8Array(W);
+
+    for (let x = 0; x < W; x++) {
+      const u = (x - radius) / radius;
+      if (Math.abs(u) <= 0.999) {
+        xValid[x] = 1;
+        const angle = Math.asin(u);
+        xToAngle[x] = angle;
+        // 3D cylindrical lighting (diffuse + specular + edge falloff)
+        const cosAngle = Math.cos(angle);
+        const diffuse = cosAngle * 0.75;
+        const spec = Math.pow(Math.max(0, Math.cos(angle - 0.35)), 10) * 0.45;
+        const edgeShadow = Math.pow(cosAngle, 0.4);
+        xShade[x] = Math.min(1.2, Math.max(0.15, (0.28 + diffuse + spec) * edgeShadow));
+      } else {
+        xValid[x] = 0;
+      }
+    }
+
+    let lastTime = performance.now();
+
+    const render = (now: number) => {
+      const dt = (now - lastTime) / 1000;
+      lastTime = now;
+
+      // Update rotation
+      rotationRef.current += dt * speedMultiplier * 4.5;
+      const rotation = rotationRef.current;
+      const twoPi = Math.PI * 2;
+
+      let p = 0;
+      for (let y = 0; y < H; y++) {
+        // Helical pitch offset based on vertical Y
+        const yOffset = (y / H) * (numHelixes * twoPi) - rotation;
+
+        for (let x = 0; x < W; x++) {
+          if (xValid[x] === 0) {
+            data[p] = 0;
+            data[p + 1] = 0;
+            data[p + 2] = 0;
+            data[p + 3] = 0;
+            p += 4;
+            continue;
+          }
+
+          const angle = xToAngle[x];
+          let totalAngle = (angle + yOffset) % twoPi;
+          if (totalAngle < 0) totalAngle += twoPi;
+
+          // Standard 4-band Barber Pole sequence: RED -> WHITE -> BLUE -> WHITE
+          // Each band occupies 90 degrees (PI / 2 radians)
+          const band = (totalAngle / (Math.PI / 2)) % 4;
+          let r = 255;
+          let g = 255;
+          let b = 255;
+
+          if (band < 1) {
+            // RED BAND (Vibrant Classic Barber Red)
+            r = 220;
+            g = 35;
+            b = 35;
+          } else if (band < 2) {
+            // WHITE BAND
+            r = 248;
+            g = 250;
+            b = 252;
+          } else if (band < 3) {
+            // BLUE BAND (Deep Classic Barber Blue)
+            r = 30;
+            g = 95;
+            b = 225;
+          } else {
+            // WHITE BAND
+            r = 248;
+            g = 250;
+            b = 252;
+          }
+
+          const shade = xShade[x];
+
+          data[p] = Math.min(255, r * shade);
+          data[p + 1] = Math.min(255, g * shade);
+          data[p + 2] = Math.min(255, b * shade);
+          data[p + 3] = 255; // fully opaque cylinder
+          p += 4;
+        }
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+
+      animFrameIdRef.current = requestAnimationFrame(render);
+    };
+
+    animFrameIdRef.current = requestAnimationFrame(render);
+
+    return () => {
+      if (animFrameIdRef.current) {
+        cancelAnimationFrame(animFrameIdRef.current);
+      }
+    };
+  }, [speedMultiplier, width, height]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{ width, height }}
+      className="rounded-xl shadow-inner pointer-events-none block"
+    />
+  );
+};
+
+// ============================================================================
+// MODAL COMPONENT
+// ============================================================================
 interface BarberPoleRaffleLiveModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -41,6 +197,13 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
   const [winner, setWinner] = useState<{ id: string; name: string; whatsapp?: string; avatarUrl?: string } | null>(null);
   const [shouldPinToHighlights, setShouldPinToHighlights] = useState<boolean>(true);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+
+  // Dynamic animation speed for the 3D canvas
+  const canvasSpeed = useMemo(() => {
+    if (phase === 'SPINNING') return 4.5;
+    if (phase === 'DECELERATING') return 1.8;
+    return 0.8; // Relaxed elegant ambient rotation on READY and WINNER
+  }, [phase]);
 
   // Audio synthesis for realistic slot-machine / roulette ticking
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -231,7 +394,7 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
         </div>
 
         {/* Header Title & Prize */}
-        <div className="text-center my-2.5 relative z-10 w-full">
+        <div className="text-center my-2 relative z-10 w-full">
           <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-orange-500/15 border border-orange-500/40 text-orange-400 text-[10px] font-black uppercase tracking-wider mb-1">
             {raffle.title}
           </span>
@@ -244,7 +407,7 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
         </div>
 
         {/* ========================================================================= */}
-        {/* VERTICAL AUTHENTIC BARBER POLE 3D CYLINDER & STAGE */}
+        {/* VERTICAL AUTHENTIC 3D CYLINDRICAL BARBER POLE */}
         {/* ========================================================================= */}
         <div className="relative w-full my-2 flex flex-col items-center justify-center">
           {/* Authentic Vertical Barber Pole Structure */}
@@ -252,42 +415,44 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
             
             {/* Top Glowing Glass Globe Bulb */}
             <div className="relative flex items-center justify-center -mb-1 z-20">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-b from-amber-100 via-amber-300 to-amber-500 shadow-[0_0_24px_rgba(251,191,36,0.85)] border border-white/60 flex items-center justify-center animate-pulse">
-                <div className="w-4 h-4 rounded-full bg-white/80 blur-xs" />
+              <div className="w-11 h-11 rounded-full bg-gradient-to-b from-amber-100 via-amber-300 to-amber-500 shadow-[0_0_24px_rgba(251,191,36,0.9)] border border-white/60 flex items-center justify-center animate-pulse">
+                <div className="w-3.5 h-3.5 rounded-full bg-white/90 blur-xs" />
               </div>
             </div>
 
             {/* Top Chrome Cap & Ornamental Crown */}
-            <div className="w-32 h-4 bg-gradient-to-r from-neutral-400 via-neutral-100 to-neutral-500 rounded-t-xl border-t-2 border-x-2 border-white/70 shadow-md relative z-10" />
-            <div className="w-40 h-3 bg-gradient-to-r from-neutral-600 via-neutral-300 to-neutral-700 rounded-sm shadow-md border-y border-neutral-400 relative z-10" />
+            <div className="w-28 h-3.5 bg-gradient-to-r from-neutral-400 via-neutral-100 to-neutral-500 rounded-t-xl border-t-2 border-x-2 border-white/70 shadow-md relative z-10" />
+            <div className="w-36 h-3 bg-gradient-to-r from-neutral-600 via-neutral-300 to-neutral-700 rounded-sm shadow-md border-y border-neutral-400 relative z-10" />
 
-            {/* Vertical Barber Pole Glass Cylinder */}
-            <div className="w-48 sm:w-52 h-64 sm:h-72 relative rounded-2xl overflow-hidden border-4 border-neutral-700/80 bg-neutral-950 shadow-[0_0_30px_rgba(0,0,0,0.9)] flex items-center justify-center">
+            {/* Vertical Barber Pole Glass Cylinder Enclosure */}
+            <div className="w-36 sm:w-40 h-64 sm:h-72 relative rounded-2xl overflow-hidden border-2 border-neutral-600 bg-neutral-950 shadow-[0_0_25px_rgba(0,0,0,0.85)] flex items-center justify-center p-0.5">
               
-              {/* Full-width Animated Barber Pole Stripes Background */}
-              <div
-                className={`absolute inset-0 barber-pole-vertical-cylinder opacity-90 ${
-                  phase === 'SPINNING' ? 'fast brightness-125' : phase === 'DECELERATING' ? 'medium' : ''
-                }`}
-              />
+              {/* 3D Photorealistic Canvas Helical Barber Pole */}
+              <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+                <BarberPoleCanvas
+                  speedMultiplier={canvasSpeed}
+                  width={160}
+                  height={290}
+                />
+              </div>
 
-              {/* Glass Cylinder 3D Specular Highlight and Reflections */}
-              <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-white/30 via-white/10 to-transparent pointer-events-none z-20" />
-              <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white/20 via-white/5 to-transparent pointer-events-none z-20" />
-              <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-white/25 to-transparent pointer-events-none z-20" />
-              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent pointer-events-none z-20" />
+              {/* Glass Cylinder Surface Reflections and Specular Highlights */}
+              <div className="absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-white/35 via-white/10 to-transparent pointer-events-none z-20" />
+              <div className="absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-white/25 via-white/5 to-transparent pointer-events-none z-20" />
+              <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-white/30 to-transparent pointer-events-none z-20" />
+              <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/70 to-transparent pointer-events-none z-20" />
 
               {/* Center Medallion (Logo before starting / Participants during spin / Winner on stop) */}
-              <div className="relative z-30 w-full px-3 flex flex-col items-center justify-center text-center">
+              <div className="relative z-30 w-full px-2 flex flex-col items-center justify-center text-center">
                 
                 {/* READY PHASE: BARBERSHOP LOGO IN THE CENTER */}
                 {phase === 'READY' && (
                   <motion.div
                     initial={{ scale: 0.9, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className="flex flex-col items-center justify-center p-3 rounded-2xl bg-neutral-950/80 backdrop-blur-md border border-amber-500/50 shadow-2xl"
+                    className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-neutral-950/85 backdrop-blur-md border border-amber-500/60 shadow-2xl"
                   >
-                    <div className="w-20 h-20 rounded-full bg-neutral-900 border-2 border-amber-400 p-1 flex items-center justify-center shadow-[0_0_20px_rgba(251,191,36,0.4)] overflow-hidden">
+                    <div className="w-16 h-16 rounded-full bg-neutral-900 border-2 border-amber-400 p-0.5 flex items-center justify-center shadow-[0_0_18px_rgba(251,191,36,0.5)] overflow-hidden">
                       {barbershopLogo ? (
                         <AppImage
                           src={barbershopLogo}
@@ -296,12 +461,12 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
                           fallbackType="logo"
                         />
                       ) : (
-                        <div className="w-full h-full rounded-full bg-gradient-to-tr from-orange-500 to-amber-400 flex items-center justify-center text-neutral-950 font-black text-2xl">
-                          <Scissors className="w-8 h-8 stroke-[2.5]" />
+                        <div className="w-full h-full rounded-full bg-gradient-to-tr from-orange-500 to-amber-400 flex items-center justify-center text-neutral-950 font-black text-xl">
+                          <Scissors className="w-7 h-7 stroke-[2.5]" />
                         </div>
                       )}
                     </div>
-                    <span className="text-[11px] font-black uppercase text-amber-300 tracking-wider mt-2 max-w-[130px] truncate">
+                    <span className="text-[10px] font-black uppercase text-amber-300 tracking-wider mt-1.5 max-w-[110px] truncate">
                       {barbershopName}
                     </span>
                   </motion.div>
@@ -311,13 +476,13 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
                 {(phase === 'SPINNING' || phase === 'DECELERATING') && (
                   <motion.div
                     key={currentDisplayedParticipant.id + '-' + currentIndex}
-                    initial={{ y: 24, opacity: 0.3, scale: 0.9 }}
+                    initial={{ y: 20, opacity: 0.3, scale: 0.9 }}
                     animate={{ y: 0, opacity: 1, scale: 1 }}
-                    exit={{ y: -24, opacity: 0.3 }}
+                    exit={{ y: -20, opacity: 0.3 }}
                     transition={{ duration: 0.05 }}
-                    className="flex flex-col items-center justify-center w-full p-3 rounded-2xl bg-neutral-950/85 backdrop-blur-md border border-amber-400 shadow-2xl"
+                    className="flex flex-col items-center justify-center w-full p-2.5 rounded-2xl bg-neutral-950/90 backdrop-blur-md border border-amber-400 shadow-2xl"
                   >
-                    <div className="w-14 h-14 rounded-full bg-neutral-900 border-2 border-amber-400 flex items-center justify-center text-white font-black text-xl shadow-[0_0_16px_rgba(251,191,36,0.6)] mb-1.5 overflow-hidden">
+                    <div className="w-12 h-12 rounded-full bg-neutral-900 border-2 border-amber-400 flex items-center justify-center text-white font-black text-lg shadow-[0_0_15px_rgba(251,191,36,0.6)] mb-1 overflow-hidden">
                       {currentDisplayedParticipant.avatarUrl ? (
                         <AppImage
                           src={currentDisplayedParticipant.avatarUrl}
@@ -329,10 +494,10 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
                         currentDisplayedParticipant.name.charAt(0)
                       )}
                     </div>
-                    <span className="text-base sm:text-lg font-black font-heading text-white tracking-tight truncate max-w-[150px] drop-shadow-md">
+                    <span className="text-sm font-black font-heading text-white tracking-tight truncate max-w-[120px] drop-shadow-md">
                       {currentDisplayedParticipant.name}
                     </span>
-                    <span className="text-[9px] font-mono text-amber-400 font-bold tracking-widest mt-0.5">
+                    <span className="text-[8px] font-mono text-amber-400 font-bold tracking-widest mt-0.5">
                       SORTEANDO...
                     </span>
                   </motion.div>
@@ -344,10 +509,10 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
                     initial={{ scale: 0.5, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ type: 'spring', damping: 12, stiffness: 180 }}
-                    className="flex flex-col items-center justify-center w-full p-3 rounded-2xl bg-neutral-950/90 backdrop-blur-md border-2 border-amber-400 shadow-[0_0_30px_rgba(251,191,36,0.6)]"
+                    className="flex flex-col items-center justify-center w-full p-2.5 rounded-2xl bg-neutral-950/90 backdrop-blur-md border-2 border-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.7)]"
                   >
                     <div className="relative mb-1">
-                      <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-300 text-neutral-950 font-black text-2xl flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.9)] ring-4 ring-orange-500/80 animate-bounce overflow-hidden">
+                      <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-300 text-neutral-950 font-black text-xl flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.9)] ring-4 ring-orange-500/80 animate-bounce overflow-hidden">
                         {winner.avatarUrl ? (
                           <AppImage
                             src={winner.avatarUrl}
@@ -360,15 +525,15 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
                         )}
                       </div>
                       <div className="absolute -top-2 -right-1 bg-red-500 text-white rounded-full p-1 shadow-md">
-                        <Trophy className="w-4 h-4" />
+                        <Trophy className="w-3.5 h-3.5" />
                       </div>
                     </div>
 
-                    <span className="text-[9px] font-black uppercase bg-amber-400 text-neutral-950 px-2 py-0.5 rounded-full shadow-md tracking-wider mb-1">
+                    <span className="text-[8px] font-black uppercase bg-amber-400 text-neutral-950 px-2 py-0.5 rounded-full shadow-md tracking-wider mb-1">
                       🏆 GANHADOR(A)!
                     </span>
 
-                    <h4 className="text-base sm:text-lg font-black font-heading text-white tracking-tight drop-shadow-lg truncate max-w-[150px]">
+                    <h4 className="text-sm font-black font-heading text-white tracking-tight drop-shadow-lg truncate max-w-[120px]">
                       {winner.name}
                     </h4>
                   </motion.div>
@@ -377,8 +542,8 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
             </div>
 
             {/* Bottom Chrome Cap & Ornamental Base */}
-            <div className="w-40 h-3 bg-gradient-to-r from-neutral-600 via-neutral-300 to-neutral-700 rounded-sm shadow-md border-y border-neutral-400 relative z-10" />
-            <div className="w-32 h-4 bg-gradient-to-r from-neutral-500 via-neutral-200 to-neutral-600 rounded-b-xl border-b-2 border-x-2 border-white/50 shadow-xl relative z-10" />
+            <div className="w-36 h-3 bg-gradient-to-r from-neutral-600 via-neutral-300 to-neutral-700 rounded-sm shadow-md border-y border-neutral-400 relative z-10" />
+            <div className="w-28 h-3.5 bg-gradient-to-r from-neutral-500 via-neutral-200 to-neutral-600 rounded-b-xl border-b-2 border-x-2 border-white/50 shadow-xl relative z-10" />
           </div>
         </div>
 

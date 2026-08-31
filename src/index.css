@@ -305,36 +305,5 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   opacity: 1;
 }
 
-@keyframes barberPoleMove {
-  0% {
-    background-position: 0 0;
-  }
-  100% {
-    background-position: 0 80px;
-  }
-}
 
-.barber-pole-vertical-cylinder {
-  background: repeating-linear-gradient(
-    -45deg,
-    #dc2626 0px,
-    #dc2626 14px,
-    #ffffff 14px,
-    #ffffff 24px,
-    #2563eb 24px,
-    #2563eb 38px,
-    #ffffff 38px,
-    #ffffff 48px
-  );
-  background-size: 80px 80px;
-  animation: barberPoleMove 2s linear infinite;
-}
-
-.barber-pole-vertical-cylinder.fast {
-  animation: barberPoleMove 0.4s linear infinite;
-}
-
-.barber-pole-vertical-cylinder.medium {
-  animation: barberPoleMove 0.9s linear infinite;
-}
 
