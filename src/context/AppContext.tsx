@@ -1390,11 +1390,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const currentStaff = tenantUsers.filter(
       u => u.role === 'PROFISSIONAL' || u.role === 'PROPRIETARIO' || u.role === 'GERENTE'
     );
-    const planConfig = MY_BARBER_PLANS[currentBarbershop.planId] || Object.values(MY_BARBER_PLANS)[0];
-    if (currentStaff.length >= planConfig.maxProfessionals) {
+    const customPlan = customPlans.find(p => p.id === currentBarbershop.planId);
+    const maxStaff = customPlan && customPlan.limits?.maxProfessionals !== undefined
+      ? (customPlan.limits.maxProfessionals === 'UNLIMITED' ? 9999 : Number(customPlan.limits.maxProfessionals))
+      : (MY_BARBER_PLANS[currentBarbershop.planId]?.maxProfessionals || 10);
+    const planName = customPlan ? customPlan.name : (MY_BARBER_PLANS[currentBarbershop.planId]?.name || 'Plano Oficial');
+
+    if (currentStaff.length >= maxStaff) {
       return {
         success: false,
-        error: `Limite de equipe do ${planConfig.name} atingido (${currentStaff.length}/${planConfig.maxProfessionals} membros cadastrados, incluindo proprietário, gerente e profissionais).`
+        error: `Limite de equipe do ${planName} atingido (${currentStaff.length}/${maxStaff} membros cadastrados, incluindo proprietário, gerente e profissionais).`
       };
     }
 
@@ -1658,11 +1663,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const currentStaff = users.filter(
       u => u.tenantId === data.tenantId && (u.role === 'PROFISSIONAL' || u.role === 'PROPRIETARIO' || u.role === 'GERENTE')
     );
-    const planConfig = MY_BARBER_PLANS[targetShop.planId] || Object.values(MY_BARBER_PLANS)[0];
-    if (currentStaff.length >= planConfig.maxProfessionals) {
+    const customPlan = customPlans.find(p => p.id === targetShop.planId);
+    const maxStaff = customPlan && customPlan.limits?.maxProfessionals !== undefined
+      ? (customPlan.limits.maxProfessionals === 'UNLIMITED' ? 9999 : Number(customPlan.limits.maxProfessionals))
+      : (MY_BARBER_PLANS[targetShop.planId]?.maxProfessionals || 10);
+    const planName = customPlan ? customPlan.name : (MY_BARBER_PLANS[targetShop.planId]?.name || 'Plano Oficial');
+
+    if (currentStaff.length >= maxStaff) {
       return {
         success: false,
-        error: `Limite de equipe do plano atingido (${currentStaff.length}/${planConfig.maxProfessionals} membros cadastrados para ${targetShop.name}).`
+        error: `Limite de equipe do ${planName} atingido (${currentStaff.length}/${maxStaff} membros cadastrados para ${targetShop.name}).`
       };
     }
 
@@ -1893,7 +1903,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Initialize Mercado Pago Recurring Subscription
     const trialStartDate = now.toISOString().split('T')[0];
-    const trialEndDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const trialEndDate = new Date(Date.now() + (isTrial ? 3 : 14) * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    const targetPlan = customPlans.find(p => p.id === input.planId) || (MY_BARBER_PLANS[input.planId] ? {
+      id: input.planId,
+      name: MY_BARBER_PLANS[input.planId].name,
+      priceMonthly: MY_BARBER_PLANS[input.planId].priceMonthly,
+      billingCycle: 'MONTHLY' as const,
+      hasTrial: isTrial,
+      trialDuration: 3,
+      trialUnit: 'DAYS' as const
+    } : {
+      id: 'PLANO_UNICO',
+      name: 'Plano Único & Fixo',
+      priceMonthly: 49.90,
+      billingCycle: 'MONTHLY' as const,
+      hasTrial: isTrial,
+      trialDuration: 3,
+      trialUnit: 'DAYS' as const
+    });
 
     const initialSubscription: Subscription = {
       id: `sub-${newTenantId}`,
@@ -1903,15 +1931,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       payerName: input.managerName,
       payerPhone: input.managerWhatsApp,
       mercadopagoSubscriptionId: `mp-sub-${Date.now()}`,
-      status: 'PENDING',
-      plan: 'Plano MY BARBER',
-      currentPrice: 0.00,
-      billingCycle: 'MONTHLY',
-      isInTrial: false,
+      status: isTrial ? 'TRIAL_14_DAYS' : 'PENDING',
+      plan: targetPlan.name,
+      planId: targetPlan.id,
+      currentPrice: isTrial ? 0.00 : targetPlan.priceMonthly,
+      billingCycle: targetPlan.billingCycle || 'MONTHLY',
+      isInTrial: isTrial,
       trialStartDate,
       trialEndDate,
       paidBillingCount: 0,
-      trialOrLaunchPeriod: true,
+      trialOrLaunchPeriod: isTrial,
       billingCount: 0,
       nextBillingDate: trialEndDate,
       initPointUrl: `https://www.mercadopago.com.br/subscriptions/checkout?preapproval_id=mp-sub-${Date.now()}`,
@@ -1923,13 +1952,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSubscriptions(prev => [initialSubscription, ...prev]);
     syncDoc('subscriptions', initialSubscription.id, initialSubscription);
 
-    // Call backend asynchronously to create on Mercado Pago
+    // Call backend asynchronously to create on Mercado Pago with selected plan
     createSubscription({
       barbershopId: newTenantId,
       barbershopName: input.name,
       payerEmail: input.managerEmail || `${input.slug}@mybarber.com.br`,
       payerName: input.managerName,
-      payerPhone: input.managerWhatsApp
+      payerPhone: input.managerWhatsApp,
+      planId: input.planId
     }).catch(e => console.warn('Background subscription creation:', e));
 
     addAuditLog({
@@ -1939,7 +1969,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       action: 'CADASTRO_BARBEARIA',
       targetTenantId: newTenantId,
       targetTenantName: input.name,
-      details: `Nova barbearia cadastrada com assinatura recorrente Mercado Pago (R$ 49,90/mês nos 3 primeiros meses, R$ 69,90 após). Gestor: ${input.managerName}.`,
+      details: `Nova barbearia cadastrada no plano "${targetPlan.name}" (${isTrial ? 'Modalidade Teste Grátis 3 dias' : `R$ ${targetPlan.priceMonthly.toFixed(2).replace('.', ',')}/mês`}). Gestor: ${input.managerName}.`,
       status: 'SUCESSO'
     });
 

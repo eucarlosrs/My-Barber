@@ -16,9 +16,12 @@ import {
   X,
   CheckCircle2,
   AlertCircle,
-  Layers
+  Layers,
+  ArrowRight,
+  Sparkles,
+  Tag
 } from 'lucide-react';
-import { MY_BARBER_PLANS } from '../../types';
+import { MY_BARBER_PLANS, CustomPlan } from '../../types';
 import { MasterAdminBarbershops } from './MasterAdminBarbershops';
 import { MasterAdminUsers } from './MasterAdminUsers';
 import { MasterAdminServicesAppointments } from './MasterAdminServicesAppointments';
@@ -35,7 +38,8 @@ export const MasterAdminView: React.FC = () => {
     users,
     allServices,
     allAppointments,
-    auditLogs
+    auditLogs,
+    customPlans
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<MasterAdminTab>('overview');
@@ -44,10 +48,16 @@ export const MasterAdminView: React.FC = () => {
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [errorToast, setErrorToast] = useState<string | null>(null);
 
-  // Total MRR calculation
+  // Active custom plans or fallback
+  const activeSaaSPlans = customPlans && customPlans.length > 0
+    ? customPlans.filter(p => p.status === 'ACTIVE')
+    : [];
+
+  // Total MRR calculation using dynamic plans
   const totalMRR = barbershops.reduce((sum, b) => {
-    const plan = MY_BARBER_PLANS[b.planId] || Object.values(MY_BARBER_PLANS)[0];
-    return sum + (plan ? plan.priceMonthly : 49.90);
+    const customPlan = customPlans?.find(p => p.id === b.planId);
+    const planPrice = customPlan ? customPlan.priceMonthly : (MY_BARBER_PLANS[b.planId]?.priceMonthly || 49.90);
+    return sum + planPrice;
   }, 0);
 
   const totalProfessionalsCount = users.filter(u => u.role === 'PROFISSIONAL' || u.role === 'PROPRIETARIO').length;
@@ -253,40 +263,88 @@ export const MasterAdminView: React.FC = () => {
         <div className="space-y-6">
           {/* Plans Table */}
           <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-orange-400" />
                 <h3 className="font-black text-neutral-100 text-base font-heading">
                   Tabela Oficial de Planos SaaS do MY BARBER
                 </h3>
               </div>
-              <span className="text-xs text-neutral-400">Modelo de cobrança recorrente</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-neutral-400 hidden sm:inline">Modelo de cobrança recorrente</span>
+                <button
+                  onClick={() => setActiveTab('plans')}
+                  className="text-xs font-bold text-orange-400 hover:text-orange-300 flex items-center gap-1 transition-colors px-2.5 py-1 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30"
+                >
+                  <span>Gerenciar Planos & Ofertas</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {Object.values(MY_BARBER_PLANS).map(plan => {
+              {(activeSaaSPlans.length > 0 ? activeSaaSPlans : Object.values(MY_BARBER_PLANS)).map(plan => {
                 const countInPlan = barbershops.filter(b => b.planId === plan.id).length;
+                const isCustom = 'limits' in plan;
+                const maxProfs = isCustom
+                  ? ((plan as CustomPlan).limits.maxProfessionals === 'UNLIMITED' ? 'Ilimitados' : `Até ${(plan as CustomPlan).limits.maxProfessionals}`)
+                  : `${(plan as any).minProfessionals} até ${(plan as any).maxProfessionals}`;
+                const hasPromo = isCustom && (plan as CustomPlan).hasPromotion && (plan as CustomPlan).promotionalPrice !== undefined;
+                const hasTrial = isCustom && (plan as CustomPlan).hasTrial;
+
                 return (
                   <div
                     key={plan.id}
-                    className="bg-neutral-950 border border-neutral-800 rounded-2xl p-5 flex flex-col justify-between"
+                    className="bg-neutral-950 border border-neutral-800 hover:border-neutral-700 rounded-2xl p-5 flex flex-col justify-between transition-all"
                   >
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-black text-orange-400 uppercase tracking-wider">{plan.name}</span>
-                        <span className="text-[10px] bg-neutral-900 border border-neutral-800 text-neutral-300 px-2 py-0.5 rounded-full font-bold">
+                      <div className="flex items-center justify-between mb-2 gap-2">
+                        <span className="text-xs font-black text-orange-400 uppercase tracking-wider truncate" title={plan.name}>
+                          {plan.name}
+                        </span>
+                        <span className="text-[10px] bg-neutral-900 border border-neutral-800 text-neutral-300 px-2 py-0.5 rounded-full font-bold shrink-0">
                           {countInPlan} {countInPlan === 1 ? 'barbearia' : 'barbearias'}
                         </span>
                       </div>
-                      <div className="text-2xl font-black text-neutral-100 font-mono">
-                        R$ {plan.priceMonthly.toFixed(2).replace('.', ',')}
-                        <span className="text-xs font-normal text-neutral-500 font-sans"> / mês</span>
+
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-2xl font-black text-neutral-100 font-mono">
+                          R$ {plan.priceMonthly.toFixed(2).replace('.', ',')}
+                        </span>
+                        <span className="text-xs font-normal text-neutral-500 font-sans">
+                          /{isCustom && (plan as CustomPlan).billingCycle !== 'MONTHLY' ? 'ciclo' : 'mês'}
+                        </span>
+                        {hasPromo && (
+                          <span className="text-xs text-neutral-400 line-through ml-1">
+                            R$ {(plan as CustomPlan).priceAfterPromotion?.toFixed(2).replace('.', ',')}
+                          </span>
+                        )}
                       </div>
-                      <p className="text-xs text-neutral-400 mt-2">{plan.description}</p>
+
+                      {/* Promo or Trial tags */}
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {hasPromo && (
+                          <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-md flex items-center gap-1">
+                            <Tag className="w-3 h-3" />
+                            Promoção: R$ {(plan as CustomPlan).promotionalPrice?.toFixed(2).replace('.', ',')} ({(plan as CustomPlan).promotionDuration} {(plan as CustomPlan).promotionUnit === 'MONTHS' ? 'meses' : 'ciclos'})
+                          </span>
+                        )}
+                        {hasTrial && (
+                          <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 border border-blue-500/30 px-2 py-0.5 rounded-md flex items-center gap-1">
+                            <Sparkles className="w-3 h-3" />
+                            {(plan as CustomPlan).trialDuration} {(plan as CustomPlan).trialUnit === 'DAYS' ? 'dias grátis' : 'meses grátis'}
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-xs text-neutral-400 mt-2.5 line-clamp-2 leading-relaxed">{plan.description}</p>
                     </div>
-                    <div className="mt-4 pt-3 border-t border-neutral-800/80 text-xs text-neutral-400 flex items-center gap-2">
-                      <Check className="w-4 h-4 text-emerald-400" />
-                      <span>Capacidade: {plan.minProfessionals} até {plan.maxProfessionals} profissionais</span>
+
+                    <div className="mt-4 pt-3 border-t border-neutral-800/80 text-xs text-neutral-400 flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>Capacidade: <strong className="text-neutral-200">{maxProfs}</strong> profissionais</span>
+                      </div>
                     </div>
                   </div>
                 );

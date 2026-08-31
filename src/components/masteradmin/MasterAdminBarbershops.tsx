@@ -33,7 +33,7 @@ import {
   EyeOff,
   KeyRound
 } from 'lucide-react';
-import { PlanId, MY_BARBER_PLANS, RegisterBarbershopInput, Barbershop, BarbershopStatus } from '../../types';
+import { PlanId, MY_BARBER_PLANS, RegisterBarbershopInput, Barbershop, BarbershopStatus, CustomPlan } from '../../types';
 import { AppImage } from '../common/AppImage';
 import { ImageEditModal } from '../common/ImageEditModal';
 import { SaveButton } from '../common/SaveButton';
@@ -79,8 +79,50 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
     getBarbershopDirectUrl,
     getBarbershopExclusiveDomain,
     updateUser,
-    createManagerAccess
+    createManagerAccess,
+    customPlans
   } = useApp();
+
+  const availablePlans = useMemo(() => {
+    if (customPlans && customPlans.length > 0) {
+      return customPlans.filter(p => p.status === 'ACTIVE');
+    }
+    return [
+      {
+        id: 'PLANO_UNICO',
+        name: 'Plano Único & Fixo',
+        description: 'Até 10 profissionais (proprietário, gerente e barbeiros) e agendamentos ilimitados.',
+        status: 'ACTIVE',
+        priceMonthly: 49.90,
+        billingCycle: 'MONTHLY',
+        hasTrial: false,
+        trialDuration: 0,
+        trialUnit: 'DAYS',
+        hasPromotion: false,
+        scheduleStages: [],
+        features: {
+          agenda: true,
+          clientes: true,
+          profissionais: true,
+          servicos: true,
+          pacotes: true,
+          comunicacoes: true,
+          promocoes: true,
+          sorteios: true,
+          galeria: true,
+          estoque: true,
+          relatorios_financeiros: true
+        },
+        limits: {
+          maxProfessionals: 10,
+          maxUnits: 1,
+          maxClients: 'UNLIMITED'
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      } as CustomPlan
+    ];
+  }, [customPlans]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [editingShop, setEditingShop] = useState<Barbershop | null>(null);
@@ -503,7 +545,9 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
       {/* Barbershop Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredShops.map(shop => {
-          const plan = MY_BARBER_PLANS[shop.planId] || Object.values(MY_BARBER_PLANS)[0];
+          const customPlan = customPlans?.find(p => p.id === shop.planId);
+          const planName = customPlan ? customPlan.name : (MY_BARBER_PLANS[shop.planId]?.name || 'Plano Único & Fixo');
+          const planPrice = customPlan ? customPlan.priceMonthly : (MY_BARBER_PLANS[shop.planId]?.priceMonthly || 49.90);
           const shopUsers = users.filter(u => u.tenantId === shop.id);
           const manager = shopUsers.find(u => u.role === 'PROPRIETARIO' || u.role === 'GERENTE') || shopUsers[0];
           const profsCount = shopUsers.filter(u => u.role === 'PROFISSIONAL').length;
@@ -584,7 +628,7 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                   )}
 
                   <div className="bg-neutral-950/90 backdrop-blur-md border border-orange-500/50 text-orange-300 px-2.5 py-1 rounded-full text-[11px] font-black shadow-lg">
-                    {isTrial || isExpired ? 'Teste 3 Dias' : plan.name} • {isTrial || isExpired ? 'Gratuito' : `R$ ${plan.priceMonthly.toFixed(2).replace('.', ',')}/mês`}
+                    {isTrial || isExpired ? 'Teste 3 Dias' : planName} • {isTrial || isExpired ? 'Gratuito' : `R$ ${planPrice.toFixed(2).replace('.', ',')}/mês`}
                   </div>
                 </div>
 
@@ -939,7 +983,7 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                 )}
 
                 <div>
-                  <label className="block text-xs font-bold text-neutral-300 mb-1">Plano Oficial</label>
+                  <label className="block text-xs font-bold text-neutral-300 mb-1">Plano Oficial SaaS</label>
                   <select
                     value={editingShop.planId}
                     onChange={e => {
@@ -948,11 +992,17 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                     }}
                     className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
                   >
-                    {(Object.keys(MY_BARBER_PLANS) as PlanId[]).map(pk => (
-                      <option key={pk} value={pk}>
-                        {MY_BARBER_PLANS[pk].name} — R$ {MY_BARBER_PLANS[pk].priceMonthly.toFixed(2).replace('.', ',')}/mês
-                      </option>
-                    ))}
+                    {availablePlans.map(p => {
+                      const isCustom = 'limits' in p;
+                      const maxProfs = isCustom && (p as CustomPlan).limits?.maxProfessionals !== undefined
+                        ? ((p as CustomPlan).limits.maxProfessionals === 'UNLIMITED' ? 'Ilimitados' : `Até ${(p as CustomPlan).limits.maxProfessionals}`)
+                        : 'Até 10';
+                      return (
+                        <option key={p.id} value={p.id}>
+                          {p.name} — R$ {p.priceMonthly.toFixed(2).replace('.', ',')}/mês ({maxProfs} profs)
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               </div>
@@ -1413,87 +1463,119 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
 
               {/* STEP B: MODALIDADE COMERCIAL / PLANO */}
               <div className="space-y-3 pt-3 border-t border-neutral-800">
-                <h4 className="text-xs font-black text-orange-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <CreditCard className="w-3.5 h-3.5" />
-                  <span>2. Modalidade de Contratação & Plano</span>
-                </h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black text-orange-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <CreditCard className="w-3.5 h-3.5" />
+                    <span>2. Modalidade de Contratação & Plano</span>
+                  </h4>
+                  <span className="text-[11px] text-neutral-400">Selecione o plano desejado ou o Teste Grátis</span>
+                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* OPÇÃO 1: PLANO PAGO */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {/* OPÇÃO 1: TESTE GRÁTIS — 3 DIAS */}
                   <div
-                    onClick={() => setFormState(prev => ({ ...prev, commercialMode: 'PAGO', planId: 'PLANO_UNICO' }))}
-                    className={`p-4 rounded-2xl border cursor-pointer transition-all relative ${
-                      formState.commercialMode !== 'TESTE_GRATIS'
-                        ? 'bg-orange-500/15 border-orange-500 text-neutral-100 shadow-xl ring-1 ring-orange-500/50'
-                        : 'bg-neutral-950 border-neutral-800 hover:border-neutral-700 text-neutral-400'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <Crown className={`w-4 h-4 ${formState.commercialMode !== 'TESTE_GRATIS' ? 'text-orange-400' : 'text-neutral-500'}`} />
-                        <span className="text-sm font-black tracking-wide">PLANO PAGO</span>
-                      </div>
-                      {formState.commercialMode !== 'TESTE_GRATIS' ? (
-                        <div className="w-5 h-5 rounded-full bg-orange-500 text-neutral-950 flex items-center justify-center">
-                          <Check className="w-3.5 h-3.5 stroke-[3]" />
-                        </div>
-                      ) : (
-                        <div className="w-5 h-5 rounded-full border border-neutral-700" />
-                      )}
-                    </div>
-
-                    <div className="text-lg font-black text-neutral-100 font-mono">
-                      R$ 49,90<span className="text-xs font-normal text-neutral-400">/mês</span>
-                    </div>
-
-                    <div className="mt-2.5 space-y-1.5 text-[11px]">
-                      <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
-                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                        <span>Status inicial: <strong className="text-emerald-300 font-black">ATIVA</strong></span>
-                      </div>
-                      <p className="text-neutral-400 text-[10px] leading-relaxed">
-                        Ativação imediata e integral. Até 10 profissionais (proprietário, gerente e barbeiros) e agendamentos ilimitados.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* OPÇÃO 2: TESTE GRÁTIS — 3 DIAS */}
-                  <div
-                    onClick={() => setFormState(prev => ({ ...prev, commercialMode: 'TESTE_GRATIS', planId: 'PLANO_UNICO' }))}
-                    className={`p-4 rounded-2xl border cursor-pointer transition-all relative ${
+                    onClick={() => setFormState(prev => ({
+                      ...prev,
+                      commercialMode: 'TESTE_GRATIS',
+                      planId: prev.planId || availablePlans[0]?.id || 'PLANO_UNICO'
+                    }))}
+                    className={`p-4 rounded-2xl border cursor-pointer transition-all relative flex flex-col justify-between ${
                       formState.commercialMode === 'TESTE_GRATIS'
                         ? 'bg-amber-500/15 border-amber-500 text-neutral-100 shadow-xl ring-1 ring-amber-500/50'
                         : 'bg-neutral-950 border-neutral-800 hover:border-neutral-700 text-neutral-400'
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className={`w-4 h-4 ${formState.commercialMode === 'TESTE_GRATIS' ? 'text-amber-400' : 'text-neutral-500'}`} />
-                        <span className="text-sm font-black tracking-wide text-amber-300">TESTE GRÁTIS — 3 DIAS</span>
-                      </div>
-                      {formState.commercialMode === 'TESTE_GRATIS' ? (
-                        <div className="w-5 h-5 rounded-full bg-amber-400 text-neutral-950 flex items-center justify-center">
-                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className={`w-4 h-4 ${formState.commercialMode === 'TESTE_GRATIS' ? 'text-amber-400' : 'text-neutral-500'}`} />
+                          <span className="text-xs font-black tracking-wide text-amber-300">TESTE GRÁTIS — 3 DIAS</span>
                         </div>
-                      ) : (
-                        <div className="w-5 h-5 rounded-full border border-neutral-700" />
-                      )}
-                    </div>
-
-                    <div className="text-lg font-black text-amber-300 font-mono">
-                      Gratuito <span className="text-xs font-normal text-amber-400/80">(Validade: 3 dias)</span>
-                    </div>
-
-                    <div className="mt-2.5 space-y-1.5 text-[11px]">
-                      <div className="flex items-center gap-1.5 text-amber-300 font-semibold">
-                        <Clock className="w-3.5 h-3.5 shrink-0 text-amber-400" />
-                        <span>Status inicial: <strong className="text-amber-200 font-black">TESTE</strong></span>
+                        {formState.commercialMode === 'TESTE_GRATIS' ? (
+                          <div className="w-5 h-5 rounded-full bg-amber-400 text-neutral-950 flex items-center justify-center">
+                            <Check className="w-3.5 h-3.5 stroke-[3]" />
+                          </div>
+                        ) : (
+                          <div className="w-5 h-5 rounded-full border border-neutral-700" />
+                        )}
                       </div>
-                      <p className="text-neutral-400 text-[10px] leading-relaxed">
-                        Mesma estrutura real e completa: Proprietário, Barbeiros, Clientes, Agenda, Serviços, Imagens e Link Exclusivo.
-                      </p>
+
+                      <div className="text-lg font-black text-amber-300 font-mono">
+                        Gratuito <span className="text-xs font-normal text-amber-400/80">(3 Dias)</span>
+                      </div>
+
+                      <div className="mt-2.5 space-y-1.5 text-[11px]">
+                        <div className="flex items-center gap-1.5 text-amber-300 font-semibold">
+                          <Clock className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+                          <span>Status inicial: <strong className="text-amber-200 font-black">TESTE</strong></span>
+                        </div>
+                        <p className="text-neutral-400 text-[10px] leading-relaxed">
+                          Mesma estrutura real e completa: Proprietário, Barbeiros, Clientes, Agenda, Serviços, Imagens e Link Exclusivo.
+                        </p>
+                      </div>
                     </div>
                   </div>
+
+                  {/* OPÇÕES DINÂMICAS: PLANOS SAAS DISPONÍVEIS */}
+                  {availablePlans.map(plan => {
+                    const isSelected = formState.commercialMode !== 'TESTE_GRATIS' && formState.planId === plan.id;
+                    const isCustom = 'limits' in plan;
+                    const maxProfs = isCustom && (plan as CustomPlan).limits?.maxProfessionals !== undefined
+                      ? ((plan as CustomPlan).limits.maxProfessionals === 'UNLIMITED' ? 'Ilimitados' : `Até ${(plan as CustomPlan).limits.maxProfessionals}`)
+                      : 'Até 10';
+                    const hasPromo = isCustom && (plan as CustomPlan).hasPromotion && (plan as CustomPlan).promotionalPrice !== undefined;
+
+                    return (
+                      <div
+                        key={plan.id}
+                        onClick={() => setFormState(prev => ({ ...prev, commercialMode: 'PAGO', planId: plan.id }))}
+                        className={`p-4 rounded-2xl border cursor-pointer transition-all relative flex flex-col justify-between ${
+                          isSelected
+                            ? 'bg-orange-500/15 border-orange-500 text-neutral-100 shadow-xl ring-1 ring-orange-500/50'
+                            : 'bg-neutral-950 border-neutral-800 hover:border-neutral-700 text-neutral-400'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5 gap-1.5">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <Crown className={`w-4 h-4 shrink-0 ${isSelected ? 'text-orange-400' : 'text-neutral-500'}`} />
+                              <span className="text-xs font-black tracking-wide truncate" title={plan.name}>
+                                {plan.name}
+                              </span>
+                            </div>
+                            {isSelected ? (
+                              <div className="w-5 h-5 rounded-full bg-orange-500 text-neutral-950 flex items-center justify-center shrink-0">
+                                <Check className="w-3.5 h-3.5 stroke-[3]" />
+                              </div>
+                            ) : (
+                              <div className="w-5 h-5 rounded-full border border-neutral-700 shrink-0" />
+                            )}
+                          </div>
+
+                          <div className="text-lg font-black text-neutral-100 font-mono">
+                            R$ {plan.priceMonthly.toFixed(2).replace('.', ',')}
+                            <span className="text-xs font-normal text-neutral-400">/mês</span>
+                          </div>
+
+                          {hasPromo && (
+                            <div className="mt-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded">
+                              Promo: R$ {(plan as CustomPlan).promotionalPrice?.toFixed(2).replace('.', ',')}/mês
+                            </div>
+                          )}
+
+                          <div className="mt-2.5 space-y-1 text-[11px]">
+                            <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                              <span>Status inicial: <strong className="text-emerald-300 font-black">ATIVA</strong></span>
+                            </div>
+                            <p className="text-neutral-400 text-[10px] leading-relaxed line-clamp-2">
+                              Capacidade: {maxProfs} profissionais. Ativação integral.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 

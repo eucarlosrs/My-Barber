@@ -1509,14 +1509,16 @@ export const WebAdminView: React.FC = () => {
                     </div>
                   </div>
                 </div>
-
-                {/* Tabela Oficial de Horários de Atendimento (Manhã / Almoço / Tarde) */}
-                <BusinessHoursTable
-                  value={settingsBusinessHours}
-                  onChange={setSettingsBusinessHours}
-                  disabled={isSavingSettings}
-                />
               </div>
+            </div>
+
+            {/* Tabela Oficial de Horários de Atendimento (Largura Total Centralizada) */}
+            <div className="w-full pt-4 border-t border-neutral-800/80">
+              <BusinessHoursTable
+                value={settingsBusinessHours}
+                onChange={setSettingsBusinessHours}
+                disabled={isSavingSettings}
+              />
             </div>
 
             {/* Bottom Actions Bar */}
