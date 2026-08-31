@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { PhoneFrame } from './PhoneFrame';
 import {
@@ -60,10 +60,10 @@ import { AppImage } from '../common/AppImage';
 import { TermsModal } from '../common/TermsModal';
 import { InstagramIcon, FacebookIcon, TikTokIcon, formatSocialUrl } from '../common/SocialMediaIcons';
 import { APP_ASSETS } from '../../data/assets';
+import { INITIAL_PROMOTIONS, INITIAL_RAFFLES } from '../../data/initialData';
 import { triggerGooglePopupLogin } from '../../lib/googleAuth';
 import { formatPhoneNumber } from '../../utils/formatters';
 import { getThemeCssVariables } from '../../utils/theme';
-import { ThemeModeToggle } from '../common/ThemeModeToggle';
 import { BusinessHoursModal } from './BusinessHoursModal';
 import { BarbershopCelebration } from '../common/BarbershopCelebration';
 
@@ -201,16 +201,42 @@ export const ClientAppView: React.FC = () => {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showBusinessHoursModal, setShowBusinessHoursModal] = useState(false);
 
-  // Dynamic Destaques list (configured by owner/manager - strictly requires showInHighlights === true)
+  // Dynamic Destaques list (configured by owner/manager - includes active promotions and raffles)
   const highlightedPromos = useMemo(() => {
-    return promotions.filter(p => p.active && Boolean(p.showInHighlights));
+    const list = (promotions && promotions.length > 0 ? promotions : INITIAL_PROMOTIONS)
+      .filter(p => p.active && (p.showInHighlights !== false));
+    return list.length > 0 ? list : INITIAL_PROMOTIONS.filter(p => p.active);
   }, [promotions]);
 
   const highlightedRaffles = useMemo(() => {
-    return raffles.filter(r => Boolean(r.showInHighlights));
+    const list = (raffles && raffles.length > 0 ? raffles : INITIAL_RAFFLES)
+      .filter(r => r.showInHighlights !== false);
+    return list.length > 0 ? list : INITIAL_RAFFLES;
   }, [raffles]);
 
-  const hasAnyHighlights = highlightedPromos.length > 0 || highlightedRaffles.length > 0;
+  const hasAnyHighlights = true;
+  const totalHighlightsCount = highlightedPromos.length + highlightedRaffles.length;
+  const highlightsScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollHighlightsLeft, setCanScrollHighlightsLeft] = useState(false);
+  const [canScrollHighlightsRight, setCanScrollHighlightsRight] = useState(true);
+
+  const scrollHighlights = (direction: 'left' | 'right') => {
+    if (highlightsScrollRef.current) {
+      const scrollAmount = highlightsScrollRef.current.clientWidth * 0.95;
+      highlightsScrollRef.current.scrollBy({
+        left: direction === 'right' ? scrollAmount : -scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  const handleHighlightsScroll = () => {
+    if (highlightsScrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = highlightsScrollRef.current;
+      setCanScrollHighlightsLeft(scrollLeft > 10);
+      setCanScrollHighlightsRight(scrollLeft < scrollWidth - clientWidth - 10);
+    }
+  };
 
   // Real-time dynamic date tracking
   const todayStr = useMemo(() => getTodayLocalDateString(), []);
@@ -242,8 +268,15 @@ export const ClientAppView: React.FC = () => {
   }, [currentBarbershop.businessHours, currentDateTime]);
 
   // Booking Flow Steps & State
-  const [selectedCategory, setSelectedCategory] = useState<string>('TODOS');
-  const [selectedService, setSelectedService] = useState<Service | null>(services[0] || null);
+  const [selectedCategory, setSelectedCategory] = useState<string>('Cabelo');
+  const [selectedService, setSelectedService] = useState<Service | null>(() => {
+    const hair = services.find(s => {
+      const cat = (s.category || '').toLowerCase();
+      const name = (s.name || '').toLowerCase();
+      return cat.includes('cabelo') || cat.includes('corte') || name.includes('corte') || name.includes('cabelo');
+    });
+    return hair || services[0] || null;
+  });
   const [selectedProfessional, setSelectedProfessional] = useState<UserType | null>(professionals[0] || null);
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [selectedTime, setSelectedTime] = useState<string>('14:00');
@@ -319,36 +352,39 @@ export const ClientAppView: React.FC = () => {
     }
   }, [allSlots, selectedTime]);
 
-  // Dynamic categories list based on services registered by the barbershop
-  // Prioritized sequence: TODOS -> Cabelo -> Barba -> Combos -> Química -> Estética -> others
+  // Standard 6 categories in 3x2 grid:
+  // Top row (3): TODOS, Cabelo, Barba
+  // Bottom row (3): Combos, Química, Estética
   const categories = useMemo(() => {
-    const existingCats: string[] = Array.from(
-      new Set(services.map(s => s.category?.trim()).filter((c): c is string => Boolean(c)))
-    );
+    return ['TODOS', 'Cabelo', 'Barba', 'Combos', 'Química', 'Estética'];
+  }, []);
 
-    const getPriority = (cat: string) => {
-      const lower = cat.toLowerCase();
-      if (lower.includes('cabelo') || lower.includes('corte')) return 1;
-      if (lower.includes('barba') || lower.includes('barboterapia')) return 2;
-      if (lower.includes('combo')) return 3;
-      if (lower.includes('quim') || lower.includes('quím') || lower.includes('platinad') || lower.includes('nevou')) return 4;
-      if (lower.includes('estét') || lower.includes('estet') || lower.includes('sobrancelha') || lower.includes('facial')) return 5;
-      return 10;
-    };
+  const filteredServices = useMemo(() => {
+    if (selectedCategory === 'TODOS') return services;
 
-    const sorted = existingCats.sort((a, b) => {
-      const pA = getPriority(a);
-      const pB = getPriority(b);
-      if (pA !== pB) return pA - pB;
-      return a.localeCompare(b, 'pt-BR');
+    const sel = selectedCategory.toLowerCase();
+    return services.filter(s => {
+      const cat = (s.category || '').toLowerCase();
+      const name = (s.name || '').toLowerCase();
+
+      if (sel === 'cabelo') {
+        return cat.includes('cabelo') || cat.includes('corte') || name.includes('corte') || name.includes('cabelo') || (!cat.includes('barba') && !cat.includes('combo') && !cat.includes('quim') && !cat.includes('estet'));
+      }
+      if (sel === 'barba') {
+        return (cat.includes('barba') || cat.includes('barboterapia') || name.includes('barba') || name.includes('barboterapia')) && !cat.includes('combo') && !name.includes('combo');
+      }
+      if (sel === 'combos' || sel === 'combo') {
+        return cat.includes('combo') || name.includes('combo');
+      }
+      if (sel === 'química' || sel === 'quimica') {
+        return cat.includes('quim') || cat.includes('quím') || cat.includes('platinad') || cat.includes('nevou') || name.includes('platinad') || name.includes('nevou');
+      }
+      if (sel === 'estética' || sel === 'estetica') {
+        return cat.includes('estet') || cat.includes('estét') || cat.includes('sobrancelha') || cat.includes('facial') || name.includes('sobrancelha') || name.includes('facial') || name.includes('estética');
+      }
+      return cat === sel;
     });
-
-    return ['TODOS', ...sorted];
-  }, [services]);
-
-  const filteredServices = selectedCategory === 'TODOS'
-    ? services
-    : services.filter(s => s.category.toLowerCase() === selectedCategory.toLowerCase());
+  }, [services, selectedCategory]);
 
   // Identificação e agrupamento inteligente dos serviços essenciais (Cabelo e Barba)
   const hairServices = useMemo(() => {
@@ -403,16 +439,58 @@ export const ClientAppView: React.FC = () => {
     }, 120);
   };
 
-  // Garante que o serviço selecionado pertença aos serviços cadastrados da barbearia
+  // Garante que o serviço selecionado pertença aos serviços cadastrados da barbearia e respeite o filtro ativo
   useEffect(() => {
     if (services.length > 0) {
       if (!selectedService || !services.some(s => s.id === selectedService.id)) {
-        setSelectedService(services[0]);
+        const hair = services.find(s => {
+          const cat = (s.category || '').toLowerCase();
+          const name = (s.name || '').toLowerCase();
+          return cat.includes('cabelo') || cat.includes('corte') || name.includes('corte') || name.includes('cabelo');
+        });
+        setSelectedService(hair || services[0]);
       }
     } else {
       setSelectedService(null);
     }
   }, [services, selectedService]);
+
+  const handleSelectCategory = (cat: string) => {
+    setSelectedCategory(cat);
+    // Find first service belonging to the selected category to focus its border
+    if (cat === 'TODOS') {
+      if (services.length > 0 && (!selectedService || !services.some(s => s.id === selectedService.id))) {
+        setSelectedService(services[0]);
+      }
+      return;
+    }
+
+    const sel = cat.toLowerCase();
+    const match = services.find(s => {
+      const sCat = (s.category || '').toLowerCase();
+      const sName = (s.name || '').toLowerCase();
+      if (sel === 'cabelo') {
+        return sCat.includes('cabelo') || sCat.includes('corte') || sName.includes('corte') || sName.includes('cabelo');
+      }
+      if (sel === 'barba') {
+        return (sCat.includes('barba') || sCat.includes('barboterapia') || sName.includes('barba') || sName.includes('barboterapia')) && !sCat.includes('combo') && !sName.includes('combo');
+      }
+      if (sel === 'combos' || sel === 'combo') {
+        return sCat.includes('combo') || sName.includes('combo');
+      }
+      if (sel === 'química' || sel === 'quimica') {
+        return sCat.includes('quim') || sCat.includes('quím') || sCat.includes('platinad') || sCat.includes('nevou') || sName.includes('platinad') || sName.includes('nevou');
+      }
+      if (sel === 'estética' || sel === 'estetica') {
+        return sCat.includes('estet') || sCat.includes('estét') || sCat.includes('sobrancelha') || sCat.includes('facial') || sName.includes('sobrancelha') || sName.includes('facial') || sName.includes('estética');
+      }
+      return sCat === sel;
+    });
+
+    if (match) {
+      setSelectedService(match);
+    }
+  };
 
   const executeBookingWithClient = (clientUser: UserType) => {
     if (!selectedService || !selectedProfessional) {
@@ -761,7 +839,6 @@ export const ClientAppView: React.FC = () => {
             <span className="text-xs sm:text-sm font-bold text-neutral-200 truncate">{currentBarbershop.name}</span>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            <ThemeModeToggle />
             <div className="flex items-center gap-2 text-xs text-neutral-300">
               <User className="w-3.5 h-3.5" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
               <span className="font-semibold">{currentUser.name}</span>
@@ -781,8 +858,8 @@ export const ClientAppView: React.FC = () => {
       {/* ========================================================================= */}
       {/* 1. APP HEADER & BRANDING */}
       {/* ========================================================================= */}
-        <div className="relative bg-neutral-900 border-b border-neutral-800/80">
-          {/* Cover photo banner */}
+        <div className="relative bg-neutral-950">
+          {/* Cover photo banner with smooth seamless gradient fade */}
           <div className="h-36 sm:h-44 w-full overflow-hidden relative">
             <AppImage
               src={currentBarbershop.bannerUrl || currentBarbershop.salonImages[0] || APP_ASSETS.banner}
@@ -790,8 +867,9 @@ export const ClientAppView: React.FC = () => {
               fallbackType="banner"
               className="w-full h-full object-cover opacity-90 scale-105"
             />
-            {/* Soft gradient from banner to bottom */}
-            <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/50 to-transparent pointer-events-none"></div>
+            {/* Elegant multi-stop smooth gradient fade to background */}
+            <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/60 to-transparent pointer-events-none"></div>
+            <div className="absolute -bottom-1 inset-x-0 h-12 bg-gradient-to-t from-neutral-950 to-transparent pointer-events-none"></div>
             
             {/* Real-time Verified Open/Closed Status Tag - Translucent Glassmorphism (Clickable to view full business hours table) */}
             <button
@@ -819,11 +897,6 @@ export const ClientAppView: React.FC = () => {
               )}
               <Clock className="w-3 h-3 ml-0.5 text-neutral-400" />
             </button>
-
-            {/* Dark / Light Mode Switch in Banner */}
-            <div className="absolute top-3.5 right-3.5 z-10">
-              <ThemeModeToggle variant="pill" />
-            </div>
           </div>
 
           {/* Barbershop Info Row & Client Login Status */}
@@ -953,98 +1026,145 @@ export const ClientAppView: React.FC = () => {
                     <Flame className="w-3.5 h-3.5" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
                     Destaques & Novidades da Barbearia
                   </span>
-                  <span className="text-[9px] font-medium" style={{ color: 'var(--theme-primary, #FF6B00)' }}>Toque para ver</span>
+                  <span className="text-[9px] font-medium flex items-center gap-0.5" style={{ color: 'var(--theme-primary, #FF6B00)' }}>
+                    <span>Toque para ver</span>
+                    {totalHighlightsCount > 3 && <ChevronRight className="w-3 h-3 inline" />}
+                  </span>
                 </div>
-                <div className="flex items-center gap-3.5 overflow-x-auto py-2 px-1 no-scrollbar">
-                  {/* Highlighted Promotions - Sized for ~3.5 items visible & unclipped circles */}
-                  {highlightedPromos.map(promo => (
+
+                <div className="relative px-3 sm:px-4">
+                  {/* Left Scroll Navigation Button (if scrolled right) */}
+                  {totalHighlightsCount > 3 && canScrollHighlightsLeft && (
                     <button
-                      key={promo.id}
-                      onClick={() => setSelectedHighlightPromo(promo)}
-                      className="w-[88px] sm:w-[94px] shrink-0 flex flex-col items-center gap-1.5 group focus:outline-none"
-                      title={promo.title}
+                      type="button"
+                      onClick={() => scrollHighlights('left')}
+                      className="absolute left-0 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full shadow-xl flex items-center justify-center cursor-pointer active:scale-95 transition-all border border-neutral-900/60 hover:scale-110"
+                      style={{
+                        backgroundColor: 'var(--theme-primary, #FF6B00)',
+                        color: 'var(--theme-contrast, #0D0D0D)'
+                      }}
+                      title="Voltar destaques anteriores"
+                      aria-label="Voltar destaques anteriores"
                     >
-                      <div
-                        className="w-16 h-16 sm:w-[68px] sm:h-[68px] rounded-full p-[2.5px] group-hover:scale-105 transition-transform shadow-md relative"
-                        style={{
-                          background: 'linear-gradient(135deg, var(--theme-primary, #FF6B00), var(--theme-hover, #E05A00))'
-                        }}
+                      <ChevronLeft className="w-4 h-4 stroke-[3]" />
+                    </button>
+                  )}
+
+                  {/* Highlights Carousel (Sized for exactly 3 complete items per view with balanced spacing and smoky glow) */}
+                  <div
+                    ref={highlightsScrollRef}
+                    onScroll={handleHighlightsScroll}
+                    className="flex items-center justify-start gap-4 sm:gap-5 overflow-x-auto py-3 px-1 scroll-smooth no-scrollbar snap-x snap-mandatory"
+                  >
+                    {/* Highlighted Promotions */}
+                    {highlightedPromos.map(promo => (
+                      <button
+                        key={promo.id}
+                        onClick={() => setSelectedHighlightPromo(promo)}
+                        className="w-[calc((100%-32px)/3)] min-w-[92px] shrink-0 snap-start flex flex-col items-center gap-2 group focus:outline-none cursor-pointer"
+                        title={promo.title}
                       >
-                        <div className="w-full h-full rounded-full overflow-hidden bg-neutral-950 border border-neutral-900 relative">
-                          <AppImage
-                            src={promo.imageUrl || 'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=200'}
-                            alt={promo.title}
-                            fallbackType="banner"
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                          />
-                          <div className="absolute inset-0 bg-neutral-950/20" />
+                        <div
+                          className="w-[80px] h-[80px] sm:w-[86px] sm:h-[86px] rounded-full p-[2.5px] group-hover:scale-105 transition-all relative shrink-0"
+                          style={{
+                            background: 'linear-gradient(135deg, var(--theme-primary, #FF6B00), var(--theme-hover, #E05A00))',
+                            boxShadow: '0 0 16px -2px var(--theme-primary, #FF6B00)'
+                          }}
+                        >
+                          <div className="w-full h-full rounded-full overflow-hidden bg-neutral-950 border border-neutral-900 relative">
+                            <AppImage
+                              src={promo.imageUrl || 'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=200'}
+                              alt={promo.title}
+                              fallbackType="banner"
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                            />
+                            <div className="absolute inset-0 bg-neutral-950/20" />
+                          </div>
+                          {promo.discountPercentage && (
+                            <div
+                              className="absolute -top-1 -right-1 text-[10px] font-black px-1.5 py-0.5 rounded-full shadow border border-neutral-950 z-10"
+                              style={{
+                                backgroundColor: 'var(--theme-primary, #FF6B00)',
+                                color: 'var(--theme-contrast, #0D0D0D)'
+                              }}
+                            >
+                              {promo.discountPercentage}%
+                            </div>
+                          )}
                         </div>
-                        {promo.discountPercentage && (
+                        <div className="text-center w-full px-0.5">
+                          <span className="text-[11px] font-bold text-neutral-200 block truncate transition-colors">
+                            {promo.title}
+                          </span>
+                          <span className="text-[9px] font-black uppercase block truncate mt-0.5" style={{ color: 'var(--theme-primary, #FF6B00)' }}>
+                            {promo.highlightTag || 'PROMO'}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+
+                    {/* Highlighted Raffles */}
+                    {highlightedRaffles.map(raffle => (
+                      <button
+                        key={raffle.id}
+                        onClick={() => setSelectedHighlightRaffle(raffle)}
+                        className="w-[calc((100%-32px)/3)] min-w-[92px] shrink-0 snap-start flex flex-col items-center gap-2 group focus:outline-none cursor-pointer"
+                        title={raffle.title}
+                      >
+                        <div
+                          className="w-[80px] h-[80px] sm:w-[86px] sm:h-[86px] rounded-full p-[2.5px] group-hover:scale-105 transition-all relative shrink-0"
+                          style={{
+                            background: 'linear-gradient(135deg, var(--theme-primary, #FF6B00), var(--theme-hover, #E05A00))',
+                            boxShadow: '0 0 16px -2px var(--theme-primary, #FF6B00)'
+                          }}
+                        >
+                          <div className="w-full h-full rounded-full overflow-hidden bg-neutral-950 border border-neutral-900 relative">
+                            <AppImage
+                              src={raffle.imageUrl || 'https://images.unsplash.com/photo-1512690459411-b9245aed614b?w=200'}
+                              alt={raffle.title}
+                              fallbackType="banner"
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                            />
+                            <div className="absolute inset-0 bg-neutral-950/20" />
+                          </div>
                           <div
-                            className="absolute -top-1 -right-1 text-[9px] font-black px-1.5 py-0.2 rounded-full shadow border border-neutral-950 z-10"
+                            className="absolute -top-1 -right-1 text-[10px] font-black px-1.5 py-0.5 rounded-full shadow border border-neutral-950 flex items-center z-10"
                             style={{
                               backgroundColor: 'var(--theme-primary, #FF6B00)',
                               color: 'var(--theme-contrast, #0D0D0D)'
                             }}
                           >
-                            {promo.discountPercentage}%
+                            <Trophy className="w-2.5 h-2.5" />
                           </div>
-                        )}
-                      </div>
-                      <div className="text-center w-full px-0.5">
-                        <span className="text-[10px] font-bold text-neutral-200 block truncate transition-colors">
-                          {promo.title}
-                        </span>
-                        <span className="text-[8px] font-black uppercase block truncate" style={{ color: 'var(--theme-primary, #FF6B00)' }}>
-                          {promo.highlightTag || 'PROMO'}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
+                        </div>
+                        <div className="text-center w-full px-0.5">
+                          <span className="text-[11px] font-bold text-neutral-200 block truncate transition-colors">
+                            {raffle.title}
+                          </span>
+                          <span className="text-[9px] font-black uppercase block truncate mt-0.5" style={{ color: 'var(--theme-primary, #FF6B00)' }}>
+                            {raffle.status === 'REALIZADO' ? 'GANHADOR' : (raffle.highlightTag || 'SORTEIO')}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
 
-                  {/* Highlighted Raffles - Sized for ~3.5 items visible & unclipped circles */}
-                  {highlightedRaffles.map(raffle => (
+                  {/* Right Scroll Navigation Button (if more than 3 items & can scroll) */}
+                  {totalHighlightsCount > 3 && canScrollHighlightsRight && (
                     <button
-                      key={raffle.id}
-                      onClick={() => setSelectedHighlightRaffle(raffle)}
-                      className="w-[88px] sm:w-[94px] shrink-0 flex flex-col items-center gap-1.5 group focus:outline-none"
-                      title={raffle.title}
+                      type="button"
+                      onClick={() => scrollHighlights('right')}
+                      className="absolute right-0 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full shadow-xl flex items-center justify-center cursor-pointer active:scale-95 transition-all border border-neutral-900/60 hover:scale-110 animate-pulse"
+                      style={{
+                        backgroundColor: 'var(--theme-primary, #FF6B00)',
+                        color: 'var(--theme-contrast, #0D0D0D)'
+                      }}
+                      title="Ver mais novidades"
+                      aria-label="Ver mais novidades"
                     >
-                      <div
-                        className="w-16 h-16 sm:w-[68px] sm:h-[68px] rounded-full p-[2.5px] group-hover:scale-105 transition-transform shadow-md relative"
-                        style={{
-                          background: 'linear-gradient(135deg, var(--theme-primary, #FF6B00), var(--theme-hover, #E05A00))'
-                        }}
-                      >
-                        <div className="w-full h-full rounded-full overflow-hidden bg-neutral-950 border border-neutral-900 relative">
-                          <AppImage
-                            src={raffle.imageUrl || 'https://images.unsplash.com/photo-1512690459411-b9245aed614b?w=200'}
-                            alt={raffle.title}
-                            fallbackType="banner"
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                          />
-                          <div className="absolute inset-0 bg-neutral-950/20" />
-                        </div>
-                        <div
-                          className="absolute -top-1 -right-1 text-[9px] font-black px-1.5 py-0.5 rounded-full shadow border border-neutral-950 flex items-center z-10"
-                          style={{
-                            backgroundColor: 'var(--theme-primary, #FF6B00)',
-                            color: 'var(--theme-contrast, #0D0D0D)'
-                          }}
-                        >
-                          <Trophy className="w-2.5 h-2.5" />
-                        </div>
-                      </div>
-                      <div className="text-center w-full px-0.5">
-                        <span className="text-[10px] font-bold text-neutral-200 block truncate transition-colors">
-                          {raffle.title}
-                        </span>
-                        <span className="text-[8px] font-black uppercase block truncate" style={{ color: 'var(--theme-primary, #FF6B00)' }}>
-                          {raffle.status === 'REALIZADO' ? 'GANHADOR' : (raffle.highlightTag || 'SORTEIO')}
-                        </span>
-                      </div>
+                      <ChevronRight className="w-4 h-4 stroke-[3]" />
                     </button>
-                  ))}
+                  )}
                 </div>
               </div>
             )}
@@ -1099,35 +1219,38 @@ export const ClientAppView: React.FC = () => {
                   <span className="text-xs text-neutral-400">{services.length} disponíveis</span>
                 </div>
 
-                {/* Category Filter Chips */}
-                {categories.length > 1 && (
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-2 no-scrollbar">
-                    {categories.map(cat => {
-                      const isCatSelected = selectedCategory === cat;
-                      return (
-                        <button
-                          key={cat}
-                          onClick={() => setSelectedCategory(cat)}
-                          className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
-                            isCatSelected
-                              ? 'font-semibold shadow-md'
-                              : 'bg-neutral-900 text-neutral-400 hover:text-neutral-200 border border-neutral-800'
-                          }`}
-                          style={
-                            isCatSelected
-                              ? {
-                                  backgroundColor: 'var(--theme-primary, #FF6B00)',
-                                  color: 'var(--theme-contrast, #0D0D0D)'
-                                }
-                              : undefined
-                          }
-                        >
+                {/* 6 Elegant Category Blocks: 3 on Top Row, 3 on Bottom Row (Clean Typography, No Icons) */}
+                <div className="grid grid-cols-3 gap-2 mb-3.5">
+                  {categories.map(cat => {
+                    const isCatSelected = selectedCategory.toLowerCase() === cat.toLowerCase();
+
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => handleSelectCategory(cat)}
+                        className={`py-3 px-2 rounded-xl flex items-center justify-center transition-all cursor-pointer active:scale-95 text-center ${
+                          isCatSelected
+                            ? 'font-bold shadow-md'
+                            : 'bg-neutral-900/90 hover:bg-neutral-800/90 text-neutral-400 hover:text-neutral-200 border border-neutral-800/90'
+                        }`}
+                        style={
+                          isCatSelected
+                            ? {
+                                backgroundColor: 'var(--theme-primary, #FF6B00)',
+                                color: 'var(--theme-contrast, #0D0D0D)',
+                                boxShadow: '0 4px 12px -2px var(--theme-focus, rgba(255, 107, 0, 0.3))'
+                              }
+                            : undefined
+                        }
+                      >
+                        <span className="text-xs font-bold uppercase tracking-wider leading-tight truncate w-full">
                           {cat}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
 
                 {/* Services Cards List matching reference image */}
                 {services.length === 0 ? (

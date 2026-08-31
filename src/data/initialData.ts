@@ -711,6 +711,7 @@ export const INITIAL_RAFFLES: Raffle[] = [
         eligibleAppointmentDate: '2026-07-15'
       }
     ],
+    showInHighlights: true,
     createdAt: '2026-08-01T08:00:00Z'
   },
   {
@@ -788,6 +789,8 @@ export const INITIAL_PROMOTIONS: Promotion[] = [
     code: 'PAIEFILHO',
     validUntil: '2026-08-30',
     active: true,
+    showInHighlights: true,
+    highlightTag: 'PROMOÇÃO',
     imageUrl: 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=800&auto=format&fit=crop&q=80',
     createdAt: '2026-08-03T11:00:00Z'
   }
