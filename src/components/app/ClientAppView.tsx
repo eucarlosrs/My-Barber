@@ -58,6 +58,7 @@ import {
 import { Service, User as UserType, GalleryWork, Promotion, Raffle, Barbershop } from '../../types';
 import { AppImage } from '../common/AppImage';
 import { TermsModal } from '../common/TermsModal';
+import { InstagramIcon, FacebookIcon, TikTokIcon, formatSocialUrl } from '../common/SocialMediaIcons';
 import { APP_ASSETS } from '../../data/assets';
 import { triggerGooglePopupLogin } from '../../lib/googleAuth';
 import { formatPhoneNumber } from '../../utils/formatters';
@@ -2681,10 +2682,77 @@ export const ClientAppView: React.FC = () => {
                     <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span>WhatsApp: <strong>{currentBarbershop.whatsapp}</strong></span>
                   </div>
-                  {currentBarbershop.socialMedia.instagram && (
-                    <div className="flex items-center gap-2">
-                      <Instagram className="w-4 h-4 text-pink-400 shrink-0" />
-                      <span>Instagram: <strong>{currentBarbershop.socialMedia.instagram}</strong></span>
+
+                  {/* Redes Sociais Dinâmicas: Somente exibidas se o link estiver preenchido */}
+                  {(currentBarbershop.socialMedia?.instagram || currentBarbershop.socialMedia?.facebook || currentBarbershop.socialMedia?.tiktok) && (
+                    <div className="pt-2 border-t border-neutral-800 space-y-1.5">
+                      <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block">
+                        Siga nossas Redes
+                      </span>
+                      <div className="flex flex-wrap gap-2 pt-0.5">
+                        {/* Instagram */}
+                        {currentBarbershop.socialMedia?.instagram && currentBarbershop.socialMedia.instagram.trim() && (
+                          <a
+                            href={formatSocialUrl(currentBarbershop.socialMedia.instagram, 'instagram')}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-950 hover:bg-neutral-800 border border-neutral-800 hover:border-pink-500/50 text-neutral-200 text-xs font-semibold transition-all group"
+                          >
+                            <span className="w-4 h-4 rounded-md bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 flex items-center justify-center text-white shrink-0">
+                              <InstagramIcon size={10} />
+                            </span>
+                            <span className="group-hover:text-pink-400 transition-colors">
+                              {currentBarbershop.socialMedia.instagram.startsWith('@')
+                                ? currentBarbershop.socialMedia.instagram
+                                : currentBarbershop.socialMedia.instagram.includes('/')
+                                ? 'Instagram'
+                                : `@${currentBarbershop.socialMedia.instagram}`}
+                            </span>
+                          </a>
+                        )}
+
+                        {/* Facebook */}
+                        {currentBarbershop.socialMedia?.facebook && currentBarbershop.socialMedia.facebook.trim() && (
+                          <a
+                            href={formatSocialUrl(currentBarbershop.socialMedia.facebook, 'facebook')}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-950 hover:bg-neutral-800 border border-neutral-800 hover:border-blue-500/50 text-neutral-200 text-xs font-semibold transition-all group"
+                          >
+                            <span className="w-4 h-4 rounded-md bg-blue-600 flex items-center justify-center text-white shrink-0">
+                              <FacebookIcon size={10} />
+                            </span>
+                            <span className="group-hover:text-blue-400 transition-colors">
+                              {currentBarbershop.socialMedia.facebook.startsWith('@')
+                                ? currentBarbershop.socialMedia.facebook
+                                : currentBarbershop.socialMedia.facebook.includes('/')
+                                ? 'Facebook'
+                                : `@${currentBarbershop.socialMedia.facebook}`}
+                            </span>
+                          </a>
+                        )}
+
+                        {/* TikTok */}
+                        {currentBarbershop.socialMedia?.tiktok && currentBarbershop.socialMedia.tiktok.trim() && (
+                          <a
+                            href={formatSocialUrl(currentBarbershop.socialMedia.tiktok, 'tiktok')}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-950 hover:bg-neutral-800 border border-neutral-800 hover:border-teal-400/50 text-neutral-200 text-xs font-semibold transition-all group"
+                          >
+                            <span className="w-4 h-4 rounded-md bg-neutral-900 border border-neutral-700 flex items-center justify-center text-white shrink-0">
+                              <TikTokIcon size={10} />
+                            </span>
+                            <span className="group-hover:text-teal-400 transition-colors">
+                              {currentBarbershop.socialMedia.tiktok.startsWith('@')
+                                ? currentBarbershop.socialMedia.tiktok
+                                : currentBarbershop.socialMedia.tiktok.includes('/')
+                                ? 'TikTok'
+                                : `@${currentBarbershop.socialMedia.tiktok}`}
+                            </span>
+                          </a>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

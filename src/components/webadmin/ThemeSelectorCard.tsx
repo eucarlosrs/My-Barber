@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { BarbershopThemeId } from '../../types';
 import { BARBERSHOP_THEMES, THEME_LIST, getThemeConfig } from '../../utils/theme';
-import { Palette, CheckCircle2, Sparkles, Scissors, ShieldCheck, Check } from 'lucide-react';
+import { Palette, CheckCircle2, ShieldCheck, Check } from 'lucide-react';
 import { ThemeModeToggle } from '../common/ThemeModeToggle';
 
 export const ThemeSelectorCard: React.FC = () => {
@@ -21,44 +21,42 @@ export const ThemeSelectorCard: React.FC = () => {
 
     setTimeout(() => {
       setSavingThemeId(null);
-      setSuccessNotice(`Tema "${BARBERSHOP_THEMES[themeId].name}" aplicado com sucesso e salvo no Firebase!`);
-      setTimeout(() => setSuccessNotice(null), 4000);
-    }, 250);
+      setSuccessNotice(`Tema "${BARBERSHOP_THEMES[themeId].name}" aplicado com sucesso!`);
+      setTimeout(() => setSuccessNotice(null), 3000);
+    }, 200);
   };
 
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-5 sm:p-7 shadow-xl space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-neutral-800">
-        <div>
-          <div className="flex items-center gap-2">
-            <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center shadow-md transition-colors"
-              style={{
-                backgroundColor: activeConfig.lightBgColor,
-                color: activeConfig.primaryColor,
-                border: `1px solid ${activeConfig.borderColor}`
-              }}
-            >
-              <Palette className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-black text-neutral-100 font-heading">
-                Identidade Visual & Tema da Barbearia
-              </h2>
-              <p className="text-xs text-neutral-400">
-                Selecione o tema de cores exclusivo para a sua barbearia. Salvo no Firebase por barbearia.
-              </p>
-            </div>
+    <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 sm:p-5 shadow-lg space-y-4">
+      {/* Header Compacto */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-neutral-800">
+        <div className="flex items-center gap-2.5">
+          <div
+            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 shadow-sm"
+            style={{
+              backgroundColor: activeConfig.lightBgColor,
+              color: activeConfig.primaryColor,
+              border: `1px solid ${activeConfig.borderColor}`
+            }}
+          >
+            <Palette className="w-3.5 h-3.5" />
+          </div>
+          <div>
+            <h2 className="text-sm sm:text-base font-bold text-neutral-100 font-heading">
+              Tema & Paleta de Cores
+            </h2>
+            <p className="text-[11px] text-neutral-400">
+              Personalize o tom visual do aplicativo exclusivo da sua barbearia.
+            </p>
           </div>
         </div>
 
-        {/* Controls: Theme Mode + Current Active Badge */}
-        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+        {/* Controls: Theme Mode + Active Theme Pill */}
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           <ThemeModeToggle variant="pill" />
 
           <div
-            className="px-3.5 py-1.5 rounded-2xl text-xs font-black flex items-center gap-2 border shadow-sm"
+            className="px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 border"
             style={{
               backgroundColor: activeConfig.lightBgColor,
               color: activeConfig.primaryColor,
@@ -66,192 +64,128 @@ export const ThemeSelectorCard: React.FC = () => {
             }}
           >
             <span
-              className="w-2 h-2 rounded-full animate-pulse"
+              className="w-1.5 h-1.5 rounded-full"
               style={{ backgroundColor: activeConfig.primaryColor }}
             />
-            <span>Ativo: {activeConfig.badgeLabel}</span>
+            <span>{activeConfig.badgeLabel}</span>
           </div>
         </div>
       </div>
 
-      {/* Success Notification Alert */}
+      {/* Success Notice Alert */}
       {successNotice && (
-        <div className="bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 p-3.5 rounded-2xl text-xs flex items-center gap-3 shadow-lg animate-fade-in">
-          <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-          <span className="font-semibold">{successNotice}</span>
+        <div className="bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 px-3 py-2 rounded-xl text-xs flex items-center gap-2 shadow-sm animate-fade-in">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span className="font-medium">{successNotice}</span>
         </div>
       )}
 
-      {/* Multi-tenant Isolation Rule Info */}
-      <div className="bg-neutral-950/80 border border-neutral-800/90 rounded-2xl p-3.5 flex items-start gap-3 text-xs text-neutral-400">
-        <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-        <div className="space-y-0.5">
-          <p className="font-bold text-neutral-200">Isolamento Multi-Tenant Garantido</p>
-          <p className="text-[11px] leading-relaxed">
-            O tema escolhido é aplicado <strong>exclusivamente para a {currentBarbershop.name}</strong> e seus clientes, sem afetar nenhuma outra barbearia do sistema. A preferência é sincronizada no Firestore e mantida mesmo após sair.
-          </p>
-        </div>
-      </div>
-
-      {/* 4 Theme Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+      {/* Grid de Seleção de Temas Compacto e Elegante */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
         {THEME_LIST.map(theme => {
           const isSelected = theme.id === activeThemeId;
           const isSaving = savingThemeId === theme.id;
 
           return (
-            <div
+            <button
               key={theme.id}
+              type="button"
               onClick={() => handleSelectTheme(theme.id)}
-              className={`relative rounded-3xl p-5 border-2 transition-all duration-200 cursor-pointer flex flex-col justify-between overflow-hidden group ${
+              disabled={isSaving}
+              className={`relative text-left rounded-xl p-3 border transition-all duration-200 cursor-pointer flex flex-col justify-between gap-3 group ${
                 isSelected
-                  ? 'bg-neutral-950/90 shadow-2xl scale-[1.01]'
-                  : 'bg-neutral-950/40 hover:bg-neutral-950/70 border-neutral-800 hover:border-neutral-700'
+                  ? 'bg-neutral-950/90 shadow-md ring-1'
+                  : 'bg-neutral-950/40 hover:bg-neutral-950/70 border-neutral-800/80 hover:border-neutral-700'
               }`}
               style={{
                 borderColor: isSelected ? theme.primaryColor : undefined,
-                boxShadow: isSelected ? `0 0 25px ${theme.glowColor}` : undefined
+                boxShadow: isSelected ? `0 0 16px ${theme.glowColor}` : undefined
               }}
             >
-              {/* Active Selection Pin */}
-              {isSelected && (
+              {/* Top Row: Swatch + Title */}
+              <div className="flex items-center gap-2.5 w-full">
+                {/* Visual Palette Gradient Circle */}
                 <div
-                  className="absolute top-3.5 right-3.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-md z-10"
+                  className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 shadow-sm border transition-transform group-hover:scale-105"
                   style={{
-                    backgroundColor: theme.primaryColor,
-                    color: theme.contrastTextColor
+                    background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.hoverColor})`,
+                    borderColor: theme.borderColor
                   }}
                 >
-                  <Check className="w-3 h-3 stroke-[3]" />
-                  <span>Em Uso</span>
-                </div>
-              )}
-
-              {/* Theme Header & Palette Dot */}
-              <div>
-                <div className="flex items-center gap-3 mb-2.5 pr-20">
-                  {/* Visual Color Swatch */}
-                  <div
-                    className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg border shrink-0 transition-transform group-hover:scale-105"
-                    style={{
-                      background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.hoverColor})`,
-                      borderColor: theme.borderColor
-                    }}
-                  >
-                    <Scissors
-                      className="w-5 h-5 stroke-[2.5]"
+                  {isSelected ? (
+                    <Check
+                      className="w-3.5 h-3.5 stroke-[3]"
                       style={{ color: theme.contrastTextColor }}
                     />
-                  </div>
-
-                  <div>
-                    <h3 className="text-sm sm:text-base font-black text-neutral-100 font-heading leading-tight">
-                      {theme.name}
-                    </h3>
-                    <p
-                      className="text-[11px] font-bold mt-0.5"
-                      style={{ color: theme.primaryColor }}
-                    >
-                      {theme.tagline}
-                    </p>
-                  </div>
+                  ) : (
+                    <span
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: theme.contrastTextColor }}
+                    />
+                  )}
                 </div>
 
-                <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
-                  {theme.description}
-                </p>
-
-                {/* Preview Mini Mockup Component */}
-                <div className="my-4 p-3.5 bg-neutral-900/90 rounded-2xl border border-neutral-800/80 space-y-2.5">
-                  <div className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">
-                    Demonstração dos Componentes:
+                {/* Title and Tag */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-1">
+                    <h3 className="text-xs font-bold text-neutral-100 truncate font-heading">
+                      {theme.name.replace(/^\d+\.\s*/, '')}
+                    </h3>
                   </div>
+                  <p
+                    className="text-[10px] font-medium truncate"
+                    style={{ color: theme.primaryColor }}
+                  >
+                    {theme.tagline}
+                  </p>
+                </div>
+              </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    {/* Sample Button */}
-                    <div
-                      className="px-3.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-sm transition-all"
-                      style={{
-                        backgroundColor: theme.primaryColor,
-                        color: theme.contrastTextColor,
-                        boxShadow: `0 2px 10px ${theme.glowColor}`
-                      }}
-                    >
-                      <Scissors className="w-3.5 h-3.5 stroke-[2.5]" />
-                      <span>Agendar Horário</span>
-                    </div>
+              {/* Bottom Row: Hex Swatches + Action Indicator */}
+              <div className="flex items-center justify-between pt-2 border-t border-neutral-900 w-full text-[10px]">
+                <div className="flex items-center gap-1 font-mono text-neutral-400">
+                  <span
+                    className="w-2 h-2 rounded-full inline-block"
+                    style={{ backgroundColor: theme.primaryColor }}
+                  />
+                  <span>{theme.primaryColor}</span>
+                </div>
 
-                    {/* Sample Badge */}
-                    <div
-                      className="px-2.5 py-1 rounded-xl text-[11px] font-bold border flex items-center gap-1"
+                <div>
+                  {isSaving ? (
+                    <div className="w-3.5 h-3.5 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" />
+                  ) : isSelected ? (
+                    <span
+                      className="px-2 py-0.5 rounded-md font-bold text-[10px] flex items-center gap-1"
                       style={{
                         backgroundColor: theme.lightBgColor,
                         color: theme.primaryColor,
-                        borderColor: theme.borderColor
+                        border: `1px solid ${theme.borderColor}`
                       }}
                     >
-                      <Sparkles className="w-3 h-3" />
-                      <span>{theme.badgeLabel}</span>
-                    </div>
-                  </div>
-
-                  {/* Preview Color Tags */}
-                  <div className="flex items-center gap-1.5 pt-1">
-                    {theme.previewTags.map((tag, idx) => (
-                      <span
-                        key={idx}
-                        className="text-[9px] font-mono font-bold bg-neutral-950 text-neutral-400 px-2 py-0.5 rounded-md border border-neutral-800"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
+                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                      Ativo
+                    </span>
+                  ) : (
+                    <span className="text-neutral-400 group-hover:text-neutral-200 font-medium transition-colors">
+                      Selecionar
+                    </span>
+                  )}
                 </div>
               </div>
-
-              {/* Action Button */}
-              <div className="pt-2">
-                <button
-                  type="button"
-                  disabled={isSelected || isSaving}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSelectTheme(theme.id);
-                  }}
-                  className={`w-full py-2.5 px-4 rounded-2xl text-xs font-black tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                    isSelected
-                      ? 'bg-neutral-800/50 text-neutral-400 border border-neutral-700/50 cursor-default'
-                      : 'hover:brightness-110 active:scale-98'
-                  }`}
-                  style={
-                    !isSelected
-                      ? {
-                          backgroundColor: theme.primaryColor,
-                          color: theme.contrastTextColor,
-                          boxShadow: `0 4px 15px ${theme.glowColor}`
-                        }
-                      : undefined
-                  }
-                >
-                  {isSaving ? (
-                    <div className="w-4 h-4 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin" />
-                  ) : isSelected ? (
-                    <>
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      <span>Tema Ativo Nesta Barbearia</span>
-                    </>
-                  ) : (
-                    <>
-                      <Palette className="w-4 h-4" />
-                      <span>Ativar Este Tema</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
+            </button>
           );
         })}
+      </div>
+
+      {/* Micro Footer com Informação de Isolamento */}
+      <div className="flex items-center gap-2 pt-2 text-[11px] text-neutral-400">
+        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+        <span>
+          Tema salvo por barbearia no Firebase e isolado exclusivamente para a <strong className="text-neutral-300">{currentBarbershop.name}</strong>.
+        </span>
       </div>
     </div>
   );
 };
+

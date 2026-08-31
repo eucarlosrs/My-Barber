@@ -30,9 +30,10 @@ import {
   Pencil,
   Image as ImageIcon,
   CreditCard,
-  ArrowUp
+  ArrowUp,
+  MapPin
 } from 'lucide-react';
-import { MY_BARBER_PLANS, UserRole, Service, WeeklyBusinessHours } from '../../types';
+import { MY_BARBER_PLANS, UserRole, Service, WeeklyBusinessHours, BarbershopAddress } from '../../types';
 import { DEFAULT_WEEKLY_BUSINESS_HOURS } from '../../data/initialData';
 import { ProfessionalsTab } from './ProfessionalsTab';
 import { AppointmentsTab } from './AppointmentsTab';
@@ -48,6 +49,7 @@ import { getThemeCssVariables } from '../../utils/theme';
 import { ThemeModeToggle } from '../common/ThemeModeToggle';
 import { SaveButton } from '../common/SaveButton';
 import { UnsavedChangesModal } from '../common/UnsavedChangesModal';
+import { InstagramIcon, FacebookIcon, TikTokIcon } from '../common/SocialMediaIcons';
 
 export const WebAdminView: React.FC = () => {
   const {
@@ -117,10 +119,23 @@ export const WebAdminView: React.FC = () => {
   const [settingsAbout, setSettingsAbout] = useState(currentBarbershop.about || '');
   const [settingsWhatsapp, setSettingsWhatsapp] = useState(currentBarbershop.whatsapp || '');
   const [settingsInstagram, setSettingsInstagram] = useState(currentBarbershop.socialMedia?.instagram || '');
+  const [settingsFacebook, setSettingsFacebook] = useState(currentBarbershop.socialMedia?.facebook || '');
+  const [settingsTiktok, setSettingsTiktok] = useState(currentBarbershop.socialMedia?.tiktok || '');
   const [settingsReminderMinutes, setSettingsReminderMinutes] = useState(currentBarbershop.reminderConfig?.advanceMinutes || 60);
   const [settingsLogoUrl, setSettingsLogoUrl] = useState(currentBarbershop.logoUrl || '');
   const [settingsBannerUrl, setSettingsBannerUrl] = useState(currentBarbershop.bannerUrl || '');
   const [settingsSalonImages, setSettingsSalonImages] = useState<string[]>(currentBarbershop.salonImages || []);
+  const [settingsAddress, setSettingsAddress] = useState<BarbershopAddress>(
+    currentBarbershop.address || {
+      street: '',
+      number: '',
+      complement: '',
+      neighborhood: '',
+      city: '',
+      state: 'SP',
+      zipCode: ''
+    }
+  );
   const [settingsBusinessHours, setSettingsBusinessHours] = useState<WeeklyBusinessHours>(
     currentBarbershop.businessHours || DEFAULT_WEEKLY_BUSINESS_HOURS
   );
@@ -139,23 +154,49 @@ export const WebAdminView: React.FC = () => {
     setSettingsAbout(currentBarbershop.about || '');
     setSettingsWhatsapp(currentBarbershop.whatsapp || '');
     setSettingsInstagram(currentBarbershop.socialMedia?.instagram || '');
+    setSettingsFacebook(currentBarbershop.socialMedia?.facebook || '');
+    setSettingsTiktok(currentBarbershop.socialMedia?.tiktok || '');
     setSettingsReminderMinutes(currentBarbershop.reminderConfig?.advanceMinutes || 60);
     setSettingsLogoUrl(currentBarbershop.logoUrl || '');
     setSettingsBannerUrl(currentBarbershop.bannerUrl || '');
     setSettingsSalonImages(currentBarbershop.salonImages || []);
+    setSettingsAddress(
+      currentBarbershop.address || {
+        street: '',
+        number: '',
+        complement: '',
+        neighborhood: '',
+        city: '',
+        state: 'SP',
+        zipCode: ''
+      }
+    );
     setSettingsBusinessHours(currentBarbershop.businessHours || DEFAULT_WEEKLY_BUSINESS_HOURS);
-  }, [currentBarbershop.id, currentBarbershop.businessHours]);
+  }, [currentBarbershop.id, currentBarbershop.businessHours, currentBarbershop.address, currentBarbershop.socialMedia]);
 
   const isSettingsDirty = useMemo(() => {
+    const currentAddr = currentBarbershop.address || {
+      street: '',
+      number: '',
+      complement: '',
+      neighborhood: '',
+      city: '',
+      state: 'SP',
+      zipCode: ''
+    };
+
     return (
       settingsName.trim() !== (currentBarbershop.name || '').trim() ||
       settingsAbout.trim() !== (currentBarbershop.about || '').trim() ||
       settingsWhatsapp.trim() !== (currentBarbershop.whatsapp || '').trim() ||
       settingsInstagram.trim() !== (currentBarbershop.socialMedia?.instagram || '').trim() ||
+      settingsFacebook.trim() !== (currentBarbershop.socialMedia?.facebook || '').trim() ||
+      settingsTiktok.trim() !== (currentBarbershop.socialMedia?.tiktok || '').trim() ||
       Number(settingsReminderMinutes) !== (currentBarbershop.reminderConfig?.advanceMinutes || 60) ||
       settingsLogoUrl !== (currentBarbershop.logoUrl || '') ||
       settingsBannerUrl !== (currentBarbershop.bannerUrl || '') ||
       JSON.stringify(settingsSalonImages) !== JSON.stringify(currentBarbershop.salonImages || []) ||
+      JSON.stringify(settingsAddress) !== JSON.stringify(currentAddr) ||
       JSON.stringify(settingsBusinessHours) !== JSON.stringify(currentBarbershop.businessHours || DEFAULT_WEEKLY_BUSINESS_HOURS)
     );
   }, [
@@ -163,10 +204,13 @@ export const WebAdminView: React.FC = () => {
     settingsAbout,
     settingsWhatsapp,
     settingsInstagram,
+    settingsFacebook,
+    settingsTiktok,
     settingsReminderMinutes,
     settingsLogoUrl,
     settingsBannerUrl,
     settingsSalonImages,
+    settingsAddress,
     settingsBusinessHours,
     currentBarbershop
   ]);
@@ -181,7 +225,18 @@ export const WebAdminView: React.FC = () => {
         whatsapp: settingsWhatsapp.trim(),
         socialMedia: {
           ...currentBarbershop.socialMedia,
-          instagram: settingsInstagram.trim()
+          instagram: settingsInstagram.trim(),
+          facebook: settingsFacebook.trim(),
+          tiktok: settingsTiktok.trim()
+        },
+        address: {
+          street: settingsAddress.street.trim(),
+          number: settingsAddress.number.trim(),
+          complement: settingsAddress.complement?.trim() || '',
+          neighborhood: settingsAddress.neighborhood.trim(),
+          city: settingsAddress.city.trim(),
+          state: settingsAddress.state.trim().toUpperCase(),
+          zipCode: settingsAddress.zipCode.trim()
         },
         reminderConfig: {
           ...currentBarbershop.reminderConfig,
@@ -1131,6 +1186,105 @@ export const WebAdminView: React.FC = () => {
                     className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-amber-500"
                   />
                 </div>
+
+                {/* Bloco de Endereço Físico Completo da Barbearia */}
+                <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-800 space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-neutral-850">
+                    <div className="font-bold text-xs text-orange-400 flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span>Endereço da Barbearia</span>
+                    </div>
+                    <span className="text-[10px] text-neutral-400">Exibido aos clientes e no Google Maps</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-neutral-300 mb-1">CEP</label>
+                      <input
+                        type="text"
+                        placeholder="00000-000"
+                        value={settingsAddress.zipCode}
+                        onChange={e => {
+                          const raw = e.target.value.replace(/\D/g, '').slice(0, 8);
+                          const formatted = raw.length > 5 ? `${raw.slice(0, 5)}-${raw.slice(5)}` : raw;
+                          setSettingsAddress(prev => ({ ...prev, zipCode: formatted }));
+                        }}
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] font-semibold text-neutral-300 mb-1">Rua / Logradouro</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: Av. Paulista"
+                        value={settingsAddress.street}
+                        onChange={e => setSettingsAddress(prev => ({ ...prev, street: e.target.value }))}
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-neutral-300 mb-1">Número</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: 1000"
+                        value={settingsAddress.number}
+                        onChange={e => setSettingsAddress(prev => ({ ...prev, number: e.target.value }))}
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] font-semibold text-neutral-300 mb-1">Complemento / Ref.</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: Sala 42, Bloco B"
+                        value={settingsAddress.complement || ''}
+                        onChange={e => setSettingsAddress(prev => ({ ...prev, complement: e.target.value }))}
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-neutral-300 mb-1">Bairro</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: Bela Vista"
+                        value={settingsAddress.neighborhood}
+                        onChange={e => setSettingsAddress(prev => ({ ...prev, neighborhood: e.target.value }))}
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-neutral-300 mb-1">Cidade</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: São Paulo"
+                        value={settingsAddress.city}
+                        onChange={e => setSettingsAddress(prev => ({ ...prev, city: e.target.value }))}
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-neutral-300 mb-1">Estado (UF)</label>
+                      <input
+                        type="text"
+                        placeholder="SP"
+                        maxLength={2}
+                        value={settingsAddress.state}
+                        onChange={e => setSettingsAddress(prev => ({ ...prev, state: e.target.value.toUpperCase() }))}
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 uppercase font-mono text-center font-bold"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Social Media & Salon Images */}
@@ -1209,14 +1363,70 @@ export const WebAdminView: React.FC = () => {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-300 mb-1">Instagram da Barbearia</label>
-                  <input
-                    type="text"
-                    value={settingsInstagram}
-                    onChange={e => setSettingsInstagram(e.target.value)}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-amber-500"
-                  />
+                {/* Bloco de Redes Sociais da Barbearia */}
+                <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-800 space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-neutral-850">
+                    <div className="font-bold text-xs text-neutral-200 flex items-center gap-1.5">
+                      <Share2 className="w-3.5 h-3.5 text-orange-400" />
+                      <span>Redes Sociais da Barbearia</span>
+                    </div>
+                    <span className="text-[10px] text-neutral-400">
+                      Canais sem link preenchido não serão exibidos aos clientes
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {/* Instagram */}
+                    <div>
+                      <label className="flex items-center gap-1.5 text-[11px] font-semibold text-neutral-300 mb-1">
+                        <span className="w-5 h-5 rounded-md bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 flex items-center justify-center text-white shrink-0 shadow-sm">
+                          <InstagramIcon size={12} />
+                        </span>
+                        <span>Instagram (Perfil ou Link)</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Ex: @minhabarbearia ou https://instagram.com/minhabarbearia"
+                        value={settingsInstagram}
+                        onChange={e => setSettingsInstagram(e.target.value)}
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-neutral-200 focus:outline-none focus:border-rose-500"
+                      />
+                    </div>
+
+                    {/* Facebook */}
+                    <div>
+                      <label className="flex items-center gap-1.5 text-[11px] font-semibold text-neutral-300 mb-1">
+                        <span className="w-5 h-5 rounded-md bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-sm">
+                          <FacebookIcon size={12} />
+                        </span>
+                        <span>Facebook (Página ou Link)</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Ex: @minhabarbearia ou https://facebook.com/minhabarbearia"
+                        value={settingsFacebook}
+                        onChange={e => setSettingsFacebook(e.target.value)}
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-neutral-200 focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+
+                    {/* TikTok */}
+                    <div>
+                      <label className="flex items-center gap-1.5 text-[11px] font-semibold text-neutral-300 mb-1">
+                        <span className="w-5 h-5 rounded-md bg-neutral-900 border border-neutral-700 flex items-center justify-center text-white shrink-0 shadow-sm">
+                          <TikTokIcon size={12} />
+                        </span>
+                        <span>TikTok (Perfil ou Link)</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Ex: @minhabarbearia ou https://tiktok.com/@minhabarbearia"
+                        value={settingsTiktok}
+                        onChange={e => setSettingsTiktok(e.target.value)}
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-neutral-200 focus:outline-none focus:border-teal-400"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div>
