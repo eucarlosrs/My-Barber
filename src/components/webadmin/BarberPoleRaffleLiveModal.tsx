@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import {
   Trophy,
   Scissors,
@@ -17,45 +17,46 @@ import { AppImage } from '../common/AppImage';
 import { BarbershopCelebration } from '../common/BarbershopCelebration';
 
 // ============================================================================
-// 3D HELICAL CYLINDER BARBER POLE CANVAS COMPONENT
+// 3D HELICAL CYLINDER BARBER POLE CANVAS COMPONENT (FULL RESPONSIVE FIT)
 // ============================================================================
 interface BarberPoleCanvasProps {
   speedMultiplier: number;
-  width?: number;
-  height?: number;
 }
 
 const BarberPoleCanvas: React.FC<BarberPoleCanvasProps> = ({
   speedMultiplier,
-  width = 150,
-  height = 290
 }) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animFrameIdRef = useRef<number | null>(null);
   const rotationRef = useRef<number>(0);
 
   useEffect(() => {
+    const container = containerRef.current;
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!container || !canvas) return;
+
+    let width = container.clientWidth || 160;
+    let height = container.clientHeight || 280;
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Retina display support
-    const dpr = window.devicePixelRatio || 1;
+    // Retina support
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = width * dpr;
     canvas.height = height * dpr;
-    ctx.scale(dpr, dpr);
 
-    const W = width;
-    const H = height;
+    const W = canvas.width;
+    const H = canvas.height;
     const radius = W / 2;
-    const numHelixes = 3.5; // Number of complete spiral turns along vertical height
+    // 3 complete turns along the full height
+    const numHelixes = 2.8;
 
-    // Pre-allocate buffer
     const imgData = ctx.createImageData(W, H);
     const data = imgData.data;
 
-    // Precalculate cylinder X mapping to avoid Math.asin in inner loop
+    // Precalculate cylinder X mapping and 3D lighting for all pixels across width
     const xToAngle = new Float32Array(W);
     const xShade = new Float32Array(W);
     const xValid = new Uint8Array(W);
@@ -66,12 +67,12 @@ const BarberPoleCanvas: React.FC<BarberPoleCanvasProps> = ({
         xValid[x] = 1;
         const angle = Math.asin(u);
         xToAngle[x] = angle;
-        // 3D cylindrical lighting (diffuse + specular + edge falloff)
+        // 3D cylindrical lighting (diffuse + specular highlight + soft cylindrical falloff)
         const cosAngle = Math.cos(angle);
-        const diffuse = cosAngle * 0.75;
-        const spec = Math.pow(Math.max(0, Math.cos(angle - 0.35)), 10) * 0.45;
-        const edgeShadow = Math.pow(cosAngle, 0.4);
-        xShade[x] = Math.min(1.2, Math.max(0.15, (0.28 + diffuse + spec) * edgeShadow));
+        const diffuse = cosAngle * 0.72;
+        const spec = Math.pow(Math.max(0, Math.cos(angle - 0.35)), 8) * 0.4;
+        const edgeShadow = Math.pow(cosAngle, 0.45);
+        xShade[x] = Math.min(1.2, Math.max(0.18, (0.3 + diffuse + spec) * edgeShadow));
       } else {
         xValid[x] = 0;
       }
@@ -83,8 +84,8 @@ const BarberPoleCanvas: React.FC<BarberPoleCanvasProps> = ({
       const dt = (now - lastTime) / 1000;
       lastTime = now;
 
-      // Update rotation
-      rotationRef.current += dt * speedMultiplier * 4.5;
+      // Update vertical spin
+      rotationRef.current += dt * speedMultiplier * 4.0;
       const rotation = rotationRef.current;
       const twoPi = Math.PI * 2;
 
@@ -108,32 +109,31 @@ const BarberPoleCanvas: React.FC<BarberPoleCanvasProps> = ({
           if (totalAngle < 0) totalAngle += twoPi;
 
           // Standard 4-band Barber Pole sequence: RED -> WHITE -> BLUE -> WHITE
-          // Each band occupies 90 degrees (PI / 2 radians)
           const band = (totalAngle / (Math.PI / 2)) % 4;
           let r = 255;
           let g = 255;
           let b = 255;
 
           if (band < 1) {
-            // RED BAND (Vibrant Classic Barber Red)
-            r = 220;
-            g = 35;
-            b = 35;
+            // CLASSIC VIBRANT BARBER RED
+            r = 225;
+            g = 30;
+            b = 30;
           } else if (band < 2) {
-            // WHITE BAND
-            r = 248;
-            g = 250;
-            b = 252;
+            // CLEAN CRISP WHITE
+            r = 250;
+            g = 252;
+            b = 255;
           } else if (band < 3) {
-            // BLUE BAND (Deep Classic Barber Blue)
-            r = 30;
-            g = 95;
-            b = 225;
+            // CLASSIC DEEP ROYAL BARBER BLUE
+            r = 28;
+            g = 90;
+            b = 220;
           } else {
-            // WHITE BAND
-            r = 248;
-            g = 250;
-            b = 252;
+            // CLEAN CRISP WHITE
+            r = 250;
+            g = 252;
+            b = 255;
           }
 
           const shade = xShade[x];
@@ -141,7 +141,7 @@ const BarberPoleCanvas: React.FC<BarberPoleCanvasProps> = ({
           data[p] = Math.min(255, r * shade);
           data[p + 1] = Math.min(255, g * shade);
           data[p + 2] = Math.min(255, b * shade);
-          data[p + 3] = 255; // fully opaque cylinder
+          data[p + 3] = 255;
           p += 4;
         }
       }
@@ -158,14 +158,15 @@ const BarberPoleCanvas: React.FC<BarberPoleCanvasProps> = ({
         cancelAnimationFrame(animFrameIdRef.current);
       }
     };
-  }, [speedMultiplier, width, height]);
+  }, [speedMultiplier]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{ width, height }}
-      className="rounded-xl shadow-inner pointer-events-none block"
-    />
+    <div ref={containerRef} className="w-full h-full relative">
+      <canvas
+        ref={canvasRef}
+        className="w-full h-full block pointer-events-none rounded-xl"
+      />
+    </div>
   );
 };
 
@@ -425,14 +426,12 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
             <div className="w-36 h-3 bg-gradient-to-r from-neutral-600 via-neutral-300 to-neutral-700 rounded-sm shadow-md border-y border-neutral-400 relative z-10" />
 
             {/* Vertical Barber Pole Glass Cylinder Enclosure */}
-            <div className="w-36 sm:w-40 h-64 sm:h-72 relative rounded-2xl overflow-hidden border-2 border-neutral-600 bg-neutral-950 shadow-[0_0_25px_rgba(0,0,0,0.85)] flex items-center justify-center p-0.5">
+            <div className="w-36 sm:w-40 h-64 sm:h-72 relative rounded-2xl overflow-hidden border-2 border-neutral-600 bg-neutral-950 shadow-[0_0_25px_rgba(0,0,0,0.85)] flex items-center justify-center p-0">
               
               {/* 3D Photorealistic Canvas Helical Barber Pole */}
-              <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+              <div className="absolute inset-0 w-full h-full">
                 <BarberPoleCanvas
                   speedMultiplier={canvasSpeed}
-                  width={160}
-                  height={290}
                 />
               </div>
 
@@ -450,9 +449,9 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
                   <motion.div
                     initial={{ scale: 0.9, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-neutral-950/85 backdrop-blur-md border border-amber-500/60 shadow-2xl"
+                    className="flex flex-col items-center justify-center p-2 rounded-2xl bg-neutral-950/85 backdrop-blur-md border border-amber-500/60 shadow-2xl"
                   >
-                    <div className="w-16 h-16 rounded-full bg-neutral-900 border-2 border-amber-400 p-0.5 flex items-center justify-center shadow-[0_0_18px_rgba(251,191,36,0.5)] overflow-hidden">
+                    <div className="w-14 h-14 rounded-full bg-neutral-900 border-2 border-amber-400 p-0.5 flex items-center justify-center shadow-[0_0_18px_rgba(251,191,36,0.5)] overflow-hidden">
                       {barbershopLogo ? (
                         <AppImage
                           src={barbershopLogo}
@@ -462,11 +461,11 @@ export const BarberPoleRaffleLiveModal: React.FC<BarberPoleRaffleLiveModalProps>
                         />
                       ) : (
                         <div className="w-full h-full rounded-full bg-gradient-to-tr from-orange-500 to-amber-400 flex items-center justify-center text-neutral-950 font-black text-xl">
-                          <Scissors className="w-7 h-7 stroke-[2.5]" />
+                          <Scissors className="w-6 h-6 stroke-[2.5]" />
                         </div>
                       )}
                     </div>
-                    <span className="text-[10px] font-black uppercase text-amber-300 tracking-wider mt-1.5 max-w-[110px] truncate">
+                    <span className="text-[9px] font-black uppercase text-amber-300 tracking-wider mt-1 max-w-[100px] truncate">
                       {barbershopName}
                     </span>
                   </motion.div>
