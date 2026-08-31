@@ -14,12 +14,14 @@ import {
   Camera,
   Image as ImageIcon,
   Sparkles,
-  X
+  X,
+  Video
 } from 'lucide-react';
 import { Raffle } from '../../types';
 import { AppImage } from '../common/AppImage';
 import { SaveButton } from '../common/SaveButton';
 import { UnsavedChangesModal } from '../common/UnsavedChangesModal';
+import { BarberPoleRaffleLiveModal } from './BarberPoleRaffleLiveModal';
 
 const PRESET_RAFFLE_BANNERS = [
   'https://images.unsplash.com/photo-1512690459411-b9245aed614b?w=800&auto=format&fit=crop&q=80',
@@ -78,7 +80,7 @@ export const RafflesTab: React.FC = () => {
     highlightTag
   ]);
 
-  // Live Draw Celebration Modal state
+  // Live Draw Celebration Modal state (Quick Draw)
   const [drawResult, setDrawResult] = useState<{
     open: boolean;
     raffleTitle: string;
@@ -88,8 +90,13 @@ export const RafflesTab: React.FC = () => {
     eligibleCount: number;
   } | null>(null);
 
+  // Live Barber Pole Studio Modal state (Recording Mode)
+  const [livePoleRaffle, setLivePoleRaffle] = useState<Raffle | null>(null);
+
   // Calculate eligible clients count in current tenant for 60-day rule
-  const eligibleClients = clients.filter(c => isClientEligibleForRaffle(c.id).eligible);
+  const eligibleClients = useMemo(() => {
+    return clients.filter(c => isClientEligibleForRaffle(c.id).eligible);
+  }, [clients, isClientEligibleForRaffle]);
 
   const openAddModal = () => {
     const nextMonth = new Date();
@@ -162,20 +169,23 @@ export const RafflesTab: React.FC = () => {
   };
 
   const handleExecute = (raffle: Raffle) => {
-    const result = executeRaffle(raffle.id);
-    if (result.success && result.winnerName) {
-      const winnerClient = clients.find(c => c.id === result.winnerId || c.name === result.winnerName);
-      setDrawResult({
-        open: true,
-        raffleTitle: raffle.title,
-        winnerName: result.winnerName,
-        winnerWhatsApp: winnerClient?.whatsapp,
-        prize: raffle.prize,
-        eligibleCount: result.eligibleCount
-      });
-    } else {
-      alert(result.message);
-    }
+    // Abre diretamente o Barber Pole Interativo ao Vivo para gravação e sorteio
+    setLivePoleRaffle(raffle);
+  };
+
+  const handleCompleteLiveRaffle = (winnerId: string, winnerName: string, shouldHighlight: boolean) => {
+    if (!livePoleRaffle) return;
+
+    // Atualiza o sorteio com o status REALIZADO, o ganhador e a opção de fixar no Destaque
+    updateRaffle(livePoleRaffle.id, {
+      status: 'REALIZADO',
+      winnerClientId: winnerId,
+      winnerClientName: winnerName,
+      winnerName: winnerName,
+      winnerDrawnAt: new Date().toISOString(),
+      showInHighlights: shouldHighlight,
+      highlightTag: shouldHighlight ? 'GANHADOR' : livePoleRaffle.highlightTag
+    });
   };
 
   const activeRaffles = raffles.filter(r => r.status === 'ATIVO');
@@ -304,40 +314,40 @@ export const RafflesTab: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="pt-3 border-t border-neutral-800 flex items-center gap-2">
-                    <button
-                      onClick={() => handleExecute(raffle)}
-                      className="flex-1 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-neutral-950 font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all"
-                    >
-                      <Trophy className="w-4 h-4" />
-                      <span>🎲 Realizar Sorteio Agora</span>
-                    </button>
+                    {/* Actions */}
+                    <div className="pt-3 border-t border-neutral-800 flex items-center gap-2">
+                      <button
+                        onClick={() => handleExecute(raffle)}
+                        className="flex-1 py-2.5 bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 hover:from-orange-400 hover:to-amber-400 text-neutral-950 font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all cursor-pointer"
+                      >
+                        <Video className="w-4 h-4 text-red-700 animate-pulse" />
+                        <span>💈 Sorteio ao Vivo (Barber Pole)</span>
+                      </button>
 
-                    <button
-                      onClick={() => updateRaffle(raffle.id, { showInHighlights: !raffle.showInHighlights })}
-                      className={`px-2.5 py-2.5 rounded-xl text-xs font-bold transition-colors flex items-center gap-1 ${
-                        raffle.showInHighlights
-                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                          : 'bg-neutral-950 text-neutral-400 border border-neutral-800 hover:text-neutral-200'
-                      }`}
-                      title="Exibir nos destaques do app"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                    </button>
+                      <button
+                        onClick={() => updateRaffle(raffle.id, { showInHighlights: !raffle.showInHighlights })}
+                        className={`px-2.5 py-2.5 rounded-xl text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer ${
+                          raffle.showInHighlights
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                            : 'bg-neutral-950 text-neutral-400 border border-neutral-800 hover:text-neutral-200'
+                        }`}
+                        title="Exibir nos destaques do app"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                      </button>
 
-                    <button
-                      onClick={() => {
-                        if (window.confirm('Deseja excluir este sorteio?')) {
-                          deleteRaffle(raffle.id);
-                        }
-                      }}
-                      className="p-2.5 bg-neutral-950 hover:bg-red-500/20 text-neutral-400 hover:text-red-400 rounded-xl border border-neutral-800 transition-colors"
-                      title="Excluir Sorteio"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                      <button
+                        onClick={() => {
+                          if (window.confirm('Deseja excluir este sorteio?')) {
+                            deleteRaffle(raffle.id);
+                          }
+                        }}
+                        className="p-2.5 bg-neutral-950 hover:bg-red-500/20 text-neutral-400 hover:text-red-400 rounded-xl border border-neutral-800 transition-colors cursor-pointer"
+                        title="Excluir Sorteio"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                 </div>
               </div>
             ))}
@@ -643,6 +653,23 @@ export const RafflesTab: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Barber Pole Live Raffle Studio Modal (Recording Mode) */}
+      {livePoleRaffle && (
+        <BarberPoleRaffleLiveModal
+          isOpen={Boolean(livePoleRaffle)}
+          onClose={() => setLivePoleRaffle(null)}
+          raffle={livePoleRaffle}
+          eligibleClients={eligibleClients.map(c => ({
+            id: c.id,
+            name: c.name,
+            whatsapp: c.whatsapp,
+            avatarUrl: c.avatarUrl
+          }))}
+          barbershopName={currentBarbershop.name}
+          onCompleteRaffle={handleCompleteLiveRaffle}
+        />
       )}
     </div>
   );

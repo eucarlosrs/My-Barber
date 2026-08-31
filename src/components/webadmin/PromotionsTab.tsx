@@ -137,7 +137,7 @@ export const PromotionsTab: React.FC = () => {
     const pCode = promo.code || '';
     const pValidUntil = promo.validUntil || '';
     const pImage = promo.imageUrl || PRESET_PROMO_IMAGES[0];
-    const pShowInHighlights = promo.showInHighlights !== false;
+    const pShowInHighlights = Boolean(promo.showInHighlights);
     const pHighlightTag = promo.highlightTag || 'PROMOÇÃO';
 
     setTitle(pTitle);

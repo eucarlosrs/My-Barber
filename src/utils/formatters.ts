@@ -4,8 +4,18 @@ import { Barbershop, BarbershopStatus } from '../types';
  * Masks a phone number string to Brazilian format: (XX) XXXXX-XXXX or (XX) XXXX-XXXX
  */
 export function formatPhoneNumber(value: string): string {
+  if (!value) return '';
+
   // Remove non-digit characters
-  const digits = value.replace(/\D/g, '').slice(0, 11);
+  let digits = value.replace(/\D/g, '');
+
+  // If pasted with Brazil DDI 55 (e.g. 5511988887777 or 551133334444)
+  if ((digits.length === 12 || digits.length === 13) && digits.startsWith('55')) {
+    digits = digits.slice(2);
+  }
+
+  // Max 11 digits (DDD + 9 digits)
+  digits = digits.slice(0, 11);
 
   if (digits.length === 0) return '';
   if (digits.length <= 2) return `(${digits}`;

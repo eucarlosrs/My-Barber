@@ -65,6 +65,7 @@ import { formatPhoneNumber } from '../../utils/formatters';
 import { getThemeCssVariables } from '../../utils/theme';
 import { ThemeModeToggle } from '../common/ThemeModeToggle';
 import { BusinessHoursModal } from './BusinessHoursModal';
+import { BarbershopCelebration } from '../common/BarbershopCelebration';
 
 export const ClientAppView: React.FC = () => {
   const {
@@ -200,13 +201,13 @@ export const ClientAppView: React.FC = () => {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showBusinessHoursModal, setShowBusinessHoursModal] = useState(false);
 
-  // Dynamic Destaques list (configured by owner/manager)
+  // Dynamic Destaques list (configured by owner/manager - strictly requires showInHighlights === true)
   const highlightedPromos = useMemo(() => {
-    return promotions.filter(p => p.active && p.showInHighlights !== false);
+    return promotions.filter(p => p.active && Boolean(p.showInHighlights));
   }, [promotions]);
 
   const highlightedRaffles = useMemo(() => {
-    return raffles.filter(r => r.showInHighlights !== false);
+    return raffles.filter(r => Boolean(r.showInHighlights));
   }, [raffles]);
 
   const hasAnyHighlights = highlightedPromos.length > 0 || highlightedRaffles.length > 0;
@@ -3573,14 +3574,20 @@ export const ClientAppView: React.FC = () => {
                           <span>WhatsApp / Telefone <span className="text-red-400">*</span></span>
                           <span className="text-[10px] text-emerald-400 font-normal">Lembretes automáticos</span>
                         </label>
-                        <input
-                          type="tel"
-                          required
-                          value={clientPhone}
-                          onChange={e => setClientPhone(formatPhoneNumber(e.target.value))}
-                          placeholder="(11) 98888-7777"
-                          className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none font-mono"
-                        />
+                        <div className="relative flex items-center">
+                          <div className="absolute left-2.5 flex items-center gap-1 text-neutral-400 font-mono text-[11px] select-none pointer-events-none border-r border-neutral-800 pr-2">
+                            <span>🇧🇷</span>
+                            <span className="text-neutral-300 font-bold">+55</span>
+                          </div>
+                          <input
+                            type="tel"
+                            required
+                            value={clientPhone}
+                            onChange={e => setClientPhone(formatPhoneNumber(e.target.value))}
+                            placeholder="(11) 98888-7777"
+                            className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-16 pr-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 font-mono"
+                          />
+                        </div>
                       </div>
 
                       <div>
@@ -3818,27 +3825,31 @@ export const ClientAppView: React.FC = () => {
         {/* ========================================================================= */}
         {/* 4.6 BOOKING SUCCESS CELEBRATION MODAL (FESTIVE CONFETTI & CONFIRMATION) */}
         {/* ========================================================================= */}
+        {showCelebrationModal && (
+          <BarbershopCelebration active={showCelebrationModal} />
+        )}
+
         {showCelebrationModal && celebrationDetails && (
           <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
             <div
-              className="bg-neutral-950 border-2 rounded-3xl max-w-sm w-full p-6 text-center text-neutral-100 shadow-2xl relative overflow-hidden"
+              className="bg-neutral-950 border-2 rounded-3xl max-w-sm w-full p-6 text-center text-neutral-100 shadow-2xl relative overflow-hidden transform scale-100 transition-all"
               style={{ borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.5))' }}
             >
               {/* Decorative Barber Pole Line */}
-              <div className="absolute top-0 left-0 right-0 h-1.5 barber-pole-stripe" />
+              <div className="absolute top-0 left-0 right-0 h-2 barber-pole-stripe shadow-md" />
 
               {/* Animated Floating Confetti / Sparks */}
               <div
-                className="absolute -top-3 left-1/4 w-2 h-2 rounded-full animate-ping opacity-75"
+                className="absolute -top-3 left-1/4 w-2.5 h-2.5 rounded-full animate-ping opacity-75"
                 style={{ backgroundColor: 'var(--theme-primary, #FF6B00)' }}
               />
               <div className="absolute top-8 right-8 w-2 h-2 rounded-full bg-amber-300 animate-ping opacity-60" />
-              <div className="absolute bottom-10 left-6 w-2 h-2 rounded-full bg-emerald-400 animate-pulse opacity-70" />
+              <div className="absolute bottom-10 left-6 w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse opacity-70" />
 
               {/* Animated Success Badge with Scissors & Checkmark */}
               <div className="relative my-4 inline-flex items-center justify-center">
                 <div
-                  className="w-20 h-20 rounded-full p-0.5 shadow-lg animate-bounce"
+                  className="w-20 h-20 rounded-full p-0.5 shadow-lg shadow-orange-500/30 animate-bounce"
                   style={{
                     background: 'linear-gradient(135deg, var(--theme-primary, #FF6B00), #F59E0B)'
                   }}
@@ -3850,9 +3861,14 @@ export const ClientAppView: React.FC = () => {
                     <CheckCircle2 className="w-10 h-10 stroke-[2.5]" />
                   </div>
                 </div>
-                <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-neutral-950 rounded-full p-1.5 shadow-md">
-                  <Scissors className="w-4 h-4 text-neutral-950" />
+                <div className="absolute -bottom-1 -right-1 bg-gradient-to-tr from-amber-500 to-orange-500 text-neutral-950 rounded-full p-2 shadow-lg ring-2 ring-neutral-950 animate-pulse">
+                  <Scissors className="w-4 h-4 text-neutral-950 stroke-[2.5]" />
                 </div>
+              </div>
+
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold mb-2">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>AGENDADO COM SUCESSO!</span>
               </div>
 
               <h3 className="text-xl font-black text-neutral-100 font-heading tracking-tight">
@@ -3862,20 +3878,20 @@ export const ClientAppView: React.FC = () => {
                 className="text-xs font-bold uppercase tracking-wider mt-1"
                 style={{ color: 'var(--theme-primary, #FF6B00)' }}
               >
-                Seu agendamento foi realizado com sucesso
+                Seu agendamento foi registrado
               </p>
 
               {/* Appointment Ticket Card */}
-              <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 my-5 text-left space-y-2.5 shadow-inner">
-                <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+              <div className="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-4 my-4 text-left space-y-2.5 shadow-inner">
+                <div className="flex items-center justify-between pb-2 border-b border-neutral-800/80">
                   <span className="text-[11px] font-semibold text-neutral-400">Serviço</span>
                   <span className="text-xs font-black text-neutral-100">{celebrationDetails.serviceName}</span>
                 </div>
-                <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+                <div className="flex items-center justify-between pb-2 border-b border-neutral-800/80">
                   <span className="text-[11px] font-semibold text-neutral-400">Profissional</span>
                   <span className="text-xs font-bold" style={{ color: 'var(--theme-primary, #FF6B00)' }}>{celebrationDetails.professionalName}</span>
                 </div>
-                <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+                <div className="flex items-center justify-between pb-2 border-b border-neutral-800/80">
                   <span className="text-[11px] font-semibold text-neutral-400">Data e Horário</span>
                   <span className="text-xs font-bold text-emerald-400">
                     {celebrationDetails.date.split('-').reverse().join('/')} às {celebrationDetails.time}
@@ -3889,7 +3905,7 @@ export const ClientAppView: React.FC = () => {
                 </div>
               </div>
 
-              <p className="text-[11px] text-neutral-400 mb-5 leading-relaxed">
+              <p className="text-[11px] text-neutral-400 mb-4 leading-relaxed">
                 Você pode acompanhar e gerenciar seus horários na aba <strong>Meus Agendamentos</strong>.
               </p>
 
@@ -3900,7 +3916,7 @@ export const ClientAppView: React.FC = () => {
                   setActiveTab('MY_APPOINTMENTS');
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                className="w-full py-3.5 px-4 font-black rounded-2xl text-xs sm:text-sm tracking-wide flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer active:scale-95"
+                className="w-full py-3.5 px-4 font-black rounded-2xl text-xs sm:text-sm tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 transition-all cursor-pointer active:scale-95"
                 style={{
                   backgroundColor: 'var(--theme-primary, #FF6B00)',
                   color: 'var(--theme-contrast, #0D0D0D)'

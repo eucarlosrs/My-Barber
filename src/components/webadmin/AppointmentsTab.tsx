@@ -26,6 +26,7 @@ import {
 import { Appointment, AppointmentStatus } from '../../types';
 import { AppImage } from '../common/AppImage';
 import { getTodayLocalDateString } from '../../utils/scheduleEngine';
+import { formatPhoneNumber } from '../../utils/formatters';
 
 export const AppointmentsTab: React.FC = () => {
   const {
@@ -878,14 +879,20 @@ export const AppointmentsTab: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-neutral-300 mb-1">WhatsApp</label>
-                  <input
-                    type="text"
-                    required
-                    value={newClientWhatsApp}
-                    onChange={e => setNewClientWhatsApp(e.target.value)}
-                    placeholder="(11) 99123-4567"
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
-                  />
+                  <div className="relative flex items-center">
+                    <div className="absolute left-2.5 flex items-center gap-1 text-neutral-400 font-mono text-[11px] select-none pointer-events-none border-r border-neutral-800 pr-2">
+                      <span>🇧🇷</span>
+                      <span className="text-neutral-300 font-bold">+55</span>
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={newClientWhatsApp}
+                      onChange={e => setNewClientWhatsApp(formatPhoneNumber(e.target.value))}
+                      placeholder="(11) 99123-4567"
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-16 pr-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
+                    />
+                  </div>
                 </div>
               </div>
 

@@ -305,3 +305,28 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   opacity: 1;
 }
 
+@keyframes barberPoleMove {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 40px 0;
+  }
+}
+
+.barber-pole-stripe {
+  background: repeating-linear-gradient(
+    45deg,
+    #EF4444,
+    #EF4444 8px,
+    #FFFFFF 8px,
+    #FFFFFF 16px,
+    #3B82F6 16px,
+    #3B82F6 24px,
+    #FFFFFF 24px,
+    #FFFFFF 32px
+  );
+  background-size: 40px 40px;
+  animation: barberPoleMove 1.5s linear infinite;
+}
+

@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { MY_BARBER_PLANS, UserRole, Service, WeeklyBusinessHours, BarbershopAddress } from '../../types';
 import { DEFAULT_WEEKLY_BUSINESS_HOURS } from '../../data/initialData';
+import { formatPhoneNumber } from '../../utils/formatters';
 import { ProfessionalsTab } from './ProfessionalsTab';
 import { AppointmentsTab } from './AppointmentsTab';
 import { RafflesTab } from './RafflesTab';
@@ -1179,12 +1180,19 @@ export const WebAdminView: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-semibold text-neutral-300 mb-1">WhatsApp de Atendimento</label>
-                  <input
-                    type="text"
-                    value={settingsWhatsapp}
-                    onChange={e => setSettingsWhatsapp(e.target.value)}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-amber-500"
-                  />
+                  <div className="relative flex items-center">
+                    <div className="absolute left-2.5 flex items-center gap-1 text-neutral-400 font-mono text-[11px] select-none pointer-events-none border-r border-neutral-800 pr-2">
+                      <span>🇧🇷</span>
+                      <span className="text-neutral-300 font-bold">+55</span>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="(11) 98888-7777"
+                      value={settingsWhatsapp}
+                      onChange={e => setSettingsWhatsapp(formatPhoneNumber(e.target.value))}
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-16 pr-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-amber-500 font-mono"
+                    />
+                  </div>
                 </div>
 
                 {/* Bloco de Endereço Físico Completo da Barbearia */}

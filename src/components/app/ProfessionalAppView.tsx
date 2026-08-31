@@ -24,6 +24,7 @@ import {
 import { Appointment } from '../../types';
 import { AppImage } from '../common/AppImage';
 import { getTodayLocalDateString } from '../../utils/scheduleEngine';
+import { formatPhoneNumber } from '../../utils/formatters';
 import { getThemeCssVariables } from '../../utils/theme';
 import { ThemeModeToggle } from '../common/ThemeModeToggle';
 
@@ -371,14 +372,20 @@ export const ProfessionalAppView: React.FC = () => {
 
                 <div>
                   <label className="block text-[11px] font-semibold text-neutral-300 mb-1">WhatsApp do Cliente</label>
-                  <input
-                    type="text"
-                    required
-                    value={encaixeClientPhone}
-                    onChange={e => setEncaixeClientPhone(e.target.value)}
-                    placeholder="(11) 97777-6666"
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
-                  />
+                  <div className="relative flex items-center">
+                    <div className="absolute left-2.5 flex items-center gap-1 text-neutral-400 font-mono text-[11px] select-none pointer-events-none border-r border-neutral-800 pr-2">
+                      <span>🇧🇷</span>
+                      <span className="text-neutral-300 font-bold">+55</span>
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={encaixeClientPhone}
+                      onChange={e => setEncaixeClientPhone(formatPhoneNumber(e.target.value))}
+                      placeholder="(11) 97777-6666"
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-16 pr-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">

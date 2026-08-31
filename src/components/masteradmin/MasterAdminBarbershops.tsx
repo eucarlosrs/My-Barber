@@ -38,7 +38,7 @@ import { AppImage } from '../common/AppImage';
 import { ImageEditModal } from '../common/ImageEditModal';
 import { SaveButton } from '../common/SaveButton';
 import { UnsavedChangesModal } from '../common/UnsavedChangesModal';
-import { getBarbershopEffectiveStatus, getTrialStatusInfo } from '../../utils/formatters';
+import { getBarbershopEffectiveStatus, getTrialStatusInfo, formatPhoneNumber } from '../../utils/formatters';
 
 // Curated high quality presets for quick logo & banner selection
 const LOGO_PRESETS = [
@@ -864,15 +864,22 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-neutral-300 mb-1">WhatsApp de Atendimento</label>
-                    <input
-                      type="text"
-                      value={editingShop.whatsapp}
-                      onChange={e => {
-                        const newWa = e.target.value;
-                        setEditingShop(prev => prev ? { ...prev, whatsapp: newWa } : null);
-                      }}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
-                    />
+                    <div className="relative flex items-center">
+                      <div className="absolute left-2.5 flex items-center gap-1 text-neutral-400 font-mono text-[11px] select-none pointer-events-none border-r border-neutral-800 pr-2">
+                        <span>🇧🇷</span>
+                        <span className="text-neutral-300 font-bold">+55</span>
+                      </div>
+                      <input
+                        type="text"
+                        value={editingShop.whatsapp}
+                        onChange={e => {
+                          const newWa = formatPhoneNumber(e.target.value);
+                          setEditingShop(prev => prev ? { ...prev, whatsapp: newWa } : null);
+                        }}
+                        placeholder="(11) 98888-7777"
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-16 pr-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-neutral-300 mb-1">Identificador Exclusivo (Slug)</label>
@@ -1041,13 +1048,19 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-neutral-300 mb-1">WhatsApp / Login do Gestor</label>
-                    <input
-                      type="text"
-                      placeholder="(11) 98888-7777 ou usuario"
-                      value={editManagerForm.whatsapp}
-                      onChange={e => setEditManagerForm(prev => ({ ...prev, whatsapp: e.target.value }))}
-                      className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
-                    />
+                    <div className="relative flex items-center">
+                      <div className="absolute left-2.5 flex items-center gap-1 text-neutral-400 font-mono text-[11px] select-none pointer-events-none border-r border-neutral-800 pr-2">
+                        <span>🇧🇷</span>
+                        <span className="text-neutral-300 font-bold">+55</span>
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="(11) 98888-7777"
+                        value={editManagerForm.whatsapp}
+                        onChange={e => setEditManagerForm(prev => ({ ...prev, whatsapp: formatPhoneNumber(e.target.value) }))}
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-16 pr-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
+                      />
+                    </div>
                     <span className="text-[10px] text-neutral-500 mt-0.5 block">Identificador digitado na tela de login</span>
                   </div>
 
@@ -1103,13 +1116,19 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs font-bold text-neutral-300 mb-1">WhatsApp / Login</label>
-                          <input
-                            type="text"
-                            placeholder="(11) 97777-6666"
-                            value={editAdditionalManagerForm.whatsapp}
-                            onChange={e => setEditAdditionalManagerForm(prev => ({ ...prev, whatsapp: e.target.value }))}
-                            className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
-                          />
+                          <div className="relative flex items-center">
+                            <div className="absolute left-2.5 flex items-center gap-1 text-neutral-400 font-mono text-[11px] select-none pointer-events-none border-r border-neutral-800 pr-2">
+                              <span>🇧🇷</span>
+                              <span className="text-neutral-300 font-bold">+55</span>
+                            </div>
+                            <input
+                              type="text"
+                              placeholder="(11) 97777-6666"
+                              value={editAdditionalManagerForm.whatsapp}
+                              onChange={e => setEditAdditionalManagerForm(prev => ({ ...prev, whatsapp: formatPhoneNumber(e.target.value) }))}
+                              className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-16 pr-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
+                            />
+                          </div>
                         </div>
                         <div>
                           <label className="block text-xs font-bold text-neutral-300 mb-1">Senha de Acesso</label>
@@ -1426,14 +1445,20 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
 
                   <div className="sm:col-span-2">
                     <label className="block text-[11px] font-semibold text-neutral-300 mb-1">WhatsApp Comercial da Barbearia *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="(11) 98888-7777"
-                      value={formState.whatsapp}
-                      onChange={e => setFormState(prev => ({ ...prev, whatsapp: e.target.value }))}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
-                    />
+                    <div className="relative flex items-center">
+                      <div className="absolute left-2.5 flex items-center gap-1 text-neutral-400 font-mono text-[11px] select-none pointer-events-none border-r border-neutral-800 pr-2">
+                        <span>🇧🇷</span>
+                        <span className="text-neutral-300 font-bold">+55</span>
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        placeholder="(11) 98888-7777"
+                        value={formState.whatsapp}
+                        onChange={e => setFormState(prev => ({ ...prev, whatsapp: formatPhoneNumber(e.target.value) }))}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-16 pr-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -1660,15 +1685,18 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                       <label className="block text-[11px] font-bold text-neutral-200 mb-1">
                         WhatsApp / Identificador de Login *
                       </label>
-                      <div className="relative">
-                        <Smartphone className="w-3.5 h-3.5 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <div className="relative flex items-center">
+                        <div className="absolute left-2.5 flex items-center gap-1 text-neutral-400 font-mono text-[11px] select-none pointer-events-none border-r border-neutral-800 pr-2">
+                          <span>🇧🇷</span>
+                          <span className="text-neutral-300 font-bold">+55</span>
+                        </div>
                         <input
                           type="text"
                           required
-                          placeholder="(11) 98888-7777 ou usuario"
+                          placeholder="(11) 98888-7777"
                           value={formState.managerWhatsApp}
-                          onChange={e => setFormState(prev => ({ ...prev, managerWhatsApp: e.target.value }))}
-                          className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 font-mono"
+                          onChange={e => setFormState(prev => ({ ...prev, managerWhatsApp: formatPhoneNumber(e.target.value) }))}
+                          className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-16 pr-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 font-mono"
                         />
                       </div>
                     </div>
@@ -1752,15 +1780,18 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                             <label className="block text-[11px] font-bold text-neutral-200 mb-1">
                               WhatsApp / Login do Gerente *
                             </label>
-                            <div className="relative">
-                              <Smartphone className="w-3.5 h-3.5 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <div className="relative flex items-center">
+                              <div className="absolute left-2.5 flex items-center gap-1 text-neutral-400 font-mono text-[11px] select-none pointer-events-none border-r border-neutral-800 pr-2">
+                                <span>🇧🇷</span>
+                                <span className="text-neutral-300 font-bold">+55</span>
+                              </div>
                               <input
                                 type="text"
                                 required={formState.hasAdditionalManager}
                                 placeholder="(11) 97777-6666"
                                 value={formState.additionalManagerWhatsApp || ''}
-                                onChange={e => setFormState(prev => ({ ...prev, additionalManagerWhatsApp: e.target.value }))}
-                                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-blue-500 font-mono"
+                                onChange={e => setFormState(prev => ({ ...prev, additionalManagerWhatsApp: formatPhoneNumber(e.target.value) }))}
+                                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-16 pr-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-blue-500 font-mono"
                               />
                             </div>
                           </div>
