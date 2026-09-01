@@ -289,7 +289,7 @@ export const INITIAL_USERS: User[] = [
     name: 'Carlos Eduardo',
     whatsapp: '(11) 99123-4567',
     avatarUrl: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=200&auto=format&fit=crop&q=80',
-    birthDate: '1995-08-15', // Aniversariante neste mês!
+    birthDate: '1995-09-01', // Aniversariante de Hoje (01/09)!
     createdAt: '2026-02-10T14:30:00Z'
   },
   {
@@ -309,7 +309,7 @@ export const INITIAL_USERS: User[] = [
     name: 'Gustavo Santos',
     whatsapp: '(11) 99345-6789',
     avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&auto=format&fit=crop&q=80',
-    birthDate: '1998-08-25', // Aniversariante neste mês!
+    birthDate: '1998-09-18', // Aniversariante neste mês de Setembro!
     createdAt: '2026-04-12T16:00:00Z'
   }
 ];

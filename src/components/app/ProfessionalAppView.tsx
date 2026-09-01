@@ -19,14 +19,14 @@ import {
   Wallet,
   Zap,
   Filter,
-  LogOut
+  LogOut,
+  ArrowLeft
 } from 'lucide-react';
 import { Appointment } from '../../types';
 import { AppImage } from '../common/AppImage';
 import { getTodayLocalDateString } from '../../utils/scheduleEngine';
 import { formatPhoneNumber } from '../../utils/formatters';
 import { getThemeCssVariables } from '../../utils/theme';
-import { ThemeModeToggle } from '../common/ThemeModeToggle';
 
 export const ProfessionalAppView: React.FC = () => {
   const {
@@ -121,7 +121,6 @@ export const ProfessionalAppView: React.FC = () => {
             <span className="text-xs sm:text-sm font-bold text-neutral-200 truncate">{currentBarbershop.name}</span>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            <ThemeModeToggle />
             <div className="flex items-center gap-2 text-xs text-neutral-300">
               <Scissors className="w-3.5 h-3.5 text-orange-400" />
               <span className="font-semibold">{currentUser.name}</span>
@@ -430,9 +429,10 @@ export const ProfessionalAppView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowEncaixeModal(false)}
-                    className="px-3 py-1.5 bg-neutral-800 text-neutral-300 rounded-xl text-xs font-semibold"
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs font-semibold cursor-pointer border border-neutral-700/60 transition-colors"
                   >
-                    Cancelar
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Voltar / Cancelar</span>
                   </button>
                   <button
                     type="submit"

@@ -17,7 +17,8 @@ import {
   RefreshCw,
   Circle,
   Square,
-  Image as ImageIcon
+  Image as ImageIcon,
+  ArrowLeft
 } from 'lucide-react';
 import { AppImage } from './AppImage';
 import { useApp } from '../../context/AppContext';
@@ -909,9 +910,10 @@ export const ImageEditModal: React.FC<ImageEditModalProps> = ({
               type="button"
               onClick={onClose}
               disabled={isSavingAdjusted}
-              className="px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs font-bold transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs font-bold transition-colors cursor-pointer border border-neutral-700/60"
             >
-              Cancelar
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Voltar / Cancelar</span>
             </button>
             <button
               type="button"

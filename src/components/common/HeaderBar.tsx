@@ -17,7 +17,6 @@ import {
 } from 'lucide-react';
 import { MY_BARBER_PLANS } from '../../types';
 import { AppImage } from './AppImage';
-import { ThemeModeToggle } from './ThemeModeToggle';
 
 export const HeaderBar: React.FC = () => {
   const {
@@ -125,11 +124,8 @@ export const HeaderBar: React.FC = () => {
             )}
           </div>
 
-          {/* Right Area: Theme Toggle, User Badge & Logout */}
+          {/* Right Area: User Badge & Logout */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-            {/* Dark / Light Toggle */}
-            <ThemeModeToggle />
-
             {/* User Info Badge */}
             <div className="flex items-center gap-2 bg-[#0D0D0D] p-1.5 sm:px-3 sm:py-1.5 rounded-xl border border-[#2D2D2D]">
               <div className="w-6 h-6 rounded-full bg-[#1C1C1C] flex items-center justify-center overflow-hidden shrink-0 border border-[#2D2D2D]">

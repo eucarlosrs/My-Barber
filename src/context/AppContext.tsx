@@ -393,45 +393,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [subscriptionPayments, setSubscriptionPayments] = useState<SubscriptionPaymentRecord[]>(INITIAL_SUBSCRIPTION_PAYMENTS);
   const [customPlans, setCustomPlans] = useState<CustomPlan[]>(INITIAL_CUSTOM_PLANS);
 
-  // Dark / Light Theme Color Mode
-  const [colorMode, setColorModeState] = useState<ColorMode>(() => {
-    try {
-      const saved = localStorage.getItem('mybarber_color_mode');
-      if (saved === 'light' || saved === 'dark') return saved;
-    } catch {
-      // ignore
-    }
-    return 'dark';
-  });
+  // Dark Theme Permanent (Modo Escuro Padrão e Único do Sistema)
+  const [colorMode] = useState<ColorMode>('dark');
 
-  const setColorMode = (mode: ColorMode) => {
-    setColorModeState(mode);
-    try {
-      localStorage.setItem('mybarber_color_mode', mode);
-    } catch {
-      // ignore
-    }
+  const setColorMode = (_mode: ColorMode) => {
+    // Permanent dark mode - no-op
   };
 
   const toggleColorMode = () => {
-    setColorMode(colorMode === 'dark' ? 'light' : 'dark');
+    // Permanent dark mode - no-op
   };
 
   useEffect(() => {
     try {
-      if (colorMode === 'light') {
-        document.documentElement.classList.add('light-mode');
-        document.documentElement.setAttribute('data-theme-mode', 'light');
-        document.body.classList.add('light-mode');
-      } else {
-        document.documentElement.classList.remove('light-mode');
-        document.documentElement.setAttribute('data-theme-mode', 'dark');
-        document.body.classList.remove('light-mode');
-      }
+      localStorage.removeItem('mybarber_color_mode');
+      document.documentElement.classList.remove('light-mode');
+      document.documentElement.setAttribute('data-theme-mode', 'dark');
+      document.body.classList.remove('light-mode');
     } catch {
       // ignore
     }
-  }, [colorMode]);
+  }, []);
   const [whatsappLoginPhone, setWhatsappLoginPhone] = useState<string>('');
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
 

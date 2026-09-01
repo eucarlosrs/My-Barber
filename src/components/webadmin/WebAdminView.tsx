@@ -31,9 +31,12 @@ import {
   Image as ImageIcon,
   CreditCard,
   ArrowUp,
-  MapPin
+  MapPin,
+  X,
+  MessageSquare,
+  Sparkles
 } from 'lucide-react';
-import { MY_BARBER_PLANS, UserRole, Service, WeeklyBusinessHours, BarbershopAddress } from '../../types';
+import { MY_BARBER_PLANS, UserRole, Service, WeeklyBusinessHours, BarbershopAddress, User as UserType } from '../../types';
 import { DEFAULT_WEEKLY_BUSINESS_HOURS } from '../../data/initialData';
 import { formatPhoneNumber } from '../../utils/formatters';
 import { ProfessionalsTab } from './ProfessionalsTab';
@@ -47,9 +50,9 @@ import { AppImage } from '../common/AppImage';
 import { ImageEditModal, ImagePreset } from '../common/ImageEditModal';
 import { ThemeSelectorCard } from './ThemeSelectorCard';
 import { getThemeCssVariables } from '../../utils/theme';
-import { ThemeModeToggle } from '../common/ThemeModeToggle';
 import { SaveButton } from '../common/SaveButton';
 import { UnsavedChangesModal } from '../common/UnsavedChangesModal';
+import { AdminBackButton } from '../common/AdminBackButton';
 import { InstagramIcon, FacebookIcon, TikTokIcon } from '../common/SocialMediaIcons';
 
 export const WebAdminView: React.FC = () => {
@@ -114,6 +117,10 @@ export const WebAdminView: React.FC = () => {
   const [editingSalonImageIdx, setEditingSalonImageIdx] = useState<number | null>(null);
   const [isAddingSalonImage, setIsAddingSalonImage] = useState(false);
   const [editingServiceForImage, setEditingServiceForImage] = useState<Service | null>(null);
+
+  // Birthday WhatsApp Message Modal States
+  const [birthdayModalClient, setBirthdayModalClient] = useState<UserType | null>(null);
+  const [birthdayCustomMessage, setBirthdayCustomMessage] = useState<string>('');
 
   // Barbershop Settings Form state (Buffered for explicit saving)
   const [settingsName, setSettingsName] = useState(currentBarbershop.name || '');
@@ -302,13 +309,54 @@ export const WebAdminView: React.FC = () => {
 
   const netIncome = totalRevenue - totalCommissions;
 
-  // Birthday clients for current month (August)
-  const currentMonth = 8;
+  // Dynamic Month calculation and names
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1; // 1 to 12 (Ex: 9 = Setembro)
+  const currentDay = now.getDate(); // 1 to 31
+
+  const monthNames = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ];
+  const currentMonthName = monthNames[currentMonth - 1] || 'Setembro';
+
+  // Birthday clients for current month
   const birthdayClients = clients.filter(c => {
     if (!c.birthDate) return false;
-    const birthMonth = parseInt(c.birthDate.split('-')[1], 10);
+    const parts = c.birthDate.split('-');
+    const birthMonth = parseInt(parts[1], 10);
     return birthMonth === currentMonth;
   });
+
+  const isTodayBirthday = (birthDate?: string) => {
+    if (!birthDate) return false;
+    const parts = birthDate.split('-');
+    const birthMonth = parseInt(parts[1], 10);
+    const birthDay = parseInt(parts[2], 10);
+    return birthMonth === currentMonth && birthDay === currentDay;
+  };
+
+  // Open Birthday WhatsApp Modal with default editable message
+  const handleOpenBirthdayModal = (client: UserType) => {
+    setBirthdayModalClient(client);
+    const firstName = client.name.split(' ')[0] || client.name;
+    const isToday = isTodayBirthday(client.birthDate);
+
+    const defaultMsg = isToday
+      ? `Olá, ${firstName}! 🎂 Parabéns pelo seu aniversário hoje! 🥳\n\nNós da ${currentBarbershop.name || 'Barbearia'} desejamos muito sucesso, saúde e felicidades!\n\nPara comemorar com estilo, preparamos um presente especial para você: ganhe um desconto exclusivo no seu próximo agendamento.\n\nVenha dar aquele talento no visual com a gente! Agende pelo nosso app ou responda aqui para marcar seu horário. ✂️💈`
+      : `Olá, ${firstName}! 🎂 Tudo bem?\n\nNotamos que este mês é o seu aniversário! 🥳\n\nA equipe da ${currentBarbershop.name || 'Barbearia'} deseja a você um mês incrível e muito sucesso!\n\nPreparamos uma condição super especial de aniversário para você cuidar do visual. Responda esta mensagem para agendar o seu horário! ✂️💈`;
+
+    setBirthdayCustomMessage(defaultMsg);
+  };
+
+  const handleSendBirthdayWhatsApp = () => {
+    if (!birthdayModalClient) return;
+    const cleanPhone = birthdayModalClient.whatsapp.replace(/\D/g, '');
+    const encodedText = encodeURIComponent(birthdayCustomMessage);
+    const whatsappUrl = `https://wa.me/55${cleanPhone}?text=${encodedText}`;
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+    setBirthdayModalClient(null);
+  };
 
   const openAddServiceModal = () => {
     setEditingService(null);
@@ -431,9 +479,7 @@ export const WebAdminView: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 self-stretch sm:self-auto justify-between sm:justify-end">
-          <ThemeModeToggle />
-
+        <div className="flex items-center gap-3 self-stretch sm:self-auto justify-end">
           {/* Plan Limit badge */}
           <div className="bg-neutral-900 border border-neutral-800 p-3 rounded-2xl flex items-center gap-3">
           <Users className="w-5 h-5 text-orange-400" />
@@ -515,39 +561,49 @@ export const WebAdminView: React.FC = () => {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-1.5 sm:gap-2 my-6 overflow-x-auto border-b border-neutral-800 pb-2">
-        {[
-          { id: 'DASHBOARD', label: 'Visão Geral', icon: Building2 },
-          { id: 'SUBSCRIPTION', label: 'Minha Assinatura', icon: CreditCard, highlight: isPastDue || isSuspended },
-          { id: 'SETTINGS', label: 'Identidade & Fotos', icon: Settings },
-          { id: 'PROFESSIONALS', label: `Profissionais (${professionals.length})`, icon: Users },
-          { id: 'SERVICES', label: `Serviços (${services.length})`, icon: Scissors },
-          { id: 'APPOINTMENTS', label: `Agendamentos (${appointments.length})`, icon: CalendarCheck },
-          { id: 'GALLERY', label: `Galeria & Portfólio (${galleryWorks.length})`, icon: Camera },
-          { id: 'RAFFLES', label: `Sorteios (${raffles.filter(r => r.status === 'ATIVO').length})`, icon: Gift },
-          { id: 'PROMOTIONS', label: `Promoções (${promotions.filter(p => p.active).length})`, icon: Tag },
-          { id: 'CLIENTS', label: `Clientes (${clients.length})`, icon: Calendar },
-          { id: 'FINANCIAL', label: 'Relatórios & Comissões', icon: DollarSign }
-        ].map(tab => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => handleTabClick(tab.id as any)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors ${
-                isActive
-                  ? 'bg-neutral-800 text-amber-400 border border-neutral-700'
-                  : tab.highlight
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
-                  : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+      <div className="flex items-center justify-between gap-2 my-6 border-b border-neutral-800 pb-2 flex-wrap">
+        {activeTab !== 'DASHBOARD' && (
+          <div className="shrink-0 mb-1 sm:mb-0">
+            <AdminBackButton
+              onClick={() => handleTabClick('DASHBOARD')}
+              contextLabel="para Visão Geral"
+            />
+          </div>
+        )}
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 flex-1">
+          {[
+            { id: 'DASHBOARD', label: 'Visão Geral', icon: Building2 },
+            { id: 'SUBSCRIPTION', label: 'Minha Assinatura', icon: CreditCard, highlight: isPastDue || isSuspended },
+            { id: 'SETTINGS', label: 'Identidade & Fotos', icon: Settings },
+            { id: 'PROFESSIONALS', label: `Profissionais (${professionals.length})`, icon: Users },
+            { id: 'SERVICES', label: `Serviços (${services.length})`, icon: Scissors },
+            { id: 'APPOINTMENTS', label: `Agendamentos (${appointments.length})`, icon: CalendarCheck },
+            { id: 'GALLERY', label: `Galeria & Portfólio (${galleryWorks.length})`, icon: Camera },
+            { id: 'RAFFLES', label: `Sorteios (${raffles.filter(r => r.status === 'ATIVO').length})`, icon: Gift },
+            { id: 'PROMOTIONS', label: `Promoções (${promotions.filter(p => p.active).length})`, icon: Tag },
+            { id: 'CLIENTS', label: `Clientes (${clients.length})`, icon: Calendar },
+            { id: 'FINANCIAL', label: 'Relatórios & Comissões', icon: DollarSign }
+          ].map(tab => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTabClick(tab.id as any)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors ${
+                  isActive
+                    ? 'bg-neutral-800 text-amber-400 border border-neutral-700'
+                    : tab.highlight
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
+                    : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* 1. DASHBOARD */}
@@ -908,9 +964,10 @@ export const WebAdminView: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleCloseServiceModal}
-                      className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                      className="flex items-center gap-1.5 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer border border-neutral-700/60"
                     >
-                      Cancelar
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      <span>Voltar / Cancelar</span>
                     </button>
                     <SaveButton
                       isDirty={isServiceDirty}
@@ -942,37 +999,73 @@ export const WebAdminView: React.FC = () => {
       {activeTab === 'CLIENTS' && (
         <div className="space-y-6">
           {/* Birthday special area (Seção 21) */}
-          <div className="bg-purple-950/30 border border-purple-800/40 rounded-xl p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Cake className="w-5 h-5 text-purple-400" />
-              <h3 className="font-bold text-purple-200 text-base font-heading">
-                Aniversariantes do Mês de Agosto (Seção 21)
-              </h3>
+          <div className="bg-purple-950/30 border border-purple-800/40 rounded-xl p-5 shadow-lg">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center border border-purple-500/30">
+                  <Cake className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-purple-200 text-base font-heading">
+                    Aniversariantes do Mês de {currentMonthName} (Seção 21)
+                  </h3>
+                  <span className="text-[11px] text-purple-300/80 font-medium">
+                    {birthdayClients.length} {birthdayClients.length === 1 ? 'cliente aniversariante' : 'clientes aniversariantes'} neste mês
+                  </span>
+                </div>
+              </div>
             </div>
             <p className="text-xs text-purple-300/80 mb-4">
-              Identifique clientes aniversariantes para enviar mensagens de felicitações e promoções exclusivas.
+              Identifique clientes aniversariantes para enviar mensagens de felicitações personalizadas e promoções exclusivas via WhatsApp.
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {birthdayClients.map(c => (
-                <div key={c.id} className="bg-neutral-900/90 border border-purple-500/30 p-3.5 rounded-lg flex items-center justify-between">
-                  <div>
-                    <div className="font-bold text-neutral-100 text-xs">{c.name}</div>
-                    <div className="text-neutral-400 font-mono text-[11px]">{c.whatsapp}</div>
-                    <div className="text-purple-400 font-semibold text-[11px] mt-0.5">
-                      Nascimento: {c.birthDate?.split('-').reverse().join('/')}
+            {birthdayClients.length === 0 ? (
+              <div className="p-6 text-center bg-neutral-900/60 border border-purple-900/30 rounded-xl">
+                <Cake className="w-8 h-8 text-purple-400/50 mx-auto mb-2" />
+                <p className="text-xs text-neutral-400">Nenhum cliente aniversariante cadastrado para o mês de {currentMonthName}.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
+                {birthdayClients.map(c => {
+                  const isToday = isTodayBirthday(c.birthDate);
+                  return (
+                    <div
+                      key={c.id}
+                      className={`bg-neutral-900/90 border p-4 rounded-xl flex items-center justify-between gap-3 transition-all ${
+                        isToday
+                          ? 'border-purple-400 shadow-[0_0_15px_-3px_rgba(168,85,247,0.4)] ring-1 ring-purple-400/50'
+                          : 'border-purple-500/30 hover:border-purple-500/50'
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-neutral-100 text-xs truncate">{c.name}</span>
+                          {isToday && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black bg-purple-500 text-white shadow-sm animate-pulse">
+                              <Sparkles className="w-2.5 h-2.5" />
+                              HOJE!
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-neutral-400 font-mono text-[11px] mt-0.5">{c.whatsapp}</div>
+                        <div className="text-purple-300 font-semibold text-[11px] mt-1 flex items-center gap-1">
+                          <Cake className="w-3 h-3 text-purple-400 shrink-0" />
+                          <span>Nascimento: {c.birthDate?.split('-').reverse().join('/')}</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleOpenBirthdayModal(c)}
+                        type="button"
+                        className="bg-purple-600 hover:bg-purple-500 text-white p-2.5 rounded-xl text-xs transition-all shadow-md active:scale-95 flex items-center justify-center shrink-0 cursor-pointer group"
+                        title="Preparar e Enviar Mensagem de Aniversário"
+                      >
+                        <Send className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                      </button>
                     </div>
-                  </div>
-                  <button
-                    onClick={() => alert(`Mensagem de aniversário preparada para ${c.name} via WhatsApp (${c.whatsapp})!`)}
-                    className="bg-purple-600 hover:bg-purple-500 text-white p-2 rounded-lg text-xs"
-                    title="Enviar Mensagem de Aniversário"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Full Client List */}
@@ -1672,6 +1765,99 @@ export const WebAdminView: React.FC = () => {
           }}
         />
       )}
+
+      {/* MODAL: Mensagem Personalizada de Aniversário via WhatsApp */}
+      {birthdayModalClient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-neutral-900 border border-purple-800/60 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-scale-up">
+            {/* Header */}
+            <div className="p-5 bg-gradient-to-r from-purple-950/80 to-neutral-900 border-b border-purple-800/40 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/40 text-purple-400 flex items-center justify-center">
+                  <Cake className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-neutral-100 text-sm sm:text-base font-heading flex items-center gap-2">
+                    Felicitações de Aniversário
+                    {isTodayBirthday(birthdayModalClient.birthDate) && (
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-purple-500 text-white">
+                        HOJE!
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-xs text-purple-300/90 font-medium">
+                    Cliente: <strong className="text-neutral-100">{birthdayModalClient.name}</strong> • {birthdayModalClient.whatsapp}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setBirthdayModalClient(null)}
+                type="button"
+                className="text-neutral-400 hover:text-white p-1.5 rounded-lg hover:bg-neutral-800 transition-colors"
+                title="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div className="p-5 space-y-4">
+              <div className="bg-purple-950/20 border border-purple-800/30 rounded-xl p-3.5 flex items-start gap-2.5">
+                <Sparkles className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+                <p className="text-xs text-purple-200/90 leading-relaxed">
+                  Esta mensagem foi montada automaticamente em nome da <strong className="text-white">{currentBarbershop.name || 'sua barbearia'}</strong>. Você pode <strong>editar o texto livremente</strong> abaixo antes de encaminhar via WhatsApp oficial.
+                </p>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-neutral-300 flex items-center gap-1.5">
+                    <MessageSquare className="w-3.5 h-3.5 text-purple-400" />
+                    Mensagem do WhatsApp (Editável):
+                  </label>
+                  <span className="text-[10px] text-neutral-400">
+                    {birthdayCustomMessage.length} caracteres
+                  </span>
+                </div>
+                <textarea
+                  value={birthdayCustomMessage}
+                  onChange={(e) => setBirthdayCustomMessage(e.target.value)}
+                  rows={8}
+                  className="w-full bg-neutral-950 border border-neutral-700 focus:border-purple-500 rounded-xl p-3 text-xs sm:text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all font-sans resize-none leading-relaxed"
+                  placeholder="Escreva sua mensagem de aniversário personalizada..."
+                />
+              </div>
+
+              <div className="flex items-center gap-2 p-3 bg-neutral-950/60 rounded-xl border border-neutral-800 text-[11px] text-neutral-400">
+                <Phone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>
+                  Disparo direto para o WhatsApp do cliente: <strong className="text-neutral-200 font-mono">{birthdayModalClient.whatsapp}</strong>
+                </span>
+              </div>
+            </div>
+
+            {/* Actions Footer */}
+            <div className="p-4 bg-neutral-950 border-t border-neutral-800 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setBirthdayModalClient(null)}
+                className="px-4 py-2.5 rounded-xl border border-neutral-700 hover:border-neutral-600 text-xs font-semibold text-neutral-300 hover:text-white transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSendBirthdayWhatsApp}
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-950/50 transition-all active:scale-95 cursor-pointer"
+              >
+                <Send className="w-4 h-4" />
+                <span>ENVIAR VIA WHATSAPP</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Botão Flutuante Sutil para Voltar ao Topo / Início da Página */}
       {showScrollTop && (
         <button

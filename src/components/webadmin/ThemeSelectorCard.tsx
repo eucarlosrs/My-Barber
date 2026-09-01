@@ -3,7 +3,6 @@ import { useApp } from '../../context/AppContext';
 import { BarbershopThemeId } from '../../types';
 import { BARBERSHOP_THEMES, THEME_LIST, getThemeConfig } from '../../utils/theme';
 import { Palette, CheckCircle2, ShieldCheck, Check } from 'lucide-react';
-import { ThemeModeToggle } from '../common/ThemeModeToggle';
 
 export const ThemeSelectorCard: React.FC = () => {
   const { currentBarbershop, updateBarbershop } = useApp();
@@ -51,10 +50,8 @@ export const ThemeSelectorCard: React.FC = () => {
           </div>
         </div>
 
-        {/* Controls: Theme Mode + Active Theme Pill */}
+        {/* Controls: Active Theme Pill */}
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          <ThemeModeToggle variant="pill" />
-
           <div
             className="px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 border"
             style={{

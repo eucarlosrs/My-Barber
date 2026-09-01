@@ -7,7 +7,6 @@ import {
   Scissors
 } from 'lucide-react';
 import { triggerGooglePopupLogin } from '../../lib/googleAuth';
-import { ThemeModeToggle } from '../common/ThemeModeToggle';
 
 export const AuthLoginView: React.FC = () => {
   const { loginWithGoogle, currentBarbershop, setViewMode } = useApp();
@@ -70,11 +69,6 @@ export const AuthLoginView: React.FC = () => {
 
   return (
     <div className="min-h-screen w-full bg-[#0a0a0a] text-neutral-100 flex flex-col justify-between selection:bg-orange-500 selection:text-neutral-950 font-sans relative">
-      {/* Top right theme toggle */}
-      <div className="absolute top-4 right-4 z-20">
-        <ThemeModeToggle variant="pill" />
-      </div>
-
       {/* Subtle background ambient lights */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[650px] h-[350px] bg-orange-500/10 blur-[140px] rounded-full"></div>

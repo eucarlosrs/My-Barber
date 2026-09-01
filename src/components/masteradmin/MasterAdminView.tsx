@@ -29,6 +29,7 @@ import { MasterAdminAuditLogs } from './MasterAdminAuditLogs';
 import { MasterAdminImpersonate } from './MasterAdminImpersonate';
 import { MasterAdminSubscriptions } from './MasterAdminSubscriptions';
 import { MasterAdminPlansBuilder } from './MasterAdminPlansBuilder';
+import { AdminBackButton } from '../common/AdminBackButton';
 
 export type MasterAdminTab = 'overview' | 'plans' | 'subscriptions' | 'barbershops' | 'users' | 'services_appointments' | 'audit' | 'impersonate';
 
@@ -160,18 +161,27 @@ export const MasterAdminView: React.FC = () => {
       </div>
 
       {/* Navigation Subtabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-neutral-800">
-        <button
-          onClick={() => setActiveTab('overview')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'overview'
-              ? 'bg-orange-500 text-neutral-950 shadow-md shadow-orange-500/20'
-              : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
-          }`}
-        >
-          <Building2 className="w-4 h-4" />
-          <span>Visão Geral & Barbearias</span>
-        </button>
+      <div className="flex items-center justify-between gap-2 border-b border-neutral-800 pb-2 flex-wrap">
+        {activeTab !== 'overview' && (
+          <div className="shrink-0 mb-1 sm:mb-0">
+            <AdminBackButton
+              onClick={() => setActiveTab('overview')}
+              contextLabel="para Visão Geral"
+            />
+          </div>
+        )}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 flex-1">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'overview'
+                ? 'bg-orange-500 text-neutral-950 shadow-md shadow-orange-500/20'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+            }`}
+          >
+            <Building2 className="w-4 h-4" />
+            <span>Visão Geral & Barbearias</span>
+          </button>
 
         <button
           onClick={() => setActiveTab('plans')}
@@ -256,6 +266,7 @@ export const MasterAdminView: React.FC = () => {
           <Eye className="w-4 h-4" />
           <span>Visualizar como Usuário</span>
         </button>
+        </div>
       </div>
 
       {/* Tab Content Display */}

@@ -269,14 +269,7 @@ export const ClientAppView: React.FC = () => {
 
   // Booking Flow Steps & State
   const [selectedCategory, setSelectedCategory] = useState<string>('Cabelo');
-  const [selectedService, setSelectedService] = useState<Service | null>(() => {
-    const hair = services.find(s => {
-      const cat = (s.category || '').toLowerCase();
-      const name = (s.name || '').toLowerCase();
-      return cat.includes('cabelo') || cat.includes('corte') || name.includes('corte') || name.includes('cabelo');
-    });
-    return hair || services[0] || null;
-  });
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedProfessional, setSelectedProfessional] = useState<UserType | null>(professionals[0] || null);
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [selectedTime, setSelectedTime] = useState<string>('14:00');
@@ -439,57 +432,15 @@ export const ClientAppView: React.FC = () => {
     }, 120);
   };
 
-  // Garante que o serviço selecionado pertença aos serviços cadastrados da barbearia e respeite o filtro ativo
+  // Garante que o serviço selecionado pertença aos serviços cadastrados da barbearia caso a lista mude
   useEffect(() => {
-    if (services.length > 0) {
-      if (!selectedService || !services.some(s => s.id === selectedService.id)) {
-        const hair = services.find(s => {
-          const cat = (s.category || '').toLowerCase();
-          const name = (s.name || '').toLowerCase();
-          return cat.includes('cabelo') || cat.includes('corte') || name.includes('corte') || name.includes('cabelo');
-        });
-        setSelectedService(hair || services[0]);
-      }
-    } else {
+    if (selectedService && (!services.some(s => s.id === selectedService.id) || services.length === 0)) {
       setSelectedService(null);
     }
   }, [services, selectedService]);
 
   const handleSelectCategory = (cat: string) => {
     setSelectedCategory(cat);
-    // Find first service belonging to the selected category to focus its border
-    if (cat === 'TODOS') {
-      if (services.length > 0 && (!selectedService || !services.some(s => s.id === selectedService.id))) {
-        setSelectedService(services[0]);
-      }
-      return;
-    }
-
-    const sel = cat.toLowerCase();
-    const match = services.find(s => {
-      const sCat = (s.category || '').toLowerCase();
-      const sName = (s.name || '').toLowerCase();
-      if (sel === 'cabelo') {
-        return sCat.includes('cabelo') || sCat.includes('corte') || sName.includes('corte') || sName.includes('cabelo');
-      }
-      if (sel === 'barba') {
-        return (sCat.includes('barba') || sCat.includes('barboterapia') || sName.includes('barba') || sName.includes('barboterapia')) && !sCat.includes('combo') && !sName.includes('combo');
-      }
-      if (sel === 'combos' || sel === 'combo') {
-        return sCat.includes('combo') || sName.includes('combo');
-      }
-      if (sel === 'química' || sel === 'quimica') {
-        return sCat.includes('quim') || sCat.includes('quím') || sCat.includes('platinad') || sCat.includes('nevou') || sName.includes('platinad') || sName.includes('nevou');
-      }
-      if (sel === 'estética' || sel === 'estetica') {
-        return sCat.includes('estet') || sCat.includes('estét') || sCat.includes('sobrancelha') || sCat.includes('facial') || sName.includes('sobrancelha') || sName.includes('facial') || sName.includes('estética');
-      }
-      return sCat === sel;
-    });
-
-    if (match) {
-      setSelectedService(match);
-    }
   };
 
   const executeBookingWithClient = (clientUser: UserType) => {
@@ -753,10 +704,25 @@ export const ClientAppView: React.FC = () => {
   };
 
   const handleConfirmBooking = () => {
-    if (!selectedService || !selectedProfessional) {
-      setBookingErrorMsg('Por favor selecione o serviço e o profissional.');
+    if (!selectedService) {
+      setBookingErrorMsg('Por favor, selecione um serviço no Passo 1 para continuar.');
+      const srvSection = document.getElementById('step-1-services');
+      if (srvSection) {
+        srvSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
       return;
     }
+
+    if (!selectedProfessional) {
+      setBookingErrorMsg('Por favor, selecione um barbeiro no Passo 2 para continuar.');
+      const profSection = document.getElementById('step-2-professionals');
+      if (profSection) {
+        profSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      return;
+    }
+
+    setBookingErrorMsg(null);
 
     if (!isClient) {
       setPendingBookingAfterLogin(true);
@@ -1200,7 +1166,7 @@ export const ClientAppView: React.FC = () => {
               )}
 
               {/* Step 1: Select Service */}
-              <div>
+              <div id="step-1-services">
                 <div className="flex items-center justify-between mb-2.5">
                   <div className="flex items-center gap-2">
                     <span
@@ -1670,8 +1636,8 @@ export const ClientAppView: React.FC = () => {
                 <div className="flex items-center justify-between text-xs pb-2 border-b border-neutral-800 gap-2">
                   <div className="min-w-0 flex-1">
                     <span className="text-[10px] text-neutral-400 uppercase font-bold block">Resumo do Horário</span>
-                    <div className="font-extrabold text-neutral-100 text-xs mt-0.5 truncate">
-                      {selectedService?.name || 'Selecione o serviço'}
+                    <div className={`font-extrabold text-xs mt-0.5 truncate ${selectedService ? 'text-neutral-100' : 'text-neutral-500 italic'}`}>
+                      {selectedService?.name || 'Nenhum serviço selecionado'}
                     </div>
                     <div className="text-[11px] font-semibold truncate" style={{ color: 'var(--theme-primary, #FF6B00)' }}>
                       Com {selectedProfessional?.name || 'Barbeiro'} • {selectedDate.split('-').reverse().join('/')} às {selectedTime}
@@ -1687,11 +1653,11 @@ export const ClientAppView: React.FC = () => {
 
                 <button
                   onClick={handleConfirmBooking}
-                  disabled={!selectedService || !selectedProfessional}
-                  className={`w-full py-3.5 rounded-xl text-xs sm:text-sm font-semibold tracking-wide flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all ${
+                  type="button"
+                  className={`w-full py-3.5 rounded-xl text-xs sm:text-sm font-semibold tracking-wide flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all cursor-pointer ${
                     selectedService && selectedProfessional
-                      ? 'cursor-pointer'
-                      : 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
+                      ? ''
+                      : 'bg-neutral-800/90 text-neutral-400 border border-neutral-700/80 hover:border-neutral-600 hover:text-neutral-200'
                   }`}
                   style={
                     selectedService && selectedProfessional
@@ -1704,7 +1670,13 @@ export const ClientAppView: React.FC = () => {
                   }
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>CONFIRMAR AGENDAMENTO</span>
+                  <span>
+                    {!selectedService
+                      ? 'SELECIONE UM SERVIÇO PARA CONTINUAR'
+                      : !selectedProfessional
+                      ? 'SELECIONE UM BARBEIRO PARA CONTINUAR'
+                      : 'CONFIRMAR AGENDAMENTO'}
+                  </span>
                 </button>
               </div>
             </div>

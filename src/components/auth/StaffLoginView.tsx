@@ -16,7 +16,6 @@ import {
   Sparkles,
   ArrowLeft
 } from 'lucide-react';
-import { ThemeModeToggle } from '../common/ThemeModeToggle';
 
 export const StaffLoginView: React.FC = () => {
   const { loginWithCredentials, currentBarbershop, setViewMode } = useApp();
@@ -80,7 +79,6 @@ export const StaffLoginView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <ThemeModeToggle />
           <button
             type="button"
             onClick={() => setViewMode('CLIENT_APP')}
