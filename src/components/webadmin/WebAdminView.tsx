@@ -34,7 +34,8 @@ import {
   MapPin,
   X,
   MessageSquare,
-  Sparkles
+  Sparkles,
+  ArrowLeft
 } from 'lucide-react';
 import { MY_BARBER_PLANS, UserRole, Service, WeeklyBusinessHours, BarbershopAddress, User as UserType } from '../../types';
 import { DEFAULT_WEEKLY_BUSINESS_HOURS } from '../../data/initialData';
@@ -462,44 +463,70 @@ export const WebAdminView: React.FC = () => {
       className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6"
       style={getThemeCssVariables(currentBarbershop.theme)}
     >
-      {/* Header bar of WebAdmin */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-neutral-800">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-amber-500 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-              Proprietário / Gerente • Gestão da Barbearia
-            </span>
-            <span className="text-xs text-neutral-400">Usuário: <strong>{currentUser.name}</strong> ({currentUser.role})</span>
-          </div>
-          <h1 className="text-2xl font-bold text-neutral-100 font-heading mt-1">
-            {currentBarbershop.name}
-          </h1>
-          <p className="text-xs text-neutral-400">
-            Painel administrativo exclusivo | Plano: <strong className="text-amber-400">{plan.name}</strong> ({plan.priceMonthly.toFixed(2).replace('.', ',')}/mês)
-          </p>
-        </div>
+      {/* Header bar of WebAdmin - Redesenhado de forma elegante, limpa e premium */}
+      <div className="bg-neutral-900/90 border border-neutral-800 rounded-3xl p-4 sm:p-5 shadow-xl backdrop-blur-sm">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+          {/* Lado Esquerdo: Logo da Barbearia + Nome + Usuário e Plano */}
+          <div className="flex items-center gap-3.5 min-w-0 w-full lg:w-auto">
+            <div className="relative w-13 h-13 sm:w-15 sm:h-15 rounded-2xl overflow-hidden bg-neutral-950 border border-neutral-700/80 shadow-md shrink-0 flex items-center justify-center">
+              {currentBarbershop.logoUrl ? (
+                <AppImage
+                  src={currentBarbershop.logoUrl}
+                  alt={currentBarbershop.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-500/20 to-orange-500/20 text-orange-400 font-heading font-black text-xl sm:text-2xl">
+                  {currentBarbershop.name.charAt(0)}
+                </div>
+              )}
+            </div>
 
-        <div className="flex items-center gap-3 self-stretch sm:self-auto justify-end">
-          {/* Plan Limit badge */}
-          <div className="bg-neutral-900 border border-neutral-800 p-3 rounded-2xl flex items-center gap-3">
-          <Users className="w-5 h-5 text-orange-400" />
-          <div>
-            <div className="text-xs font-semibold text-neutral-200">
-              Equipe: {staffMembers.length} / {plan.maxProfessionals}
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl sm:text-2xl font-black text-neutral-100 font-heading tracking-tight truncate">
+                {currentBarbershop.name}
+              </h1>
+
+              <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 text-xs text-neutral-300 mt-1">
+                {/* Usuário Logado */}
+                <div className="flex items-center gap-1.5 bg-neutral-950/80 px-2.5 py-1 rounded-xl border border-neutral-800">
+                  <span className="text-neutral-400 text-[11px]">Acesso:</span>
+                  <span className="font-semibold text-neutral-100">{currentUser.name}</span>
+                  <span className="text-[10px] uppercase font-black text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                    {currentUser.role === 'PROPRIETARIO' ? 'Proprietário' : currentUser.role === 'GERENTE' ? 'Gerente' : currentUser.role}
+                  </span>
+                </div>
+
+                {/* Plano Assinado */}
+                <div className="flex items-center gap-1.5 bg-neutral-950/80 px-2.5 py-1 rounded-xl border border-neutral-800">
+                  <span className="text-neutral-400 text-[11px]">Plano:</span>
+                  <span className="font-bold text-orange-400">{plan.name}</span>
+                  <span className="text-neutral-400 text-[11px]">({plan.priceMonthly.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/mês)</span>
+                </div>
+              </div>
             </div>
-            <div className="text-[10px] text-neutral-400">
-              (proprietário, gerente e barbeiros)
+          </div>
+
+          {/* Lado Direito: Equipe */}
+          <div className="flex items-center gap-3 bg-neutral-950/90 border border-neutral-800/90 px-4 py-2.5 rounded-2xl shrink-0 w-full sm:w-auto justify-between sm:justify-start">
+            <div className="w-9 h-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400 shrink-0">
+              <Users className="w-4 h-4" />
             </div>
-            <div className="w-28 bg-neutral-800 h-1.5 rounded-full overflow-hidden mt-1">
-              <div
-                className="bg-orange-500 h-full rounded-full transition-all"
-                style={{ width: `${Math.min(100, (staffMembers.length / plan.maxProfessionals) * 100)}%` }}
-              ></div>
+            <div className="min-w-[130px]">
+              <div className="flex items-center justify-between text-xs font-bold">
+                <span className="text-neutral-300 text-[11px]">Equipe</span>
+                <span className="text-orange-400">{staffMembers.length} / {plan.maxProfessionals}</span>
+              </div>
+              <div className="w-full bg-neutral-800 h-1.5 rounded-full overflow-hidden mt-1">
+                <div
+                  className="bg-gradient-to-r from-orange-500 to-amber-500 h-full rounded-full transition-all duration-300"
+                  style={{ width: `${Math.min(100, (staffMembers.length / plan.maxProfessionals) * 100)}%` }}
+                />
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
       {/* Link de Divulgação Exclusivo da Barbearia no My Barber */}
       <div className="my-4 bg-gradient-to-r from-orange-500/15 via-neutral-900 to-neutral-900 border border-orange-500/40 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl overflow-hidden">
