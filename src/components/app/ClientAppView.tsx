@@ -2181,7 +2181,7 @@ export const ClientAppView: React.FC = () => {
                   ) : (
                     <button
                       onClick={() => setShowLoginModal(true)}
-                      className="text-amber-400 font-semibold text-[11px] underline flex items-center gap-1 cursor-pointer hover:text-amber-300 transition-colors"
+                      className="text-amber-400 font-semibold text-[11px] underline flex items-center gap-1.5 cursor-pointer hover:text-amber-300 transition-colors"
                     >
                       <LogIn className="w-3.5 h-3.5" />
                       Faça Login para validar sua aptidão
