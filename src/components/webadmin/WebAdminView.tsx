@@ -28,6 +28,7 @@ import {
   Camera,
   Upload,
   Pencil,
+  Trash2,
   Image as ImageIcon,
   CreditCard,
   ArrowUp,
@@ -1590,29 +1591,30 @@ export const WebAdminView: React.FC = () => {
                           className="w-full h-28 object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                         
-                        {/* Pencil Edit Overlay Button */}
+                        {/* Botão de Excluir Foto (Sempre visível no mobile e desktop) */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = settingsSalonImages.filter((_, idx) => idx !== i);
+                            setSettingsSalonImages(updated);
+                            updateBarbershop({ salonImages: updated });
+                          }}
+                          className="absolute top-2 right-2 bg-red-600/90 hover:bg-red-600 text-white p-1.5 rounded-xl shadow-lg border border-red-500/40 backdrop-blur-sm transition-all active:scale-95 cursor-pointer z-10 flex items-center justify-center"
+                          title="Excluir foto"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* Botão de Editar Foto (Sempre visível no mobile e desktop) */}
                         <button
                           type="button"
                           onClick={() => setEditingSalonImageIdx(i)}
-                          className="absolute bottom-2 left-2 bg-neutral-950/85 hover:bg-orange-500 hover:text-neutral-950 text-neutral-200 p-1.5 rounded-lg text-xs font-bold opacity-0 group-hover:opacity-100 transition-all border border-neutral-700 hover:border-orange-500 flex items-center gap-1 cursor-pointer"
-                          title="Trocar esta foto"
+                          className="absolute bottom-2 left-2 bg-neutral-950/90 hover:bg-orange-500 hover:text-neutral-950 text-neutral-200 px-2.5 py-1 rounded-xl text-[11px] font-bold border border-neutral-700 hover:border-orange-500 shadow-lg backdrop-blur-sm transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer z-10"
+                          title="Editar foto"
                         >
                           <Pencil className="w-3 h-3 text-orange-400 group-hover:text-neutral-950" />
                           <span>Editar</span>
                         </button>
-
-                        {settingsSalonImages.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSettingsSalonImages(prev => prev.filter((_, idx) => idx !== i));
-                            }}
-                            className="absolute top-2 right-2 bg-red-600/90 hover:bg-red-600 text-white p-1.5 rounded-lg text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow-md cursor-pointer"
-                            title="Remover foto"
-                          >
-                            ✕
-                          </button>
-                        )}
                       </div>
                     ))}
                   </div>
@@ -1733,14 +1735,10 @@ export const WebAdminView: React.FC = () => {
           isOpen={isAddingSalonImage}
           onClose={() => setIsAddingSalonImage(false)}
           title="Adicionar Foto do Salão"
-          subtitle="Faça upload de foto do interior ou fachada da barbearia."
-          currentImageUrl="https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=800"
+          subtitle="Faça upload de uma foto real da sua barbearia ou informe o link."
+          currentImageUrl=""
           fallbackType="gallery"
-          presets={[
-            { label: 'Cadeiras de Couro & Espelhos', url: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=800' },
-            { label: 'Bancada de Ferramentas & Navalhas', url: 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=800' },
-            { label: 'Fachada & Recepção VIP', url: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=800' }
-          ]}
+          presets={[]}
           onSave={(newUrl) => {
             const current = (currentBarbershop.salonImages || []).slice(0, 3);
             const updated = [...current, newUrl];
@@ -1758,13 +1756,10 @@ export const WebAdminView: React.FC = () => {
           isOpen={editingSalonImageIdx !== null}
           onClose={() => setEditingSalonImageIdx(null)}
           title={`Alterar Foto do Salão #${editingSalonImageIdx + 1}`}
-          subtitle="Substitua esta foto por um novo arquivo ou link."
+          subtitle="Substitua por uma foto real da sua barbearia ou informe o link."
           currentImageUrl={currentBarbershop.salonImages[editingSalonImageIdx] || ''}
           fallbackType="gallery"
-          presets={[
-            { label: 'Cadeiras de Couro & Espelhos', url: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=800' },
-            { label: 'Bancada de Ferramentas', url: 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=800' }
-          ]}
+          presets={[]}
           onSave={(newUrl) => {
             const updated = [...(currentBarbershop.salonImages || [])];
             updated[editingSalonImageIdx] = newUrl;
