@@ -2181,10 +2181,10 @@ export const ClientAppView: React.FC = () => {
                   ) : (
                     <button
                       onClick={() => setShowLoginModal(true)}
-                      className="text-amber-400 font-semibold text-[11px] underline flex items-center gap-1"
+                      className="text-amber-400 font-semibold text-[11px] underline flex items-center gap-1 cursor-pointer hover:text-amber-300 transition-colors"
                     >
-                      <Phone className="w-3.5 h-3.5" />
-                      Entre com seu WhatsApp para verificar sua aptidão
+                      <LogIn className="w-3.5 h-3.5" />
+                      Faça Login para validar sua aptidão
                     </button>
                   )}
                 </div>
@@ -2330,11 +2330,11 @@ export const ClientAppView: React.FC = () => {
                 <div className="flex items-center gap-2 mb-1">
                   <Tag className="w-5 h-5" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
                   <h3 className="font-black text-neutral-100 text-base font-heading">
-                    Promoções & Cupons Ativos
+                    Promoções Ativas
                   </h3>
                 </div>
                 <p className="text-xs text-neutral-300 leading-relaxed">
-                  Aproveite descontos especiais e cupons exclusivos para os seus cortes e cuidados na {currentBarbershop.name}.
+                  Aproveite descontos especiais e ofertas exclusivas para os seus cortes e cuidados na {currentBarbershop.name}.
                 </p>
               </div>
 
@@ -3120,7 +3120,7 @@ export const ClientAppView: React.FC = () => {
                     </div>
                   </div>
                   <span className="text-[10px] text-emerald-400 font-black bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-lg">
-                    Sem cupom
+                    Desconto Direto
                   </span>
                 </div>
 
