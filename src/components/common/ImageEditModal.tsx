@@ -84,9 +84,7 @@ export const ImageEditModal: React.FC<ImageEditModalProps> = ({
   const [offsetY, setOffsetY] = useState<number>(0);
   const [rotation, setRotation] = useState<number>(0);
   const [fitMode, setFitMode] = useState<'cover' | 'contain'>('contain');
-  const [previewMask, setPreviewMask] = useState<'circle' | 'square' | 'wide'>(
-    fallbackType === 'logo' || fallbackType === 'avatar' ? 'circle' : 'wide'
-  );
+  const [previewMask] = useState<'square'>('square');
   const [bgColor, setBgColor] = useState<string>('#121212');
 
   // Drag to pan state
@@ -122,7 +120,6 @@ export const ImageEditModal: React.FC<ImageEditModalProps> = ({
       setOffsetY(0);
       setRotation(0);
       setFitMode(fallbackType === 'logo' ? 'contain' : 'cover');
-      setPreviewMask(fallbackType === 'logo' || fallbackType === 'avatar' ? 'circle' : 'wide');
       setBgColor('#121212');
     }
   }, [isOpen, currentImageUrl, extraFields, fallbackType]);
@@ -275,7 +272,7 @@ export const ImageEditModal: React.FC<ImageEditModalProps> = ({
 
       img.onload = async () => {
         try {
-          const isSquare = fallbackType === 'logo' || fallbackType === 'avatar' || previewMask === 'circle' || previewMask === 'square';
+          const isSquare = fallbackType === 'logo' || fallbackType === 'avatar' || fallbackType === 'gallery' || previewMask === 'square';
           const targetWidth = isSquare ? 800 : 1200;
           const targetHeight = isSquare ? 800 : (fallbackType === 'banner' ? 675 : 800);
 
@@ -430,48 +427,13 @@ export const ImageEditModal: React.FC<ImageEditModalProps> = ({
           </div>
         )}
 
-        {/* Live Interactive Preview Box with Drag-to-Pan */}
+        {/* Live Preview Box */}
         <div className="mb-4">
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-xs font-bold text-neutral-300 flex items-center gap-1.5">
-              <Move className="w-3.5 h-3.5 text-orange-400" />
-              <span>Pré-visualização & Enquadramento Interativo</span>
+              <Camera className="w-3.5 h-3.5 text-orange-400" />
+              <span>Pré-visualização</span>
             </label>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setPreviewMask('circle')}
-                className={`px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-all ${
-                  previewMask === 'circle' ? 'bg-orange-500 text-neutral-950' : 'bg-neutral-800 text-neutral-400'
-                }`}
-                title="Pré-visualizar como Círculo (Logo/Avatar)"
-              >
-                <Circle className="w-2.5 h-2.5" />
-                <span>Circular</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPreviewMask('square')}
-                className={`px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-all ${
-                  previewMask === 'square' ? 'bg-orange-500 text-neutral-950' : 'bg-neutral-800 text-neutral-400'
-                }`}
-                title="Pré-visualizar como Quadrado"
-              >
-                <Square className="w-2.5 h-2.5" />
-                <span>Quadrado</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPreviewMask('wide')}
-                className={`px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-all ${
-                  previewMask === 'wide' ? 'bg-orange-500 text-neutral-950' : 'bg-neutral-800 text-neutral-400'
-                }`}
-                title="Pré-visualizar em Banner Retangular"
-              >
-                <Maximize2 className="w-2.5 h-2.5" />
-                <span>Retangular</span>
-              </button>
-            </div>
           </div>
 
           <div
@@ -483,14 +445,8 @@ export const ImageEditModal: React.FC<ImageEditModalProps> = ({
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
             style={{ backgroundColor: bgColor }}
-            className={`relative overflow-hidden border-2 border-orange-500/50 flex items-center justify-center select-none ${
+            className={`relative overflow-hidden border-2 border-orange-500/50 flex items-center justify-center select-none w-48 h-48 sm:w-56 sm:h-56 mx-auto rounded-3xl shadow-2xl ${
               isDragging ? 'cursor-grabbing' : 'cursor-grab'
-            } ${
-              previewMask === 'circle'
-                ? 'w-48 h-48 sm:w-56 sm:h-56 mx-auto rounded-full shadow-2xl'
-                : previewMask === 'square'
-                ? 'w-48 h-48 sm:w-56 sm:h-56 mx-auto rounded-3xl shadow-2xl'
-                : 'w-full aspect-video rounded-2xl shadow-inner'
             }`}
           >
             {imageUrl ? (
@@ -515,12 +471,6 @@ export const ImageEditModal: React.FC<ImageEditModalProps> = ({
                 Nenhuma imagem carregada
               </div>
             )}
-
-            {/* Instruction Overlay */}
-            <div className="absolute top-2 left-2 bg-neutral-950/85 backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] font-extrabold text-orange-400 border border-neutral-800 pointer-events-none flex items-center gap-1">
-              <Move className="w-2.5 h-2.5" />
-              <span>ARRASTE PARA MOVER</span>
-            </div>
 
             {/* Zoom / Scale badge */}
             {zoom !== 1 && (
@@ -811,74 +761,6 @@ export const ImageEditModal: React.FC<ImageEditModalProps> = ({
                   </div>
                 </button>
               ))}
-            </div>
-          </div>
-        )}
-
-        {/* Optional Extra Fields for Gallery / Services */}
-        {onSaveWithExtra && (
-          <div className="space-y-3 pt-3 border-t border-neutral-800 mb-4">
-            <div>
-              <label className="block text-xs font-bold text-neutral-300 mb-1">
-                Título do Corte / Trabalho
-              </label>
-              <input
-                type="text"
-                value={workTitle}
-                onChange={e => setWorkTitle(e.target.value)}
-                placeholder="Ex: High Fade Navalhado & Barboterapia"
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-neutral-300 mb-1">
-                  Categoria
-                </label>
-                <select
-                  value={workCategory}
-                  onChange={e => setWorkCategory(e.target.value)}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
-                >
-                  <option value="DEGRADE">Degradê</option>
-                  <option value="BARBA">Barba & Terapia</option>
-                  <option value="COMBO">Combo VIP</option>
-                  <option value="SOCIAL">Tesoura & Clássico</option>
-                  <option value="PLATINADO">Platinado / Nevou</option>
-                  <option value="FREESTYLE">Freestyle Art</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-neutral-300 mb-1">
-                  Barbeiro Responsável
-                </label>
-                <select
-                  value={workProfId}
-                  onChange={e => setWorkProfId(e.target.value)}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
-                >
-                  {professionals.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-neutral-300 mb-1">
-                Descrição ou Dica de Estilo
-              </label>
-              <textarea
-                rows={2}
-                value={workDescription}
-                onChange={e => setWorkDescription(e.target.value)}
-                placeholder="Detalhes sobre a técnica, produtos utilizados e finalização."
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
-              />
             </div>
           </div>
         )}

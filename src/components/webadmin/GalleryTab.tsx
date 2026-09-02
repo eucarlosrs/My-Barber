@@ -5,14 +5,7 @@ import {
   Pencil,
   Plus,
   Trash2,
-  Heart,
-  Scissors,
-  Sparkles,
-  Upload,
-  Image as ImageIcon,
-  CheckCircle2,
-  AlertCircle,
-  Link as LinkIcon
+  CheckCircle2
 } from 'lucide-react';
 import { GalleryWork } from '../../types';
 import { AppImage } from '../common/AppImage';
@@ -85,22 +78,16 @@ export const GalleryTab: React.FC = () => {
     setShowEditModal(true);
   };
 
-  const handleSaveModal = (data: {
-    imageUrl: string;
-    title?: string;
-    description?: string;
-    category?: string;
-    professionalId?: string;
-  }) => {
-    const prof = professionals.find(p => p.id === data.professionalId) || professionals[0];
-    const srv = services.find(s => s.name.toLowerCase().includes(data.category?.toLowerCase() || ''));
+  const handleSaveModal = (newImageUrl: string) => {
+    const prof = professionals[0];
+    const srv = services[0];
 
     if (isCreatingNew) {
       addGalleryWork({
-        title: data.title || 'Corte & Estilo Personalizado',
-        category: (data.category as any) || 'DEGRADE',
-        imageUrl: data.imageUrl,
-        description: data.description || 'Corte executado com excelência e acabamento profissional.',
+        title: 'Inspiração de Corte',
+        category: 'DEGRADE',
+        imageUrl: newImageUrl,
+        description: 'Corte executado com excelência e acabamento profissional.',
         professionalId: prof?.id || 'prof-1',
         professionalName: prof?.name || 'Mestre Barbeiro',
         serviceId: srv?.id,
@@ -109,11 +96,7 @@ export const GalleryTab: React.FC = () => {
       setFeedback('Nova foto adicionada à galeria com sucesso!');
     } else if (editingWork) {
       updateGalleryWork(editingWork.id, {
-        imageUrl: data.imageUrl,
-        ...(data.title ? { title: data.title } : {}),
-        ...(data.description ? { description: data.description } : {}),
-        ...(data.category ? { category: data.category as any } : {}),
-        ...(prof ? { professionalId: prof.id, professionalName: prof.name } : {})
+        imageUrl: newImageUrl
       });
       setFeedback('Foto da galeria atualizada com sucesso!');
     }
@@ -134,14 +117,14 @@ export const GalleryTab: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-black font-heading text-neutral-100">
-                  Galeria & Portfólio de Destaques
+                  Galeria & Inspirações
                 </h2>
                 <span className="bg-orange-500/15 border border-orange-500/30 text-orange-400 text-xs font-black px-2.5 py-0.5 rounded-full">
                   {currentWorks.length} / {MAX_GALLERY_PHOTOS} Fotos
                 </span>
               </div>
               <p className="text-xs text-neutral-400 mt-0.5">
-                Exibição de exatamente 4 fotos principais no aplicativo do cliente. Você pode alterar a foto, título e categoria a qualquer momento usando o botão de lápis (upload ou link).
+                Exibição de 4 fotos de cortes para os clientes no app. O cliente visualiza a foto e o botão de agendamento.
               </p>
             </div>
           </div>
@@ -171,27 +154,21 @@ export const GalleryTab: React.FC = () => {
         {currentWorks.map((work, index) => (
           <div
             key={work.id}
-            className="bg-neutral-900 border border-neutral-800 hover:border-orange-500/50 rounded-2xl overflow-hidden flex flex-col group transition-all shadow-md relative"
+            className="bg-neutral-900 border border-neutral-800 hover:border-orange-500/50 rounded-3xl overflow-hidden flex flex-col group transition-all shadow-md relative"
           >
             {/* Slot indicator badge */}
             <div className="absolute top-2.5 left-2.5 z-10 bg-neutral-950/85 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-extrabold text-orange-400 border border-neutral-800 shadow-md flex items-center gap-1">
               <span>Foto {index + 1} de 4</span>
             </div>
 
-            {/* Quick Edit Pencil Overlay on Image */}
+            {/* Image Preview */}
             <div className="aspect-square relative bg-neutral-950 overflow-hidden">
               <AppImage
                 src={work.imageUrl}
-                alt={work.title}
+                alt="Foto do corte"
                 fallbackType="gallery"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
-
-              {/* Likes counter */}
-              <div className="absolute top-2.5 right-2.5 bg-neutral-950/85 backdrop-blur-md px-2.5 py-1 rounded-full text-rose-400 flex items-center gap-1.5 text-xs font-bold border border-neutral-800">
-                <Heart className="w-3 h-3 fill-rose-500 text-rose-500" />
-                <span>{work.likesCount}</span>
-              </div>
 
               {/* Direct Pencil Action Button Overlay */}
               <button
@@ -203,49 +180,29 @@ export const GalleryTab: React.FC = () => {
                   <Pencil className="w-5 h-5" />
                 </div>
                 <span className="text-xs font-black text-white bg-neutral-900/90 px-3 py-1 rounded-full border border-neutral-700">
-                  Alterar Foto / Dados
+                  Alterar Foto
                 </span>
               </button>
-
-              <div className="absolute bottom-2.5 left-2.5">
-                <span className="bg-neutral-950/85 backdrop-blur-md text-orange-400 text-[10px] font-extrabold px-2 py-0.5 rounded border border-neutral-800 uppercase">
-                  {work.category}
-                </span>
-              </div>
             </div>
 
-            {/* Info Body */}
-            <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2.5">
-              <div>
-                <h4 className="font-bold text-neutral-100 text-sm line-clamp-1">{work.title}</h4>
-                <p className="text-xs text-neutral-400 mt-1 line-clamp-2">{work.description}</p>
-              </div>
+            {/* Actions Bar */}
+            <div className="p-3 bg-neutral-900 border-t border-neutral-800/80 flex items-center justify-between gap-2">
+              <button
+                onClick={() => handleOpenEdit(work)}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-orange-500/10 hover:bg-orange-500 text-orange-400 hover:text-neutral-950 rounded-xl text-xs font-bold transition-colors border border-orange-500/20 cursor-pointer"
+                title="Alterar imagem"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>Alterar Imagem</span>
+              </button>
 
-              <div className="pt-2 border-t border-neutral-800/80 flex items-center justify-between gap-2">
-                <div className="text-[11px] text-neutral-300 truncate">
-                  <span className="text-neutral-500">Barbeiro: </span>
-                  <strong className="font-semibold text-neutral-200">{work.professionalName}</strong>
-                </div>
-
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => handleOpenEdit(work)}
-                    className="flex items-center gap-1 px-2.5 py-1 bg-orange-500/10 hover:bg-orange-500 text-orange-400 hover:text-neutral-950 rounded-lg text-xs font-bold transition-colors border border-orange-500/20"
-                    title="Editar foto e informações"
-                  >
-                    <Pencil className="w-3 h-3" />
-                    <span>Editar</span>
-                  </button>
-
-                  <button
-                    onClick={() => deleteGalleryWork(work.id)}
-                    className="text-neutral-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-neutral-800 transition-colors"
-                    title="Excluir este corte"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
+              <button
+                onClick={() => deleteGalleryWork(work.id)}
+                className="text-neutral-500 hover:text-red-400 p-2 rounded-xl hover:bg-neutral-800 transition-colors cursor-pointer"
+                title="Excluir esta foto"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
           </div>
         ))}
@@ -257,7 +214,7 @@ export const GalleryTab: React.FC = () => {
             <button
               key={`empty-slot-${i}`}
               onClick={handleOpenCreate}
-              className="bg-neutral-950/60 border-2 border-dashed border-neutral-800 hover:border-orange-500 rounded-2xl p-6 flex flex-col items-center justify-center gap-3 transition-all group min-h-[300px] text-center"
+              className="bg-neutral-950/60 border-2 border-dashed border-neutral-800 hover:border-orange-500 rounded-3xl p-6 flex flex-col items-center justify-center gap-3 transition-all group min-h-[260px] text-center cursor-pointer"
             >
               <div className="p-4 rounded-full bg-neutral-900 border border-neutral-800 text-neutral-500 group-hover:text-orange-400 group-hover:border-orange-500/40 group-hover:scale-110 transition-all">
                 <Plus className="w-6 h-6" />
@@ -280,20 +237,15 @@ export const GalleryTab: React.FC = () => {
         <ImageEditModal
           isOpen={showEditModal}
           onClose={() => setShowEditModal(false)}
-          title={isCreatingNew ? `Adicionar Foto (${currentWorks.length + 1} de 4)` : 'Editar Foto do Portfólio'}
+          title={isCreatingNew ? `Adicionar Foto (${currentWorks.length + 1} de 4)` : 'Alterar Foto'}
           subtitle="Faça upload de foto do seu aparelho, cole um link direto ou escolha uma sugestão profissional."
           currentImageUrl={editingWork?.imageUrl || PRESET_HAIRCUTS[0].url}
           fallbackType="gallery"
           presets={PRESET_HAIRCUTS}
-          onSave={() => {}}
-          extraFields={{
-            title: editingWork?.title || '',
-            description: editingWork?.description || '',
-            category: editingWork?.category || 'DEGRADE'
-          }}
-          onSaveWithExtra={handleSaveModal}
+          onSave={handleSaveModal}
         />
       )}
     </div>
   );
 };
+

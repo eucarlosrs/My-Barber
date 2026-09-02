@@ -270,7 +270,7 @@ export const ClientAppView: React.FC = () => {
   // Booking Flow Steps & State
   const [selectedCategory, setSelectedCategory] = useState<string>('Cabelo');
   const [selectedService, setSelectedService] = useState<Service | null>(null);
-  const [selectedProfessional, setSelectedProfessional] = useState<UserType | null>(professionals[0] || null);
+  const [selectedProfessional, setSelectedProfessional] = useState<UserType | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [selectedTime, setSelectedTime] = useState<string>('14:00');
   const [bookingSuccessMsg, setBookingSuccessMsg] = useState<string | null>(null);
@@ -355,25 +355,33 @@ export const ClientAppView: React.FC = () => {
   const filteredServices = useMemo(() => {
     if (selectedCategory === 'TODOS') return services;
 
-    const sel = selectedCategory.toLowerCase();
-    return services.filter(s => {
-      const cat = (s.category || '').toLowerCase();
-      const name = (s.name || '').toLowerCase();
+    const normalize = (str: string) =>
+      (str || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim();
 
+    const sel = normalize(selectedCategory);
+
+    return services.filter(s => {
+      const cat = normalize(s.category || '');
+      
+      // Categorias específicas comparadas de forma estrita
       if (sel === 'cabelo') {
-        return cat.includes('cabelo') || cat.includes('corte') || name.includes('corte') || name.includes('cabelo') || (!cat.includes('barba') && !cat.includes('combo') && !cat.includes('quim') && !cat.includes('estet'));
+        return cat === 'cabelo' || cat === 'corte' || cat === 'cortes';
       }
       if (sel === 'barba') {
-        return (cat.includes('barba') || cat.includes('barboterapia') || name.includes('barba') || name.includes('barboterapia')) && !cat.includes('combo') && !name.includes('combo');
+        return cat === 'barba' || cat === 'barboterapia';
       }
       if (sel === 'combos' || sel === 'combo') {
-        return cat.includes('combo') || name.includes('combo');
+        return cat === 'combos' || cat === 'combo';
       }
-      if (sel === 'química' || sel === 'quimica') {
-        return cat.includes('quim') || cat.includes('quím') || cat.includes('platinad') || cat.includes('nevou') || name.includes('platinad') || name.includes('nevou');
+      if (sel === 'quimica') {
+        return cat === 'quimica' || cat === 'quimicas';
       }
-      if (sel === 'estética' || sel === 'estetica') {
-        return cat.includes('estet') || cat.includes('estét') || cat.includes('sobrancelha') || cat.includes('facial') || name.includes('sobrancelha') || name.includes('facial') || name.includes('estética');
+      if (sel === 'estetica') {
+        return cat === 'estetica';
       }
       return cat === sel;
     });
@@ -398,6 +406,12 @@ export const ClientAppView: React.FC = () => {
 
   // Funções para seleção e rolagem suave automática passo a passo
   const handleSelectServiceAndProceed = (srv: Service) => {
+    // Se o serviço clicado já for o selecionado, desmarca o serviço (toggle)
+    if (selectedService?.id === srv.id) {
+      setSelectedService(null);
+      return;
+    }
+
     setSelectedService(srv);
     setTimeout(() => {
       const profSection = document.getElementById('step-2-professionals');
@@ -1263,14 +1277,31 @@ export const ClientAppView: React.FC = () => {
                               : undefined
                           }
                         >
-                          {/* Service Thumbnail */}
-                          <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl overflow-hidden bg-neutral-950 shrink-0 border border-neutral-800 relative mt-0.5">
-                            <AppImage
-                              src={srv.imageUrl || 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=200'}
-                              alt={srv.name}
-                              fallbackType="service"
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
+                          {/* Service Thumbnail & Selection Badge */}
+                          <div className="flex flex-col items-center gap-1.5 shrink-0 mt-0.5">
+                            <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl overflow-hidden bg-neutral-950 shrink-0 border border-neutral-800 relative">
+                              <AppImage
+                                src={srv.imageUrl || 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=200'}
+                                alt={srv.name}
+                                fallbackType="service"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                            </div>
+
+                            {/* Badge/Símbolo de Selecionado abaixo da imagem */}
+                            {isSelected && (
+                              <div
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider shadow-sm transition-all animate-fadeIn"
+                                style={{
+                                  backgroundColor: 'var(--theme-primary, #FF6B00)',
+                                  color: 'var(--theme-contrast, #0D0D0D)'
+                                }}
+                                title="Clique para desmarcar o serviço"
+                              >
+                                <Check className="w-3 h-3 stroke-[3]" />
+                                <span>OK</span>
+                              </div>
+                            )}
                           </div>
 
                           {/* Service Details */}
@@ -1481,7 +1512,15 @@ export const ClientAppView: React.FC = () => {
 
                 {/* Time Slots Section */}
                 <div className="bg-neutral-900/80 border border-neutral-800/80 rounded-2xl p-3.5 space-y-3">
-                  {allSlots.length === 0 ? (
+                  {!selectedProfessional ? (
+                    <div className="text-center py-5 px-2">
+                      <Clock className="w-6 h-6 text-neutral-500 mx-auto mb-1.5" />
+                      <p className="text-xs font-bold text-neutral-300">Nenhum barbeiro selecionado</p>
+                      <p className="text-[10px] text-neutral-400 mt-0.5">
+                        Escolha um barbeiro no Passo 2 acima para carregar os horários disponíveis.
+                      </p>
+                    </div>
+                  ) : allSlots.length === 0 ? (
                     <div className="text-center py-4 px-2">
                       <Clock className="w-6 h-6 text-neutral-500 mx-auto mb-1.5" />
                       <p className="text-xs font-bold text-neutral-300">Sem expediente nesta data</p>
@@ -1640,7 +1679,7 @@ export const ClientAppView: React.FC = () => {
                       {selectedService?.name || 'Nenhum serviço selecionado'}
                     </div>
                     <div className="text-[11px] font-semibold truncate" style={{ color: 'var(--theme-primary, #FF6B00)' }}>
-                      Com {selectedProfessional?.name || 'Barbeiro'} • {selectedDate.split('-').reverse().join('/')} às {selectedTime}
+                      {selectedProfessional ? `Com ${selectedProfessional.name}` : 'Nenhum barbeiro escolhido'} • {selectedDate.split('-').reverse().join('/')} {selectedProfessional ? `às ${selectedTime}` : ''}
                     </div>
                   </div>
                   <div className="text-right shrink-0">
@@ -2537,128 +2576,45 @@ export const ClientAppView: React.FC = () => {
                   <span className="text-[11px] text-neutral-400 font-semibold">{galleryWorks.slice(0, 4).length} fotos</span>
                 </div>
                 <p className="text-xs text-neutral-400 mt-0.5">
-                  Veja cortes e barboterapias reais executadas pelos nossos barbeiros.
+                  Inspirações de cortes e estilos para o seu visual.
                 </p>
               </div>
 
-              {/* Category Filter Chips */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-                {[
-                  { id: 'TODOS', label: 'Todos' },
-                  { id: 'DEGRADE', label: 'Degradê / Fade' },
-                  { id: 'BARBA', label: 'Barba & Terapia' },
-                  { id: 'COMBO', label: 'Combos' },
-                  { id: 'SOCIAL', label: 'Tesoura & Clássicos' },
-                  { id: 'PLATINADO', label: 'Platinado / Nevou' },
-                  { id: 'FREESTYLE', label: 'Freestyle' }
-                ].map(cat => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setSelectedGalleryCategory(cat.id)}
-                    className={`px-3 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-all ${
-                      selectedGalleryCategory === cat.id
-                        ? 'shadow-md'
-                        : 'bg-neutral-900 text-neutral-400 hover:text-neutral-200 border border-neutral-800'
-                    }`}
-                    style={
-                      selectedGalleryCategory === cat.id
-                        ? {
-                            backgroundColor: 'var(--theme-primary, #FF6B00)',
-                            color: 'var(--theme-contrast, #0D0D0D)'
-                          }
-                        : undefined
-                    }
-                  >
-                    {cat.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Gallery Grid */}
-              <div className="grid grid-cols-2 gap-2.5">
+              {/* Gallery Grid - 4 Fotos em Grade 2 + 2 */}
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5">
                 {galleryWorks
                   .slice(0, 4)
-                  .filter(w => selectedGalleryCategory === 'TODOS' || w.category === selectedGalleryCategory)
                   .map(work => (
                     <div
                       key={work.id}
-                      className="group bg-neutral-900 border border-neutral-800/90 rounded-2xl overflow-hidden flex flex-col shadow-lg transition-all"
+                      className="bg-neutral-900 border border-neutral-800/90 rounded-2xl sm:rounded-3xl overflow-hidden aspect-square relative shadow-lg group"
                     >
-                      {/* Photo Container */}
-                      <div
-                        onClick={() => setActiveWorkDetail(work)}
-                        className="relative aspect-square w-full bg-neutral-950 cursor-pointer overflow-hidden"
-                      >
-                        <AppImage
-                          src={work.imageUrl}
-                          alt={work.title}
-                          fallbackType="gallery"
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/80 via-transparent to-transparent opacity-80 group-hover:opacity-60 transition-opacity"></div>
-                        
-                        {/* Like Button */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            likeGalleryWork(work.id);
-                          }}
-                          className="absolute top-2 right-2 bg-neutral-950/80 backdrop-blur-md text-neutral-200 hover:text-rose-400 p-1.5 rounded-full flex items-center gap-1 text-[10px] font-bold border border-neutral-800 shadow-md transition-colors"
-                        >
-                          <Heart className="w-3 h-3 text-rose-500 fill-rose-500/80" />
-                          <span>{work.likesCount}</span>
-                        </button>
-
-                        <div className="absolute bottom-2 left-2 right-2">
-                          <span
-                            className="text-[9px] font-extrabold bg-neutral-950/80 px-1.5 py-0.5 rounded backdrop-blur-sm uppercase"
-                            style={{ color: 'var(--theme-primary, #FF6B00)' }}
-                          >
-                            {work.category}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Content */}
-                      <div className="p-2.5 flex-1 flex flex-col justify-between space-y-2 bg-neutral-900">
-                        <div>
-                          <h4
-                            onClick={() => setActiveWorkDetail(work)}
-                            className="font-bold text-neutral-100 text-xs line-clamp-1 cursor-pointer transition-colors"
-                          >
-                            {work.title}
-                          </h4>
-                          <p className="text-[10px] text-neutral-400 mt-0.5 flex items-center gap-1 truncate">
-                            <span>Barbeiro:</span>
-                            <strong className="text-neutral-300 font-semibold">{work.professionalName}</strong>
-                          </p>
-                        </div>
-
-                        <button
-                          onClick={() => {
-                            if (work.serviceId) {
-                              const srv = services.find(s => s.id === work.serviceId);
-                              if (srv) setSelectedService(srv);
-                            }
-                            if (work.professionalId) {
-                              const prof = professionals.find(p => p.id === work.professionalId);
-                              if (prof) setSelectedProfessional(prof);
-                            }
-                            setActiveTab('BOOKING');
-                          }}
-                          className="w-full py-1.5 font-bold rounded-xl text-[10px] transition-all flex items-center justify-center gap-1 shadow-sm active:scale-95"
-                          style={{
-                            backgroundColor: 'var(--theme-light-bg, rgba(255, 107, 0, 0.2))',
-                            color: 'var(--theme-primary, #FF6B00)'
-                          }}
-                        >
-                          <Scissors className="w-3 h-3" />
-                          <span>Quero Esse Estilo</span>
-                        </button>
-                      </div>
+                      <AppImage
+                        src={work.imageUrl}
+                        alt="Inspiração de corte"
+                        fallbackType="gallery"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
                     </div>
                   ))}
+              </div>
+
+              {/* Botão Único: Agendar */}
+              <div className="pt-1">
+                <button
+                  onClick={() => {
+                    setActiveTab('BOOKING');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="w-full py-3.5 px-4 font-black rounded-2xl text-sm sm:text-base transition-all flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] cursor-pointer"
+                  style={{
+                    backgroundColor: 'var(--theme-primary, #FF6B00)',
+                    color: 'var(--theme-contrast, #0D0D0D)'
+                  }}
+                >
+                  <Scissors className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span>Agendar</span>
+                </button>
               </div>
             </div>
           )}
