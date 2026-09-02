@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   Gift,
@@ -15,20 +15,20 @@ import {
   Image as ImageIcon,
   Sparkles,
   X,
-  Video
+  Video,
+  Edit2,
+  Upload,
+  UploadCloud,
+  Loader2
 } from 'lucide-react';
 import { Raffle } from '../../types';
 import { AppImage } from '../common/AppImage';
 import { SaveButton } from '../common/SaveButton';
 import { UnsavedChangesModal } from '../common/UnsavedChangesModal';
 import { BarberPoleRaffleLiveModal } from './BarberPoleRaffleLiveModal';
+import { uploadImageToStorage } from '../../lib/storage';
 
-const PRESET_RAFFLE_BANNERS = [
-  'https://images.unsplash.com/photo-1512690459411-b9245aed614b?w=800&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=800&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=800&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=800&auto=format&fit=crop&q=80'
-];
+const DEFAULT_RAFFLE_BANNER = 'https://images.unsplash.com/photo-1512690459411-b9245aed614b?w=800&auto=format&fit=crop&q=80';
 
 export const RafflesTab: React.FC = () => {
   const {
@@ -43,13 +43,19 @@ export const RafflesTab: React.FC = () => {
   } = useApp();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingRaffle, setEditingRaffle] = useState<Raffle | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [prize, setPrize] = useState('');
   const [drawDate, setDrawDate] = useState('');
-  const [imageUrl, setImageUrl] = useState(PRESET_RAFFLE_BANNERS[0]);
+  const [imageUrl, setImageUrl] = useState('');
   const [showInHighlights, setShowInHighlights] = useState(true);
   const [highlightTag, setHighlightTag] = useState('SORTEIO');
+
+  // Single Image Upload States
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Unsaved Changes & Save States
   const [initialFormState, setInitialFormState] = useState<any>(null);
@@ -99,13 +105,14 @@ export const RafflesTab: React.FC = () => {
   }, [clients, isClientEligibleForRaffle]);
 
   const openAddModal = () => {
+    setEditingRaffle(null);
     const nextMonth = new Date();
     nextMonth.setDate(nextMonth.getDate() + 30);
     const defaultDrawDate = nextMonth.toISOString().split('T')[0];
     const defaultTitle = '';
     const defaultDesc = '';
     const defaultPrize = '';
-    const defaultImage = PRESET_RAFFLE_BANNERS[0];
+    const defaultImage = '';
     const defaultShowInHighlights = true;
     const defaultHighlightTag = 'SORTEIO';
 
@@ -131,26 +138,101 @@ export const RafflesTab: React.FC = () => {
     setShowCreateModal(true);
   };
 
+  const openEditModal = (raffle: Raffle) => {
+    setEditingRaffle(raffle);
+    const currentTitle = raffle.title || '';
+    const currentDesc = raffle.description || '';
+    const currentPrize = raffle.prize || '';
+    const currentDrawDate = raffle.drawDate || '';
+    const currentImage = raffle.imageUrl || '';
+    const currentShowInHighlights = raffle.showInHighlights ?? true;
+    const currentHighlightTag = raffle.highlightTag || 'SORTEIO';
+
+    setTitle(currentTitle);
+    setDescription(currentDesc);
+    setPrize(currentPrize);
+    setDrawDate(currentDrawDate);
+    setImageUrl(currentImage);
+    setShowInHighlights(currentShowInHighlights);
+    setHighlightTag(currentHighlightTag);
+
+    setInitialFormState({
+      title: currentTitle,
+      description: currentDesc,
+      prize: currentPrize,
+      drawDate: currentDrawDate,
+      imageUrl: currentImage,
+      showInHighlights: currentShowInHighlights,
+      highlightTag: currentHighlightTag
+    });
+
+    setIsSaved(false);
+    setShowCreateModal(true);
+  };
+
+  const handleImageFile = async (file: File) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    setIsUploadingImage(true);
+    try {
+      const destPath = `raffles/${currentBarbershop.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const uploadedUrl = await uploadImageToStorage(file, destPath);
+      setImageUrl(uploadedUrl);
+    } catch (err) {
+      console.error('Erro ao fazer upload da imagem do sorteio:', err);
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleImageFile(file);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      handleImageFile(file);
+    }
+  };
+
   const handleCreate = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!title.trim() || !prize.trim()) return;
 
     setIsSaving(true);
     try {
-      createRaffle({
-        tenantId: currentBarbershop.id,
-        title: title.trim(),
-        description: description.trim(),
-        prize: prize.trim(),
-        drawDate: drawDate,
-        showInHighlights,
-        highlightTag: highlightTag.trim() || undefined,
-        imageUrl: imageUrl.trim() || undefined
-      });
+      if (editingRaffle) {
+        updateRaffle(editingRaffle.id, {
+          title: title.trim(),
+          description: description.trim(),
+          prize: prize.trim(),
+          drawDate: drawDate,
+          showInHighlights,
+          highlightTag: highlightTag.trim() || undefined,
+          imageUrl: imageUrl.trim() || undefined
+        });
+      } else {
+        createRaffle({
+          tenantId: currentBarbershop.id,
+          title: title.trim(),
+          description: description.trim(),
+          prize: prize.trim(),
+          drawDate: drawDate,
+          showInHighlights,
+          highlightTag: highlightTag.trim() || undefined,
+          imageUrl: imageUrl.trim() || undefined
+        });
+      }
 
       setIsSaved(true);
       setTimeout(() => {
         setShowCreateModal(false);
+        setEditingRaffle(null);
         setInitialFormState(null);
         setIsSaved(false);
       }, 500);
@@ -164,6 +246,7 @@ export const RafflesTab: React.FC = () => {
       setShowUnsavedModal(true);
     } else {
       setShowCreateModal(false);
+      setEditingRaffle(null);
       setInitialFormState(null);
     }
   };
@@ -266,7 +349,7 @@ export const RafflesTab: React.FC = () => {
                 {/* Raffle Banner Image */}
                 <div className="h-40 relative bg-neutral-950">
                   <AppImage
-                    src={raffle.imageUrl || PRESET_RAFFLE_BANNERS[0]}
+                    src={raffle.imageUrl || DEFAULT_RAFFLE_BANNER}
                     alt={raffle.title}
                     fallbackType="banner"
                     className="w-full h-full object-cover opacity-80"
@@ -325,13 +408,21 @@ export const RafflesTab: React.FC = () => {
                       </button>
 
                       <button
+                        onClick={() => openEditModal(raffle)}
+                        className="p-2.5 bg-neutral-950 hover:bg-orange-500/20 text-neutral-400 hover:text-orange-400 rounded-xl border border-neutral-800 transition-colors cursor-pointer"
+                        title="Editar Dados do Sorteio"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+
+                      <button
                         onClick={() => updateRaffle(raffle.id, { showInHighlights: !raffle.showInHighlights })}
-                        className={`px-2.5 py-2.5 rounded-xl text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer ${
+                        className={`p-2.5 rounded-xl text-xs font-bold transition-colors flex items-center justify-center cursor-pointer ${
                           raffle.showInHighlights
                             ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                             : 'bg-neutral-950 text-neutral-400 border border-neutral-800 hover:text-neutral-200'
                         }`}
-                        title="Exibir nos destaques do app"
+                        title={raffle.showInHighlights ? 'Remover dos destaques' : 'Exibir nos destaques do app'}
                       >
                         <Sparkles className="w-3.5 h-3.5" />
                       </button>
@@ -424,17 +515,19 @@ export const RafflesTab: React.FC = () => {
         </div>
       )}
 
-      {/* Create Raffle Modal */}
+      {/* Create / Edit Raffle Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-neutral-900 border border-neutral-800 rounded-3xl max-w-lg w-full p-6 text-neutral-100 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h3 className="text-lg font-black font-heading text-neutral-100 mb-1">
-                  Cadastrar Novo Sorteio
+                  {editingRaffle ? 'Editar Sorteio em Andamento' : 'Cadastrar Novo Sorteio'}
                 </h3>
                 <p className="text-xs text-neutral-400">
-                  Defina o prêmio, data e imagem. O sorteio ficará visível na área logada dos clientes para adesão.
+                  {editingRaffle
+                    ? 'Altere o prêmio, data, imagem ou descrição deste sorteio ativo.'
+                    : 'Defina o prêmio, data e imagem. O sorteio ficará visível na área logada dos clientes para adesão.'}
                 </p>
               </div>
               <button
@@ -494,33 +587,107 @@ export const RafflesTab: React.FC = () => {
                 />
               </div>
 
-              {/* Banner Selector */}
+              {/* Foto / Banner do Sorteio (Apenas 1 Imagem via Upload) */}
               <div>
-                <label className="block text-xs font-bold text-neutral-300 mb-1.5 flex items-center gap-1.5">
-                  <Camera className="w-3.5 h-3.5 text-orange-400" />
-                  Imagem / Banner de Divulgação
-                </label>
-                <input
-                  type="url"
-                  value={imageUrl}
-                  onChange={e => setImageUrl(e.target.value)}
-                  placeholder="URL da imagem do prêmio"
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500 mb-2"
-                />
-                <div className="flex items-center gap-2 overflow-x-auto py-1">
-                  {PRESET_RAFFLE_BANNERS.map((url, i) => (
-                    <button
-                      type="button"
-                      key={i}
-                      onClick={() => setImageUrl(url)}
-                      className={`w-16 h-12 rounded-xl overflow-hidden border-2 shrink-0 transition-all ${
-                        imageUrl === url ? 'border-orange-500 ring-2 ring-orange-500/40 scale-105' : 'border-neutral-800 opacity-60'
-                      }`}
-                    >
-                      <AppImage src={url} alt="Preset" fallbackType="banner" className="w-full h-full object-cover" />
-                    </button>
-                  ))}
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-neutral-300 flex items-center gap-1.5">
+                    <Camera className="w-3.5 h-3.5 text-orange-400" />
+                    Foto / Banner de Divulgação
+                  </label>
+                  <span className="text-[10px] text-neutral-400 bg-neutral-950 px-2 py-0.5 rounded-full border border-neutral-800">
+                    {imageUrl ? '1 de 1 foto selecionada' : 'Máximo de 1 foto'}
+                  </span>
                 </div>
+
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileInputChange}
+                  accept="image/*"
+                  className="hidden"
+                />
+
+                {imageUrl ? (
+                  <div className="relative rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-950 group">
+                    <div className="aspect-video w-full relative">
+                      <AppImage
+                        src={imageUrl}
+                        alt="Banner do Sorteio"
+                        fallbackType="banner"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+                    </div>
+
+                    <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploadingImage}
+                        className="px-3 py-1.5 bg-neutral-900/90 hover:bg-neutral-800 text-neutral-200 hover:text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 border border-neutral-700/80 backdrop-blur-sm transition-colors cursor-pointer"
+                      >
+                        {isUploadingImage ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-orange-400" />
+                            <span>Enviando...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-3.5 h-3.5 text-orange-400" />
+                            <span>Trocar Foto</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setImageUrl('')}
+                        disabled={isUploadingImage}
+                        className="p-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 rounded-xl border border-red-500/30 transition-colors cursor-pointer"
+                        title="Remover imagem"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={handleDrop}
+                    onClick={() => !isUploadingImage && fileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2 ${
+                      isDragging
+                        ? 'border-orange-500 bg-orange-500/10'
+                        : 'border-neutral-800 hover:border-neutral-700 bg-neutral-950/60 hover:bg-neutral-950'
+                    }`}
+                  >
+                    {isUploadingImage ? (
+                      <div className="flex flex-col items-center gap-2 py-2">
+                        <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
+                        <span className="text-xs text-neutral-300 font-medium">Processando e enviando imagem...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="w-12 h-12 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center text-orange-400 group-hover:scale-105 transition-transform">
+                          <UploadCloud className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-neutral-200 mb-0.5">
+                            Fazer Upload da Foto do Sorteio
+                          </div>
+                          <p className="text-[11px] text-neutral-400">
+                            Clique para escolher do dispositivo ou arraste a imagem aqui (máx. 1 foto)
+                          </p>
+                        </div>
+                        <span className="mt-1 px-3.5 py-1.5 bg-orange-500 hover:bg-orange-600 text-neutral-950 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm">
+                          <Upload className="w-3.5 h-3.5" />
+                          Selecionar Foto
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Destaque no App do Cliente */}
@@ -570,7 +737,7 @@ export const RafflesTab: React.FC = () => {
                   isLoading={isSaving}
                   isSaved={isSaved}
                   onClick={() => handleCreate()}
-                  label="Publicar Sorteio"
+                  label={editingRaffle ? 'Salvar Alterações' : 'Publicar Sorteio'}
                   className="text-xs"
                 />
               </div>
@@ -586,6 +753,7 @@ export const RafflesTab: React.FC = () => {
         onDiscard={() => {
           setShowUnsavedModal(false);
           setShowCreateModal(false);
+          setEditingRaffle(null);
           setInitialFormState(null);
         }}
         onSave={async () => {

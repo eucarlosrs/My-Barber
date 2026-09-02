@@ -364,10 +364,10 @@ export const BusinessHoursTable: React.FC<BusinessHoursTableProps> = ({
 
                 {/* 2. Configurações de Horário (Abertura, Fechamento e Almoço) */}
                 {day.isOpen ? (
-                  <div className="flex-1 flex flex-col md:flex-row flex-wrap xl:flex-nowrap items-stretch md:items-center gap-2.5 sm:gap-3">
+                  <div className="flex-1 flex flex-col md:flex-row flex-wrap xl:flex-nowrap items-stretch md:items-center gap-2 sm:gap-3 min-w-0">
                     {/* Abertura e Fechamento */}
-                    <div className="flex items-center justify-between sm:justify-start gap-2 bg-neutral-900/90 border border-neutral-800 px-3 py-2 rounded-xl">
-                      <div className="flex items-center gap-1.5">
+                    <div className="flex items-center justify-between gap-1.5 sm:gap-2 bg-neutral-900/90 border border-neutral-800 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl min-w-0">
+                      <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
                         <Sun className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                         <span className="text-xs text-neutral-400 font-medium hidden sm:inline">Abertura:</span>
                         <input
@@ -375,13 +375,13 @@ export const BusinessHoursTable: React.FC<BusinessHoursTableProps> = ({
                           disabled={disabled}
                           value={openTime}
                           onChange={e => updateDaySimplified(day.dayOfWeek, { openTime: e.target.value })}
-                          className="bg-neutral-950 border border-neutral-700 focus:border-orange-500 rounded-lg px-2 py-1 text-xs font-mono font-black text-neutral-100 text-center w-20 focus:outline-none"
+                          className="bg-neutral-950 border border-neutral-700 focus:border-orange-500 rounded-lg px-1.5 sm:px-2 py-1 text-xs font-mono font-black text-neutral-100 text-center w-[76px] sm:w-20 focus:outline-none shrink-0"
                         />
                       </div>
 
-                      <span className="text-neutral-500 text-xs font-medium">até</span>
+                      <span className="text-neutral-500 text-xs font-medium shrink-0 px-0.5">até</span>
 
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
                         <Moon className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                         <span className="text-xs text-neutral-400 font-medium hidden sm:inline">Fechamento:</span>
                         <input
@@ -389,14 +389,14 @@ export const BusinessHoursTable: React.FC<BusinessHoursTableProps> = ({
                           disabled={disabled}
                           value={closeTime}
                           onChange={e => updateDaySimplified(day.dayOfWeek, { closeTime: e.target.value })}
-                          className="bg-neutral-950 border border-neutral-700 focus:border-orange-500 rounded-lg px-2 py-1 text-xs font-mono font-black text-neutral-100 text-center w-20 focus:outline-none"
+                          className="bg-neutral-950 border border-neutral-700 focus:border-orange-500 rounded-lg px-1.5 sm:px-2 py-1 text-xs font-mono font-black text-neutral-100 text-center w-[76px] sm:w-20 focus:outline-none shrink-0"
                         />
                       </div>
                     </div>
 
                     {/* Pausa de Almoço */}
-                    <div className="flex items-center justify-between sm:justify-start gap-2 bg-neutral-900/90 border border-neutral-800 px-3 py-2 rounded-xl">
-                      <label className="inline-flex items-center gap-1.5 text-xs text-neutral-300 cursor-pointer select-none">
+                    <div className="flex items-center justify-between gap-1.5 sm:gap-2 bg-neutral-900/90 border border-neutral-800 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl min-w-0">
+                      <label className="inline-flex items-center gap-1 sm:gap-1.5 text-xs text-neutral-300 cursor-pointer select-none shrink-0">
                         <input
                           type="checkbox"
                           disabled={disabled}
@@ -409,21 +409,21 @@ export const BusinessHoursTable: React.FC<BusinessHoursTableProps> = ({
                       </label>
 
                       {hasLunch ? (
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
                           <input
                             type="time"
                             disabled={disabled}
                             value={lunchStart}
                             onChange={e => updateDaySimplified(day.dayOfWeek, { lunchStart: e.target.value })}
-                            className="bg-neutral-950 border border-neutral-700 focus:border-orange-500 rounded-lg px-2 py-1 text-xs font-mono font-bold text-orange-400 text-center w-20 focus:outline-none"
+                            className="bg-neutral-950 border border-neutral-700 focus:border-orange-500 rounded-lg px-1.5 sm:px-2 py-1 text-xs font-mono font-bold text-orange-400 text-center w-[76px] sm:w-20 focus:outline-none shrink-0"
                           />
-                          <span className="text-neutral-500 text-xs">às</span>
+                          <span className="text-neutral-500 text-xs shrink-0 px-0.5">às</span>
                           <input
                             type="time"
                             disabled={disabled}
                             value={lunchEnd}
                             onChange={e => updateDaySimplified(day.dayOfWeek, { lunchEnd: e.target.value })}
-                            className="bg-neutral-950 border border-neutral-700 focus:border-orange-500 rounded-lg px-2 py-1 text-xs font-mono font-bold text-orange-400 text-center w-20 focus:outline-none"
+                            className="bg-neutral-950 border border-neutral-700 focus:border-orange-500 rounded-lg px-1.5 sm:px-2 py-1 text-xs font-mono font-bold text-orange-400 text-center w-[76px] sm:w-20 focus:outline-none shrink-0"
                           />
                         </div>
                       ) : (

@@ -1223,7 +1223,7 @@ export const WebAdminView: React.FC = () => {
           {/* Seletor Oficial dos 4 Temas de Cores do App */}
           <ThemeSelectorCard />
 
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 space-y-6">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 sm:p-6 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-800">
               <div>
                 <h3 className="font-bold text-neutral-100 font-heading text-lg">
@@ -1561,15 +1561,15 @@ export const WebAdminView: React.FC = () => {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <label className="block text-xs font-semibold text-neutral-300">
-                        Fotos do Salão & Fachada ({Math.min(3, settingsSalonImages.length)}/3)
+                        Fotos do Salão & Fachada ({Math.min(4, settingsSalonImages.length)}/4)
                       </label>
-                      {settingsSalonImages.length >= 3 && (
+                      {settingsSalonImages.length >= 4 && (
                         <span className="text-[10px] bg-neutral-800 text-amber-400 font-bold px-2 py-0.5 rounded-full border border-neutral-700">
-                          Máximo de 3 fotos atingido
+                          Máximo de 4 fotos atingido
                         </span>
                       )}
                     </div>
-                    {settingsSalonImages.length < 3 && (
+                    {settingsSalonImages.length < 4 && (
                       <button
                         type="button"
                         onClick={() => setIsAddingSalonImage(true)}
@@ -1580,8 +1580,8 @@ export const WebAdminView: React.FC = () => {
                       </button>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {settingsSalonImages.slice(0, 3).map((img, i) => (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {settingsSalonImages.slice(0, 4).map((img, i) => (
                       <div key={i} className="relative group rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-950 shadow-md">
                         <AppImage
                           src={img}
@@ -1742,10 +1742,12 @@ export const WebAdminView: React.FC = () => {
             { label: 'Fachada & Recepção VIP', url: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=800' }
           ]}
           onSave={(newUrl) => {
-            const current = currentBarbershop.salonImages.slice(0, 2);
+            const current = (currentBarbershop.salonImages || []).slice(0, 3);
+            const updated = [...current, newUrl];
             updateBarbershop({
-              salonImages: [...current, newUrl]
+              salonImages: updated
             });
+            setSettingsSalonImages(updated);
             setIsAddingSalonImage(false);
           }}
         />
@@ -1764,9 +1766,10 @@ export const WebAdminView: React.FC = () => {
             { label: 'Bancada de Ferramentas', url: 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=800' }
           ]}
           onSave={(newUrl) => {
-            const updated = [...currentBarbershop.salonImages];
+            const updated = [...(currentBarbershop.salonImages || [])];
             updated[editingSalonImageIdx] = newUrl;
             updateBarbershop({ salonImages: updated });
+            setSettingsSalonImages(updated);
             setEditingSalonImageIdx(null);
           }}
         />
