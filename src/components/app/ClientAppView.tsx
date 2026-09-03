@@ -2847,9 +2847,9 @@ export const ClientAppView: React.FC = () => {
               <div className="flex items-center justify-around">
                 {[
                   { id: 'BOOKING', label: 'Agendar', icon: Scissors },
+                  { id: 'ABOUT', label: 'Salão', icon: Building2 },
                   { id: 'MY_APPOINTMENTS', label: 'Meus agendamentos', icon: Calendar, badge: clientAppointments.length },
                   { id: 'PROMOTIONS', label: 'Promoções', icon: Tag, badge: promotions.filter(p => p.active).length },
-                  { id: 'ABOUT', label: 'Salão', icon: Building2 },
                   { id: 'RAFFLES', label: 'Sorteios', icon: Gift }
                 ].map(tab => {
                   const Icon = tab.icon;
