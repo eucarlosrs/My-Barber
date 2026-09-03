@@ -160,114 +160,114 @@ export const MasterAdminView: React.FC = () => {
         </div>
       </div>
 
-      {/* Navigation Subtabs */}
-      <div className="flex items-center justify-between gap-2 border-b border-neutral-800 pb-2 flex-wrap">
-        {activeTab !== 'overview' && (
-          <div className="shrink-0 mb-1 sm:mb-0">
-            <AdminBackButton
-              onClick={() => setActiveTab('overview')}
-              contextLabel="para Visão Geral"
-            />
+      {/* Main Layout Grid: Sidebar vertical no Desktop (lg:) e Tabs horizontais no Mobile */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* SIDEBAR LATERAL ESQUERDA NO DESKTOP / BARRA ROLÁVEL NO MOBILE */}
+        <aside className="lg:col-span-3 xl:col-span-3 shrink-0">
+          {/* Mobile/Tablet: Barra de rolagem horizontal compacta (oculta em lg:) */}
+          <div className="lg:hidden">
+            <div className="flex items-center justify-between gap-2 border-b border-neutral-800 pb-2.5 mb-4">
+              {activeTab !== 'overview' && (
+                <div className="shrink-0">
+                  <AdminBackButton
+                    onClick={() => setActiveTab('overview')}
+                    contextLabel="para Visão Geral"
+                  />
+                </div>
+              )}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 flex-1">
+                {[
+                  { id: 'overview', label: 'Visão Geral & Barbearias', icon: Building2 },
+                  { id: 'plans', label: 'Planos & Ofertas SaaS', icon: Layers },
+                  { id: 'subscriptions', label: 'Assinaturas & MRR', icon: CreditCard },
+                  { id: 'barbershops', label: `Todas Barbearias (${barbershops.length})`, icon: Building2 },
+                  { id: 'users', label: `Usuários & Permissões (${users.length})`, icon: Users },
+                  { id: 'services_appointments', label: 'Serviços & Agendamentos', icon: Scissors },
+                  { id: 'audit', label: `Auditoria (${auditLogs.length})`, icon: ShieldAlert },
+                  { id: 'impersonate', label: 'Visualizar como Usuário', icon: Eye }
+                ].map(tab => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id as any)}
+                      className={`flex items-center gap-2 px-3.5 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+                        isActive
+                          ? 'bg-orange-500 text-neutral-950 shadow-md shadow-orange-500/20'
+                          : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-        )}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 flex-1">
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'overview'
-                ? 'bg-orange-500 text-neutral-950 shadow-md shadow-orange-500/20'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
-            }`}
-          >
-            <Building2 className="w-4 h-4" />
-            <span>Visão Geral & Barbearias</span>
-          </button>
 
-        <button
-          onClick={() => setActiveTab('plans')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'plans'
-              ? 'bg-orange-500 text-neutral-950 shadow-md shadow-orange-500/20'
-              : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
-          }`}
-        >
-          <Layers className="w-4 h-4" />
-          <span>Planos & Ofertas SaaS</span>
-        </button>
+          {/* Desktop: Sidebar vertical fixa com efeito sticky */}
+          <div className="hidden lg:flex flex-col bg-neutral-900/90 border border-neutral-800 rounded-3xl p-3.5 shadow-xl backdrop-blur-sm sticky top-6 space-y-1">
+            <div className="px-3 py-2 mb-1 flex items-center justify-between border-b border-neutral-800/80 pb-3">
+              <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">
+                Menu Master
+              </span>
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-400">
+                Super Admin
+              </span>
+            </div>
 
-        <button
-          onClick={() => setActiveTab('subscriptions')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'subscriptions'
-              ? 'bg-orange-500 text-neutral-950 shadow-md shadow-orange-500/20'
-              : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
-          }`}
-        >
-          <CreditCard className="w-4 h-4" />
-          <span>Assinaturas & MRR</span>
-        </button>
+            {[
+              { id: 'overview', label: 'Visão Geral & Barbearias', icon: Building2 },
+              { id: 'plans', label: 'Planos & Ofertas SaaS', icon: Layers },
+              { id: 'subscriptions', label: 'Assinaturas & MRR', icon: CreditCard },
+              { id: 'barbershops', label: 'Todas Barbearias', count: barbershops.length, icon: Building2 },
+              { id: 'users', label: 'Usuários & Permissões', count: users.length, icon: Users },
+              { id: 'services_appointments', label: 'Serviços & Agendamentos', icon: Scissors },
+              { id: 'audit', label: 'Auditoria Global', count: auditLogs.length, icon: ShieldAlert },
+              { id: 'impersonate', label: 'Visualizar como Usuário', icon: Eye }
+            ].map(tab => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition-all group text-left cursor-pointer ${
+                    isActive
+                      ? 'bg-orange-500 text-neutral-950 font-black shadow-lg shadow-orange-500/20'
+                      : 'text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800/70 border border-transparent'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Icon
+                      className={`w-4 h-4 shrink-0 transition-transform group-hover:scale-110 ${
+                        isActive ? 'text-neutral-950' : 'text-neutral-500 group-hover:text-neutral-300'
+                      }`}
+                    />
+                    <span className="truncate">{tab.label}</span>
+                  </div>
 
-        <button
-          onClick={() => setActiveTab('barbershops')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'barbershops'
-              ? 'bg-orange-500 text-neutral-950 shadow-md shadow-orange-500/20'
-              : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
-          }`}
-        >
-          <Building2 className="w-4 h-4" />
-          <span>Todas Barbearias ({barbershops.length})</span>
-        </button>
+                  {tab.count !== undefined && (
+                    <span
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold ml-2 shrink-0 ${
+                        isActive
+                          ? 'bg-neutral-950 text-orange-400 shadow-sm'
+                          : 'bg-neutral-950 text-neutral-400 border border-neutral-800 group-hover:border-neutral-700'
+                      }`}
+                    >
+                      {tab.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </aside>
 
-        <button
-          onClick={() => setActiveTab('users')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'users'
-              ? 'bg-orange-500 text-neutral-950 shadow-md shadow-orange-500/20'
-              : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span>Usuários & Permissões ({users.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('services_appointments')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'services_appointments'
-              ? 'bg-orange-500 text-neutral-950 shadow-md shadow-orange-500/20'
-              : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
-          }`}
-        >
-          <Scissors className="w-4 h-4" />
-          <span>Serviços & Agendamentos</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('audit')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'audit'
-              ? 'bg-orange-500 text-neutral-950 shadow-md shadow-orange-500/20'
-              : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
-          }`}
-        >
-          <ShieldAlert className="w-4 h-4" />
-          <span>Auditoria ({auditLogs.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('impersonate')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'impersonate'
-              ? 'bg-orange-500 text-neutral-950 shadow-md shadow-orange-500/20'
-              : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
-          }`}
-        >
-          <Eye className="w-4 h-4" />
-          <span>Visualizar como Usuário</span>
-        </button>
-        </div>
-      </div>
+        {/* ÁREA PRINCIPAL DE CONTEÚDO (COLUNA DIREITA NO DESKTOP) */}
+        <main className="lg:col-span-9 xl:col-span-9 min-w-0 space-y-6">
 
       {/* Tab Content Display */}
       {activeTab === 'overview' && (
@@ -404,6 +404,8 @@ export const MasterAdminView: React.FC = () => {
       {activeTab === 'impersonate' && (
         <MasterAdminImpersonate />
       )}
+        </main>
+      </div>
     </div>
   );
 };
