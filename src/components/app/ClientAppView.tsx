@@ -2564,62 +2564,7 @@ export const ClientAppView: React.FC = () => {
               </form>
             </div>
           )}
-          {/* TAB 8: 📸 GALERIA DE INSPIRAÇÕES & CORTES */}
-          {activeTab === 'GALLERY' && (
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between">
-                  <h3 className="font-black text-neutral-100 font-heading text-base flex items-center gap-1.5">
-                    <Camera className="w-4 h-4" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
-                    <span>Galeria & Inspirações</span>
-                  </h3>
-                  <span className="text-[11px] text-neutral-400 font-semibold">{galleryWorks.slice(0, 4).length} fotos</span>
-                </div>
-                <p className="text-xs text-neutral-400 mt-0.5">
-                  Inspirações de cortes e estilos para o seu visual.
-                </p>
-              </div>
-
-              {/* Gallery Grid - 4 Fotos em Grade 2 + 2 */}
-              <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5">
-                {galleryWorks
-                  .slice(0, 4)
-                  .map(work => (
-                    <div
-                      key={work.id}
-                      className="bg-neutral-900 border border-neutral-800/90 rounded-2xl sm:rounded-3xl overflow-hidden aspect-square relative shadow-lg group"
-                    >
-                      <AppImage
-                        src={work.imageUrl}
-                        alt="Inspiração de corte"
-                        fallbackType="gallery"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    </div>
-                  ))}
-              </div>
-
-              {/* Botão Único: Agendar */}
-              <div className="pt-1">
-                <button
-                  onClick={() => {
-                    setActiveTab('BOOKING');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className="w-full py-3.5 px-4 font-black rounded-2xl text-sm sm:text-base transition-all flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] cursor-pointer"
-                  style={{
-                    backgroundColor: 'var(--theme-primary, #FF6B00)',
-                    color: 'var(--theme-contrast, #0D0D0D)'
-                  }}
-                >
-                  <Scissors className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span>Agendar</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 9: 💈 SOBRE O SALÃO & FOTOS DO ESPAÇO */}
+          {/* TAB 8: 💈 SOBRE O SALÃO & FOTOS DO ESPAÇO */}
           {activeTab === 'ABOUT' && (
             <div className="space-y-4">
               {/* Salon Photos Gallery Carousel/Grid */}
@@ -2653,6 +2598,39 @@ export const ClientAppView: React.FC = () => {
                 <p className="text-xs text-neutral-300 leading-relaxed pt-1">
                   {currentBarbershop.about}
                 </p>
+              </div>
+
+              {/* Galeria & Inspirações de Cortes */}
+              <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 space-y-3 shadow-lg">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-black text-neutral-100 font-heading text-base flex items-center gap-1.5">
+                    <Camera className="w-4 h-4" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
+                    <span>Galeria & Inspirações</span>
+                  </h3>
+                  <span className="text-[11px] text-neutral-400 font-semibold">{galleryWorks.slice(0, 4).length} fotos</span>
+                </div>
+                <p className="text-xs text-neutral-400">
+                  Inspirações de cortes e estilos para o seu visual.
+                </p>
+
+                {/* Gallery Grid - 4 Fotos em Grade 2 + 2 */}
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+                  {galleryWorks
+                    .slice(0, 4)
+                    .map(work => (
+                      <div
+                        key={work.id}
+                        className="bg-neutral-950 border border-neutral-800 rounded-xl overflow-hidden aspect-square relative shadow group"
+                      >
+                        <AppImage
+                          src={work.imageUrl}
+                          alt="Inspiração de corte"
+                          fallbackType="gallery"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      </div>
+                    ))}
+                </div>
               </div>
 
               {/* Amenities */}
@@ -2870,7 +2848,6 @@ export const ClientAppView: React.FC = () => {
                 {[
                   { id: 'BOOKING', label: 'Agendar', icon: Scissors },
                   { id: 'MY_APPOINTMENTS', label: 'Meus agendamentos', icon: Calendar, badge: clientAppointments.length },
-                  { id: 'GALLERY', label: 'Galeria', icon: Camera },
                   { id: 'PROMOTIONS', label: 'Promoções', icon: Tag, badge: promotions.filter(p => p.active).length },
                   { id: 'ABOUT', label: 'Salão', icon: Building2 },
                   { id: 'RAFFLES', label: 'Sorteios', icon: Gift }
