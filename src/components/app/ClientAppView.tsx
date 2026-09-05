@@ -2901,297 +2901,403 @@ export const ClientAppView: React.FC = () => {
           {/* TAB 9: 👤 MEU PERFIL (GESTÃO DE FOTO E DADOS DO CLIENTE) */}
           {activeTab === 'PROFILE' && (
             <div className="space-y-4">
-              {/* Header do Perfil */}
-              <div
-                className="rounded-2xl p-4 shadow-xl border bg-neutral-900"
-                style={{
-                  borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.4))',
-                  background: 'linear-gradient(135deg, var(--theme-light-bg, rgba(255, 107, 0, 0.2)), #171717 60%)'
-                }}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <User className="w-5 h-5" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
-                    <h3 className="font-black text-neutral-100 text-base font-heading">
-                      Meu Perfil
-                    </h3>
-                  </div>
-                  {isClient && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                      Conta Ativa
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-neutral-300 leading-relaxed mt-1">
-                  Personalize sua foto de perfil e mantenha seus dados cadastrais atualizados para agendamentos e benefícios na {currentBarbershop.name}.
-                </p>
-              </div>
-
-              {/* Se o cliente ainda não estiver logado */}
-              {!isClient && (
-                <div className="bg-neutral-900 border border-amber-500/30 p-4 rounded-2xl space-y-2">
-                  <div className="flex items-center gap-2 text-amber-400 text-xs font-bold">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                    <span>Acesso como Convidado</span>
-                  </div>
-                  <p className="text-xs text-neutral-300 leading-relaxed">
-                    Você pode editar seus dados abaixo para seus próximos agendamentos ou conectar sua conta para salvar seu histórico e participar de sorteios.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setShowLoginModal(true)}
-                    className="mt-1 px-4 py-2 font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md transition-all active:scale-95"
+              {/* QUANDO O USUÁRIO NÃO ESTIVER LOGADO: ÁREA CONVIDATIVA DE LOGIN & AGENDAMENTO */}
+              {!authenticatedUser ? (
+                <div className="space-y-4">
+                  {/* Card Principal Convidativo */}
+                  <div
+                    className="rounded-3xl p-6 shadow-2xl border text-center relative overflow-hidden bg-neutral-900"
                     style={{
-                      backgroundColor: 'var(--theme-primary, #FF6B00)',
-                      color: 'var(--theme-contrast, #0D0D0D)'
+                      borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.4))',
+                      background: 'radial-gradient(circle at 50% 0%, var(--theme-light-bg, rgba(255, 107, 0, 0.25)) 0%, #121212 75%)'
                     }}
                   >
-                    <LogIn className="w-3.5 h-3.5" />
-                    <span>Fazer Login ou Criar Conta</span>
-                  </button>
-                </div>
-              )}
-
-              {/* Card de Troca de Foto de Perfil */}
-              <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 shadow-lg space-y-4">
-                <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
-                  <h4 className="font-extrabold text-neutral-100 text-sm font-heading flex items-center gap-2">
-                    <Camera className="w-4 h-4" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
-                    <span>Foto de Perfil</span>
-                  </h4>
-                  <span className="text-[10px] text-neutral-400">Toque para trocar</span>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-center gap-4">
-                  {/* Avatar Preview Grande */}
-                  <div className="relative group shrink-0">
-                    <div
-                      className="w-24 h-24 rounded-2xl overflow-hidden border-2 shadow-xl bg-neutral-950 flex items-center justify-center relative"
-                      style={{ borderColor: 'var(--theme-primary, #FF6B00)' }}
+                    {/* Badge de Destaque */}
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider mb-4 border shadow-sm bg-neutral-950/80 border-neutral-700/80"
+                      style={{ color: 'var(--theme-primary, #FF6B00)' }}
                     >
-                      {profileAvatarUrl ? (
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Área do Cliente</span>
+                    </div>
+
+                    {/* Ícone de Estilo / Barbearia */}
+                    <div className="mx-auto w-20 h-20 rounded-2xl flex items-center justify-center mb-4 shadow-xl border relative"
+                      style={{
+                        backgroundColor: 'var(--theme-light-bg, rgba(255, 107, 0, 0.15))',
+                        borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.5))'
+                      }}
+                    >
+                      {currentBarbershop.logoUrl ? (
                         <AppImage
-                          src={profileAvatarUrl}
-                          alt={profileName || 'Cliente'}
-                          fallbackType="userAvatar"
-                          className="w-full h-full object-cover"
+                          src={currentBarbershop.logoUrl}
+                          alt={currentBarbershop.name}
+                          fallbackType="logo"
+                          className="w-16 h-16 rounded-xl object-cover"
                         />
                       ) : (
-                        <div
-                          className="w-full h-full flex items-center justify-center font-black text-2xl"
-                          style={{
-                            backgroundColor: 'var(--theme-primary, #FF6B00)',
-                            color: 'var(--theme-contrast, #0D0D0D)'
-                          }}
-                        >
-                          {(profileName || 'C').charAt(0).toUpperCase()}
-                        </div>
+                        <Scissors className="w-9 h-9" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
                       )}
                     </div>
-                    {/* Botão de câmera sobreposto */}
-                    <button
-                      type="button"
-                      onClick={() => avatarFileInputRef.current?.click()}
-                      className="absolute -bottom-1 -right-1 p-2 rounded-xl bg-neutral-950 border border-neutral-700 shadow-lg text-neutral-200 hover:text-orange-400 active:scale-95 transition-all cursor-pointer"
-                      title="Escolher foto do seu aparelho"
-                    >
-                      <Camera className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
 
-                  {/* Ações de Foto */}
-                  <div className="flex-1 space-y-2 text-center sm:text-left w-full">
-                    <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
-                      {/* Input file invisível */}
-                      <input
-                        ref={avatarFileInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleAvatarFileSelect}
-                      />
+                    {/* Título Convidativo Solicitado */}
+                    <h3 className="font-black text-neutral-100 text-xl md:text-2xl font-heading leading-tight max-w-sm mx-auto">
+                      Faça Login para continuar e agendar o trato no visual
+                    </h3>
+
+                    <p className="text-xs text-neutral-300 leading-relaxed mt-2.5 max-w-xs mx-auto">
+                      Acesse sua conta para escolher seu barbeiro favorito, acompanhar seus horários e garantir seu estilo na {currentBarbershop.name}.
+                    </p>
+
+                    {/* Botão de Ação Chamativo para Login */}
+                    <div className="mt-6 space-y-2.5">
                       <button
                         type="button"
-                        onClick={() => avatarFileInputRef.current?.click()}
-                        className="px-3.5 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                        onClick={() => setShowLoginModal(true)}
+                        className="w-full py-3.5 px-5 rounded-2xl font-black text-sm tracking-wide transition-all shadow-xl active:scale-95 cursor-pointer flex items-center justify-center gap-2 hover:opacity-95"
+                        style={{
+                          backgroundColor: 'var(--theme-primary, #FF6B00)',
+                          color: 'var(--theme-contrast, #0D0D0D)'
+                        }}
                       >
-                        <Camera className="w-3.5 h-3.5" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
-                        <span>Carregar do Aparelho</span>
+                        <LogIn className="w-4 h-4 stroke-[2.5]" />
+                        <span>FAZER LOGIN OU ENTRAR COM GOOGLE</span>
                       </button>
 
-                      {profileAvatarUrl && (
-                        <button
-                          type="button"
-                          onClick={() => setProfileAvatarUrl('')}
-                          className="px-3 py-2 bg-neutral-950 hover:bg-neutral-800 text-neutral-400 hover:text-red-400 border border-neutral-800 rounded-xl text-xs transition-colors cursor-pointer"
-                        >
-                          Remover Foto
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('BOOKING')}
+                        className="w-full py-2.5 px-4 rounded-xl font-bold text-xs text-neutral-300 hover:text-white bg-neutral-950/60 hover:bg-neutral-800/80 border border-neutral-800 transition-all cursor-pointer flex items-center justify-center gap-2"
+                      >
+                        <Scissors className="w-3.5 h-3.5" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
+                        <span>Ver Serviços & Agendar Agora</span>
+                      </button>
                     </div>
-                    <p className="text-[11px] text-neutral-400 leading-tight">
-                      Formatos aceitos: JPG, PNG ou WEBP. A foto é ajustada automaticamente.
+                  </div>
+
+                  {/* Benefícios Exclusivos do Cliente */}
+                  <div className="bg-neutral-900/90 border border-neutral-800/80 rounded-2xl p-4 shadow-lg space-y-3">
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-neutral-400 block text-center sm:text-left">
+                      Vantagens de ter sua conta conectada:
+                    </span>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div className="bg-neutral-950/70 border border-neutral-800/60 p-3 rounded-xl flex items-start gap-3">
+                        <div className="p-2 rounded-lg bg-orange-500/10 text-orange-400 shrink-0">
+                          <Scissors className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <strong className="text-xs font-bold text-neutral-200 block">Agendamento com 1 Toque</strong>
+                          <span className="text-[11px] text-neutral-400 leading-snug block mt-0.5">
+                            Seus dados ficam salvos para marcar com seu barbeiro em segundos.
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-neutral-950/70 border border-neutral-800/60 p-3 rounded-xl flex items-start gap-3">
+                        <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 shrink-0">
+                          <CalendarCheck className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <strong className="text-xs font-bold text-neutral-200 block">Meus Agendamentos</strong>
+                          <span className="text-[11px] text-neutral-400 leading-snug block mt-0.5">
+                            Histórico dos seus cortes e lembretes para não esquecer a data.
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-neutral-950/70 border border-neutral-800/60 p-3 rounded-xl flex items-start gap-3">
+                        <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 shrink-0">
+                          <Gift className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <strong className="text-xs font-bold text-neutral-200 block">Sorteios & Prêmios</strong>
+                          <span className="text-[11px] text-neutral-400 leading-snug block mt-0.5">
+                            Participe automaticamente de sorteios e cortes gratuitos.
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-neutral-950/70 border border-neutral-800/60 p-3 rounded-xl flex items-start gap-3">
+                        <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400 shrink-0">
+                          <Sparkles className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <strong className="text-xs font-bold text-neutral-200 block">Mimo no Aniversário</strong>
+                          <span className="text-[11px] text-neutral-400 leading-snug block mt-0.5">
+                            Condições especiais preparadas para comemorar seu visual.
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* QUANDO O USUÁRIO ESTIVER LOGADO: EDIÇÃO DE FOTO E DADOS DO PERFIL */
+                <>
+                  {/* Header do Perfil */}
+                  <div
+                    className="rounded-2xl p-4 shadow-xl border bg-neutral-900"
+                    style={{
+                      borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.4))',
+                      background: 'linear-gradient(135deg, var(--theme-light-bg, rgba(255, 107, 0, 0.2)), #171717 60%)'
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <User className="w-5 h-5" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
+                        <h3 className="font-black text-neutral-100 text-base font-heading">
+                          Meu Perfil
+                        </h3>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                        Conta Ativa
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-300 leading-relaxed mt-1">
+                      Personalize sua foto de perfil e mantenha seus dados cadastrais atualizados para agendamentos e benefícios na {currentBarbershop.name}.
                     </p>
                   </div>
-                </div>
 
-                {/* Opção de Avatares Rápidos Estilosos */}
-                <div className="pt-2 border-t border-neutral-800/80">
-                  <span className="text-[11px] font-bold text-neutral-400 block mb-2">
-                    Ou selecione um estilo pronto:
-                  </span>
-                  <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-none">
-                    {CLIENT_AVATAR_PRESETS.map((preset, idx) => {
-                      const isSelected = profileAvatarUrl === preset;
-                      return (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setProfileAvatarUrl(preset)}
-                          className={`w-11 h-11 rounded-xl overflow-hidden border-2 shrink-0 transition-all cursor-pointer ${
-                            isSelected ? 'scale-105 shadow-md' : 'opacity-70 hover:opacity-100'
-                          }`}
-                          style={{
-                            borderColor: isSelected ? 'var(--theme-primary, #FF6B00)' : '#333'
-                          }}
+                  {/* Card de Troca de Foto de Perfil */}
+                  <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 shadow-lg space-y-4">
+                    <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+                      <h4 className="font-extrabold text-neutral-100 text-sm font-heading flex items-center gap-2">
+                        <Camera className="w-4 h-4" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
+                        <span>Foto de Perfil</span>
+                      </h4>
+                      <span className="text-[10px] text-neutral-400">Toque para trocar</span>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-center gap-4">
+                      {/* Avatar Preview Grande */}
+                      <div className="relative group shrink-0">
+                        <div
+                          className="w-24 h-24 rounded-2xl overflow-hidden border-2 shadow-xl bg-neutral-950 flex items-center justify-center relative"
+                          style={{ borderColor: 'var(--theme-primary, #FF6B00)' }}
                         >
-                          <img src={preset} alt={`Estilo ${idx + 1}`} className="w-full h-full object-cover" />
+                          {profileAvatarUrl ? (
+                            <AppImage
+                              src={profileAvatarUrl}
+                              alt={profileName || 'Cliente'}
+                              fallbackType="userAvatar"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div
+                              className="w-full h-full flex items-center justify-center font-black text-2xl"
+                              style={{
+                                backgroundColor: 'var(--theme-primary, #FF6B00)',
+                                color: 'var(--theme-contrast, #0D0D0D)'
+                              }}
+                            >
+                              {(profileName || 'C').charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        {/* Botão de câmera sobreposto */}
+                        <button
+                          type="button"
+                          onClick={() => avatarFileInputRef.current?.click()}
+                          className="absolute -bottom-1 -right-1 p-2 rounded-xl bg-neutral-950 border border-neutral-700 shadow-lg text-neutral-200 hover:text-orange-400 active:scale-95 transition-all cursor-pointer"
+                          title="Escolher foto do seu aparelho"
+                        >
+                          <Camera className="w-3.5 h-3.5" />
                         </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
+                      </div>
 
-              {/* Card de Dados Pessoais / Formulário */}
-              <form onSubmit={handleSaveProfile} className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 shadow-lg space-y-4">
-                <div className="border-b border-neutral-800 pb-2">
-                  <h4 className="font-extrabold text-neutral-100 text-sm font-heading flex items-center gap-2">
-                    <User className="w-4 h-4" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
-                    <span>Dados Cadastrais</span>
-                  </h4>
-                  <p className="text-[11px] text-neutral-400 mt-0.5">
-                    Estes são os dados que o aplicativo utiliza nos seus agendamentos.
-                  </p>
-                </div>
+                      {/* Ações de Foto */}
+                      <div className="flex-1 space-y-2 text-center sm:text-left w-full">
+                        <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
+                          {/* Input file invisível */}
+                          <input
+                            ref={avatarFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleAvatarFileSelect}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => avatarFileInputRef.current?.click()}
+                            className="px-3.5 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                            <Camera className="w-3.5 h-3.5" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
+                            <span>Carregar do Aparelho</span>
+                          </button>
 
-                {/* Feedback Toast/Alert */}
-                {profileSuccessMsg && (
-                  <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 p-3 rounded-xl text-xs flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-                    <span>{profileSuccessMsg}</span>
-                  </div>
-                )}
-                {profileErrorMsg && (
-                  <div className="bg-red-500/10 border border-red-500/30 text-red-300 p-3 rounded-xl text-xs flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
-                    <span>{profileErrorMsg}</span>
-                  </div>
-                )}
+                          {profileAvatarUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setProfileAvatarUrl('')}
+                              className="px-3 py-2 bg-neutral-950 hover:bg-neutral-800 text-neutral-400 hover:text-red-400 border border-neutral-800 rounded-xl text-xs transition-colors cursor-pointer"
+                            >
+                              Remover Foto
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-neutral-400 leading-tight">
+                          Formatos aceitos: JPG, PNG ou WEBP. A foto é ajustada automaticamente.
+                        </p>
+                      </div>
+                    </div>
 
-                <div className="space-y-3">
-                  {/* Nome Completo */}
-                  <div>
-                    <label className="block text-xs font-bold text-neutral-300 mb-1">
-                      Nome Completo / Como prefere ser chamado *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={profileName}
-                      onChange={e => setProfileName(e.target.value)}
-                      placeholder="Ex: Carlos da Silva"
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors"
-                    />
-                  </div>
-
-                  {/* WhatsApp */}
-                  <div>
-                    <label className="block text-xs font-bold text-neutral-300 mb-1 flex items-center justify-between">
-                      <span>WhatsApp / Telefone</span>
-                      <span className="text-[10px] text-neutral-500 font-normal">Para confirmações de horário</span>
-                    </label>
-                    <div className="relative">
-                      <Phone className="w-4 h-4 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="tel"
-                        value={profileWhatsapp}
-                        onChange={e => setProfileWhatsapp(formatPhoneNumber(e.target.value))}
-                        placeholder="(11) 98765-4321"
-                        maxLength={15}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-9 pr-3.5 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors"
-                      />
+                    {/* Opção de Avatares Rápidos Estilosos */}
+                    <div className="pt-2 border-t border-neutral-800/80">
+                      <span className="text-[11px] font-bold text-neutral-400 block mb-2">
+                        Ou selecione um estilo pronto:
+                      </span>
+                      <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-none">
+                        {CLIENT_AVATAR_PRESETS.map((preset, idx) => {
+                          const isSelected = profileAvatarUrl === preset;
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => setProfileAvatarUrl(preset)}
+                              className={`w-11 h-11 rounded-xl overflow-hidden border-2 shrink-0 transition-all cursor-pointer ${
+                                isSelected ? 'scale-105 shadow-md' : 'opacity-70 hover:opacity-100'
+                              }`}
+                              style={{
+                                borderColor: isSelected ? 'var(--theme-primary, #FF6B00)' : '#333'
+                              }}
+                            >
+                              <img src={preset} alt={`Estilo ${idx + 1}`} className="w-full h-full object-cover" />
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Data de Nascimento */}
-                  <div>
-                    <label className="block text-xs font-bold text-neutral-300 mb-1 flex items-center justify-between">
-                      <span>Data de Nascimento</span>
-                      <span className="text-[10px] text-orange-400/80 font-normal">🎁 Mimo de Aniversário</span>
-                    </label>
-                    <input
-                      type="date"
-                      value={profileBirthDate}
-                      onChange={e => setProfileBirthDate(e.target.value)}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors"
-                    />
+                  {/* Card de Dados Pessoais / Formulário */}
+                  <form onSubmit={handleSaveProfile} className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 shadow-lg space-y-4">
+                    <div className="border-b border-neutral-800 pb-2">
+                      <h4 className="font-extrabold text-neutral-100 text-sm font-heading flex items-center gap-2">
+                        <User className="w-4 h-4" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
+                        <span>Dados Cadastrais</span>
+                      </h4>
+                      <p className="text-[11px] text-neutral-400 mt-0.5">
+                        Estes são os dados que o aplicativo utiliza nos seus agendamentos.
+                      </p>
+                    </div>
+
+                    {/* Feedback Toast/Alert */}
+                    {profileSuccessMsg && (
+                      <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 p-3 rounded-xl text-xs flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                        <span>{profileSuccessMsg}</span>
+                      </div>
+                    )}
+                    {profileErrorMsg && (
+                      <div className="bg-red-500/10 border border-red-500/30 text-red-300 p-3 rounded-xl text-xs flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+                        <span>{profileErrorMsg}</span>
+                      </div>
+                    )}
+
+                    <div className="space-y-3">
+                      {/* Nome Completo */}
+                      <div>
+                        <label className="block text-xs font-bold text-neutral-300 mb-1">
+                          Nome Completo / Como prefere ser chamado *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={profileName}
+                          onChange={e => setProfileName(e.target.value)}
+                          placeholder="Ex: Carlos da Silva"
+                          className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors"
+                        />
+                      </div>
+
+                      {/* WhatsApp */}
+                      <div>
+                        <label className="block text-xs font-bold text-neutral-300 mb-1 flex items-center justify-between">
+                          <span>WhatsApp / Telefone</span>
+                          <span className="text-[10px] text-neutral-500 font-normal">Para confirmações de horário</span>
+                        </label>
+                        <div className="relative">
+                          <Phone className="w-4 h-4 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="tel"
+                            value={profileWhatsapp}
+                            onChange={e => setProfileWhatsapp(formatPhoneNumber(e.target.value))}
+                            placeholder="(11) 98765-4321"
+                            maxLength={15}
+                            className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-9 pr-3.5 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Data de Nascimento */}
+                      <div>
+                        <label className="block text-xs font-bold text-neutral-300 mb-1 flex items-center justify-between">
+                          <span>Data de Nascimento</span>
+                          <span className="text-[10px] text-orange-400/80 font-normal">🎁 Mimo de Aniversário</span>
+                        </label>
+                        <input
+                          type="date"
+                          value={profileBirthDate}
+                          onChange={e => setProfileBirthDate(e.target.value)}
+                          className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors"
+                        />
+                      </div>
+
+                      {/* E-mail */}
+                      <div>
+                        <label className="block text-xs font-bold text-neutral-300 mb-1">
+                          E-mail
+                        </label>
+                        <input
+                          type="email"
+                          value={profileEmail}
+                          onChange={e => setProfileEmail(e.target.value)}
+                          placeholder="seu.email@exemplo.com"
+                          className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Resumo de Agendamentos */}
+                    <div className="bg-neutral-950/80 border border-neutral-800/80 rounded-xl p-3 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2 text-neutral-400">
+                        <CalendarCheck className="w-4 h-4" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
+                        <span>Cortes na {currentBarbershop.name}:</span>
+                      </div>
+                      <strong className="text-neutral-100 font-black font-mono">
+                        {clientAppointments.length} realizados
+                      </strong>
+                    </div>
+
+                    {/* Botão de Salvar */}
+                    <button
+                      type="submit"
+                      disabled={isSavingProfile}
+                      className="w-full py-3 rounded-xl font-black text-xs transition-all shadow-lg active:scale-95 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                      style={{
+                        backgroundColor: 'var(--theme-primary, #FF6B00)',
+                        color: 'var(--theme-contrast, #0D0D0D)'
+                      }}
+                    >
+                      <Check className="w-4 h-4 stroke-[3]" />
+                      <span>{isSavingProfile ? 'SALVANDO DADOS...' : 'SALVAR ALTERAÇÕES'}</span>
+                    </button>
+                  </form>
+
+                  {/* Botão de Sair se estiver logado */}
+                  <div className="pt-2 text-center">
+                    <button
+                      type="button"
+                      onClick={logoutClient}
+                      className="px-4 py-2 text-xs text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Desconectar desta Conta</span>
+                    </button>
                   </div>
-
-                  {/* E-mail */}
-                  <div>
-                    <label className="block text-xs font-bold text-neutral-300 mb-1">
-                      E-mail
-                    </label>
-                    <input
-                      type="email"
-                      value={profileEmail}
-                      onChange={e => setProfileEmail(e.target.value)}
-                      placeholder="seu.email@exemplo.com"
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors"
-                    />
-                  </div>
-                </div>
-
-                {/* Resumo de Agendamentos */}
-                <div className="bg-neutral-950/80 border border-neutral-800/80 rounded-xl p-3 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2 text-neutral-400">
-                    <CalendarCheck className="w-4 h-4" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
-                    <span>Cortes na {currentBarbershop.name}:</span>
-                  </div>
-                  <strong className="text-neutral-100 font-black font-mono">
-                    {clientAppointments.length} realizados
-                  </strong>
-                </div>
-
-                {/* Botão de Salvar */}
-                <button
-                  type="submit"
-                  disabled={isSavingProfile}
-                  className="w-full py-3 rounded-xl font-black text-xs transition-all shadow-lg active:scale-95 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
-                  style={{
-                    backgroundColor: 'var(--theme-primary, #FF6B00)',
-                    color: 'var(--theme-contrast, #0D0D0D)'
-                  }}
-                >
-                  <Check className="w-4 h-4 stroke-[3]" />
-                  <span>{isSavingProfile ? 'SALVANDO DADOS...' : 'SALVAR ALTERAÇÕES'}</span>
-                </button>
-              </form>
-
-              {/* Botão de Sair se estiver logado */}
-              {authenticatedUser && (
-                <div className="pt-2 text-center">
-                  <button
-                    type="button"
-                    onClick={logoutClient}
-                    className="px-4 py-2 text-xs text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl transition-colors inline-flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span>Desconectar desta Conta</span>
-                  </button>
-                </div>
+                </>
               )}
             </div>
           )}
