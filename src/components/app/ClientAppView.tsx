@@ -907,29 +907,6 @@ export const ClientAppView: React.FC = () => {
         />
       </div>
 
-      {/* Real Client Top Bar with Barbershop Name, Client greeting and Logout */}
-      {isClient && !isImpersonating && (
-        <div className="bg-neutral-900/95 backdrop-blur-md border-b border-neutral-800 px-4 py-2.5 flex items-center justify-between sticky top-0 z-30">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-xs sm:text-sm font-bold text-neutral-200 truncate">{currentBarbershop.name}</span>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="flex items-center gap-2 text-xs text-neutral-300">
-              <User className="w-3.5 h-3.5" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
-              <span className="font-semibold">{currentUser.name}</span>
-            </div>
-            <button
-              onClick={logout}
-              className="text-xs font-bold text-neutral-300 hover:text-red-400 flex items-center gap-1 bg-neutral-800 hover:bg-neutral-700 px-3 py-1.5 rounded-xl border border-neutral-700 transition-colors cursor-pointer shadow-sm"
-              title="Sair e voltar para a tela de login"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Sair</span>
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ========================================================================= */}
       {/* 1. APP HEADER & BRANDING */}
