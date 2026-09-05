@@ -3012,142 +3012,65 @@ export const ClientAppView: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                /* QUANDO O USUÁRIO ESTIVER LOGADO: EDIÇÃO DE FOTO E DADOS DO PERFIL */
+                /* QUANDO O USUÁRIO ESTIVER LOGADO: APENAS FOTO DO USUÁRIO E OPÇÃO TROCAR FOTO + DADOS CADASTRAIS */
                 <>
-                  {/* Header do Perfil */}
-                  <div
-                    className="rounded-2xl p-4 shadow-xl border bg-neutral-900"
-                    style={{
-                      borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.4))',
-                      background: 'linear-gradient(135deg, var(--theme-light-bg, rgba(255, 107, 0, 0.2)), #171717 60%)'
-                    }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <User className="w-5 h-5" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
-                        <h3 className="font-black text-neutral-100 text-base font-heading">
-                          Meu Perfil
-                        </h3>
-                      </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                        Conta Ativa
-                      </span>
-                    </div>
-                    <p className="text-xs text-neutral-300 leading-relaxed mt-1">
-                      Personalize sua foto de perfil e mantenha seus dados cadastrais atualizados para agendamentos e benefícios na {currentBarbershop.name}.
-                    </p>
-                  </div>
+                  {/* Foto do Usuário e Opção Trocar Foto */}
+                  <div className="flex flex-col items-center justify-center py-4">
+                    {/* Input file invisível */}
+                    <input
+                      ref={avatarFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAvatarFileSelect}
+                    />
 
-                  {/* Card de Troca de Foto de Perfil */}
-                  <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 shadow-lg space-y-4">
-                    <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
-                      <h4 className="font-extrabold text-neutral-100 text-sm font-heading flex items-center gap-2">
-                        <Camera className="w-4 h-4" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
-                        <span>Foto de Perfil</span>
-                      </h4>
-                      <span className="text-[10px] text-neutral-400">Toque para trocar</span>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row items-center gap-4">
-                      {/* Avatar Preview Grande */}
-                      <div className="relative group shrink-0">
-                        <div
-                          className="w-24 h-24 rounded-2xl overflow-hidden border-2 shadow-xl bg-neutral-950 flex items-center justify-center relative"
-                          style={{ borderColor: 'var(--theme-primary, #FF6B00)' }}
-                        >
-                          {profileAvatarUrl ? (
-                            <AppImage
-                              src={profileAvatarUrl}
-                              alt={profileName || 'Cliente'}
-                              fallbackType="userAvatar"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div
-                              className="w-full h-full flex items-center justify-center font-black text-2xl"
-                              style={{
-                                backgroundColor: 'var(--theme-primary, #FF6B00)',
-                                color: 'var(--theme-contrast, #0D0D0D)'
-                              }}
-                            >
-                              {(profileName || 'C').charAt(0).toUpperCase()}
-                            </div>
-                          )}
-                        </div>
-                        {/* Botão de câmera sobreposto */}
-                        <button
-                          type="button"
-                          onClick={() => avatarFileInputRef.current?.click()}
-                          className="absolute -bottom-1 -right-1 p-2 rounded-xl bg-neutral-950 border border-neutral-700 shadow-lg text-neutral-200 hover:text-orange-400 active:scale-95 transition-all cursor-pointer"
-                          title="Escolher foto do seu aparelho"
-                        >
-                          <Camera className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-
-                      {/* Ações de Foto */}
-                      <div className="flex-1 space-y-2 text-center sm:text-left w-full">
-                        <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
-                          {/* Input file invisível */}
-                          <input
-                            ref={avatarFileInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handleAvatarFileSelect}
+                    {/* Avatar Preview com Moldura */}
+                    <div className="relative group shrink-0 mb-3">
+                      <div
+                        className="w-24 h-24 rounded-2xl overflow-hidden border-2 shadow-xl bg-neutral-950 flex items-center justify-center relative"
+                        style={{ borderColor: 'var(--theme-primary, #FF6B00)' }}
+                      >
+                        {profileAvatarUrl ? (
+                          <AppImage
+                            src={profileAvatarUrl}
+                            alt={profileName || 'Cliente'}
+                            fallbackType="userAvatar"
+                            className="w-full h-full object-cover"
                           />
-                          <button
-                            type="button"
-                            onClick={() => avatarFileInputRef.current?.click()}
-                            className="px-3.5 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                        ) : (
+                          <div
+                            className="w-full h-full flex items-center justify-center font-black text-2xl"
+                            style={{
+                              backgroundColor: 'var(--theme-primary, #FF6B00)',
+                              color: 'var(--theme-contrast, #0D0D0D)'
+                            }}
                           >
-                            <Camera className="w-3.5 h-3.5" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
-                            <span>Carregar do Aparelho</span>
-                          </button>
-
-                          {profileAvatarUrl && (
-                            <button
-                              type="button"
-                              onClick={() => setProfileAvatarUrl('')}
-                              className="px-3 py-2 bg-neutral-950 hover:bg-neutral-800 text-neutral-400 hover:text-red-400 border border-neutral-800 rounded-xl text-xs transition-colors cursor-pointer"
-                            >
-                              Remover Foto
-                            </button>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-neutral-400 leading-tight">
-                          Formatos aceitos: JPG, PNG ou WEBP. A foto é ajustada automaticamente.
-                        </p>
+                            {(profileName || 'C').charAt(0).toUpperCase()}
+                          </div>
+                        )}
                       </div>
+
+                      {/* Ícone de câmera de atalho */}
+                      <button
+                        type="button"
+                        onClick={() => avatarFileInputRef.current?.click()}
+                        className="absolute -bottom-1 -right-1 p-2 rounded-xl bg-neutral-950 border border-neutral-700 shadow-lg text-neutral-200 hover:text-orange-400 active:scale-95 transition-all cursor-pointer"
+                        title="Trocar foto"
+                      >
+                        <Camera className="w-3.5 h-3.5" />
+                      </button>
                     </div>
 
-                    {/* Opção de Avatares Rápidos Estilosos */}
-                    <div className="pt-2 border-t border-neutral-800/80">
-                      <span className="text-[11px] font-bold text-neutral-400 block mb-2">
-                        Ou selecione um estilo pronto:
-                      </span>
-                      <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-none">
-                        {CLIENT_AVATAR_PRESETS.map((preset, idx) => {
-                          const isSelected = profileAvatarUrl === preset;
-                          return (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => setProfileAvatarUrl(preset)}
-                              className={`w-11 h-11 rounded-xl overflow-hidden border-2 shrink-0 transition-all cursor-pointer ${
-                                isSelected ? 'scale-105 shadow-md' : 'opacity-70 hover:opacity-100'
-                              }`}
-                              style={{
-                                borderColor: isSelected ? 'var(--theme-primary, #FF6B00)' : '#333'
-                              }}
-                            >
-                              <img src={preset} alt={`Estilo ${idx + 1}`} className="w-full h-full object-cover" />
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
+                    {/* Botão Trocar Foto */}
+                    <button
+                      type="button"
+                      onClick={() => avatarFileInputRef.current?.click()}
+                      className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-200 border border-neutral-800 font-bold rounded-xl text-xs flex items-center gap-2 transition-colors cursor-pointer active:scale-95 shadow-md"
+                    >
+                      <Camera className="w-3.5 h-3.5" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
+                      <span>Trocar foto</span>
+                    </button>
                   </div>
 
                   {/* Card de Dados Pessoais / Formulário */}
