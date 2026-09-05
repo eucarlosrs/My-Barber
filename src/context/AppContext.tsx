@@ -51,7 +51,8 @@ import {
   seedFirestoreIfEmpty,
   subscribeCollection,
   syncDoc,
-  deleteDocFromDb
+  deleteDocFromDb,
+  syncAppointmentWithLock
 } from '../lib/firestoreSync';
 import { uploadImageToStorage } from '../lib/storage';
 
@@ -974,12 +975,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // A duração utilizada no cálculo e no agendamento é estritamente a duração oficial cadastrada do serviço
     const officialDuration = srv.durationMinutes;
+    const sched = schedules.find(s => s.professionalId === newApp.professionalId);
+    const targetBarbershop = barbershops.find(b => b.id === newApp.tenantId) || currentBarbershop;
 
     // REGRA FUNDAMENTAL DO MY BARBER: Validação estrita de disponibilidade e jornada
     if (!newApp.isEncaixe) {
-      const sched = schedules.find(s => s.professionalId === newApp.professionalId);
-      const targetBarbershop = barbershops.find(b => b.id === newApp.tenantId) || currentBarbershop;
-
       const validation = isTimeSlotAvailable({
         date: newApp.date,
         startTime: newApp.startTime,
@@ -994,7 +994,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!validation.available) {
         return {
           success: false,
-          error: validation.reason || 'Este horário não está mais disponível para o profissional selecionado.'
+          error: validation.reason || 'Esse horário acabou de ser reservado. Escolha outro horário disponível.'
         };
       }
     }
@@ -1008,13 +1008,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       servicePrice: srv.price,
       serviceDuration: officialDuration,
       endTime: newApp.endTime || computedEnd,
-      id: `apt-${Date.now()}`,
+      id: `apt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString(),
       reminderSent: false
     };
 
-    syncDoc('appointments', created.id, created);
+    // Atualização otimista no estado local
     setAppointments(prev => [created, ...prev]);
+
+    // Persistência atômica com validação de concorrência com os dados frescos do Firestore
+    syncAppointmentWithLock(created, (freshList) => {
+      if (newApp.isEncaixe) return { available: true };
+      return isTimeSlotAvailable({
+        date: created.date,
+        startTime: created.startTime,
+        durationMinutes: officialDuration > 0 ? officialDuration : 30,
+        professionalId: created.professionalId,
+        scheduleConfig: sched,
+        businessHours: targetBarbershop?.businessHours,
+        existingAppointments: freshList,
+        isEncaixe: false
+      });
+    }).then(lockResult => {
+      if (!lockResult.success) {
+        // Reverte o estado local caso a validação no banco acuse colisão concorrente
+        setAppointments(prev => prev.filter(a => a.id !== created.id));
+      }
+    });
+
     return { success: true };
   };
 
@@ -1049,7 +1070,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!validation.available) {
       return {
         success: false,
-        error: validation.reason || 'O novo horário selecionado não está disponível.'
+        error: validation.reason || 'Esse horário acabou de ser reservado. Escolha outro horário disponível.'
       };
     }
 
@@ -1064,8 +1085,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       reminderSent: false
     };
 
-    syncDoc('appointments', appointmentId, updated);
     setAppointments(prev => prev.map(a => (a.id === appointmentId ? updated : a)));
+
+    syncAppointmentWithLock(updated, (freshList) => {
+      if (apt.isEncaixe) return { available: true };
+      return isTimeSlotAvailable({
+        date: newDate,
+        startTime: newStartTime,
+        durationMinutes: officialDuration > 0 ? officialDuration : 30,
+        professionalId: apt.professionalId,
+        scheduleConfig: sched,
+        businessHours: targetBarbershop?.businessHours,
+        existingAppointments: freshList,
+        excludeAppointmentId: appointmentId,
+        isEncaixe: apt.isEncaixe
+      });
+    }).then(lockResult => {
+      if (!lockResult.success) {
+        // Reverter para o agendamento original se houver colisão concorrente
+        setAppointments(prev => prev.map(a => (a.id === appointmentId ? apt : a)));
+      }
+    });
+
     return { success: true };
   };
 

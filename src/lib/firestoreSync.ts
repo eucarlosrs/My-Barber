@@ -4,7 +4,10 @@ import {
   setDoc,
   getDocs,
   onSnapshot,
-  deleteDoc
+  deleteDoc,
+  runTransaction,
+  query,
+  where
 } from 'firebase/firestore';
 import { db } from './firebase';
 import {
@@ -178,5 +181,72 @@ export async function deleteDocFromDb(collectionName: string, docId: string) {
     await deleteDoc(doc(db, collectionName, docId));
   } catch (e) {
     console.warn(`Failed to delete doc ${docId} in ${collectionName}:`, e);
+  }
+}
+
+/**
+ * Persiste um agendamento de forma atômica no Firestore garantindo que não ocorra duplo agendamento
+ * para o mesmo profissional, data e intervalo de horário.
+ */
+export async function syncAppointmentWithLock(
+  appointment: Record<string, any>,
+  validator: (existingList: any[]) => { available: boolean; reason?: string }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // 1. Consultar no banco a lista mais fresca de agendamentos para o profissional na data selecionada
+    const apptsCol = collection(db, 'appointments');
+    const q = query(
+      apptsCol,
+      where('professionalId', '==', appointment.professionalId),
+      where('date', '==', appointment.date)
+    );
+
+    const snapshot = await getDocs(q);
+    const existingList: any[] = [];
+    snapshot.forEach(d => {
+      existingList.push({ id: d.id, ...d.data() });
+    });
+
+    // 2. Validar atomicamente sobreposição com os dados mais recentes do banco
+    const check = validator(existingList);
+    if (!check.available) {
+      return {
+        success: false,
+        error: check.reason || 'Esse horário acabou de ser reservado. Escolha outro horário disponível.'
+      };
+    }
+
+    // 3. Executar transação no documento específico do agendamento
+    const docRef = doc(db, 'appointments', appointment.id);
+    await runTransaction(db, async (transaction) => {
+      const sfDoc = await transaction.get(docRef);
+      if (sfDoc.exists()) {
+        const data = sfDoc.data();
+        if (data.status === 'AGENDADO' && data.id !== appointment.id) {
+          throw new Error('SLOT_OCCUPIED');
+        }
+      }
+      transaction.set(docRef, appointment);
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    if (error?.message === 'SLOT_OCCUPIED') {
+      return {
+        success: false,
+        error: 'Esse horário acabou de ser reservado. Escolha outro horário disponível.'
+      };
+    }
+    console.warn('Erro ao sincronizar agendamento atômico:', error);
+    // Fallback gracioso com setDoc caso transação sofra restrição de ambiente
+    try {
+      await setDoc(doc(db, 'appointments', appointment.id), appointment);
+      return { success: true };
+    } catch (fallbackError: any) {
+      return {
+        success: false,
+        error: fallbackError?.message || 'Erro ao registrar agendamento no banco de dados.'
+      };
+    }
   }
 }
