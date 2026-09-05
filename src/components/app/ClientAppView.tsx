@@ -99,10 +99,11 @@ export const ClientAppView: React.FC = () => {
     logout,
     setActiveTenantId,
     setViewMode,
-    getBarbershopDirectUrl
+    getBarbershopDirectUrl,
+    updateUser
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'BOOKING' | 'GALLERY' | 'MY_APPOINTMENTS' | 'PROMOTIONS' | 'RAFFLES' | 'PACKAGES' | 'ABOUT' | 'WAITLIST' | 'NEWS'>('BOOKING');
+  const [activeTab, setActiveTab] = useState<'BOOKING' | 'GALLERY' | 'MY_APPOINTMENTS' | 'PROMOTIONS' | 'RAFFLES' | 'PACKAGES' | 'ABOUT' | 'WAITLIST' | 'NEWS' | 'PROFILE'>('BOOKING');
   const [selectedGalleryCategory, setSelectedGalleryCategory] = useState<string>('TODOS');
   const [activeWorkDetail, setActiveWorkDetail] = useState<GalleryWork | null>(null);
   const [copiedCoupon, setCopiedCoupon] = useState<string | null>(null);
@@ -193,6 +194,101 @@ export const ClientAppView: React.FC = () => {
   const [useCustomGoogle, setUseCustomGoogle] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+
+  // Client Profile Management Form State
+  const CLIENT_AVATAR_PRESETS = [
+    'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=200&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=200&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'
+  ];
+
+  const [profileName, setProfileName] = useState(currentUser?.name || '');
+  const [profileWhatsapp, setProfileWhatsapp] = useState(currentUser?.whatsapp || '');
+  const [profileBirthDate, setProfileBirthDate] = useState(currentUser?.birthDate || '');
+  const [profileEmail, setProfileEmail] = useState(currentUser?.email || '');
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState(currentUser?.avatarUrl || '');
+  const [profileSuccessMsg, setProfileSuccessMsg] = useState<string | null>(null);
+  const [profileErrorMsg, setProfileErrorMsg] = useState<string | null>(null);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const avatarFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync profile form state when current user loads or changes
+  useEffect(() => {
+    if (currentUser) {
+      setProfileName(currentUser.name || '');
+      setProfileWhatsapp(currentUser.whatsapp || '');
+      setProfileBirthDate(currentUser.birthDate || '');
+      setProfileEmail(currentUser.email || '');
+      setProfileAvatarUrl(currentUser.avatarUrl || '');
+    }
+  }, [currentUser?.id, currentUser?.name, currentUser?.whatsapp, currentUser?.birthDate, currentUser?.email, currentUser?.avatarUrl]);
+
+  // Handle direct photo upload & compression from user device
+  const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 256;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height = Math.round((height * MAX_SIZE) / width);
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width = Math.round((width * MAX_SIZE) / height);
+            height = MAX_SIZE;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          setProfileAvatarUrl(compressedDataUrl);
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Handle saving profile changes
+  const handleSaveProfile = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!profileName.trim()) {
+      setProfileErrorMsg('Por favor, informe seu nome.');
+      return;
+    }
+    setProfileErrorMsg(null);
+    setIsSavingProfile(true);
+    try {
+      updateUser(currentUser.id, {
+        name: profileName.trim(),
+        whatsapp: profileWhatsapp.trim(),
+        birthDate: profileBirthDate.trim(),
+        email: profileEmail.trim(),
+        avatarUrl: profileAvatarUrl.trim() || undefined
+      });
+      setProfileSuccessMsg('Dados e foto do perfil atualizados com sucesso!');
+      setTimeout(() => setProfileSuccessMsg(null), 3500);
+    } catch {
+      setProfileErrorMsg('Falha ao atualizar perfil. Tente novamente.');
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
 
   // Dynamic Highlights Modals (Promotions & Raffles)
   const [selectedHighlightPromo, setSelectedHighlightPromo] = useState<Promotion | null>(null);
@@ -915,30 +1011,42 @@ export const ClientAppView: React.FC = () => {
               <div>
                 {authenticatedUser ? (
                   <div className="flex items-center gap-2 bg-neutral-900 border border-neutral-700/80 px-2.5 py-1.5 rounded-2xl text-xs shadow-md">
-                    {currentUser.avatarUrl ? (
-                      <AppImage
-                        src={currentUser.avatarUrl}
-                        alt={currentUser.name}
-                        fallbackType="userAvatar"
-                        className="w-7 h-7 rounded-full object-cover border shrink-0"
-                        style={{ borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.6))' }}
-                      />
-                    ) : (
-                      <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center font-black text-[11px] shrink-0"
-                        style={{
-                          backgroundColor: 'var(--theme-primary, #FF6B00)',
-                          color: 'var(--theme-contrast, #0D0D0D)'
-                        }}
-                      >
-                        {currentUser.name.charAt(0)}
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('PROFILE')}
+                      className="cursor-pointer hover:opacity-85 transition-opacity"
+                      title="Ver Meu Perfil"
+                    >
+                      {currentUser.avatarUrl ? (
+                        <AppImage
+                          src={currentUser.avatarUrl}
+                          alt={currentUser.name}
+                          fallbackType="userAvatar"
+                          className="w-7 h-7 rounded-full object-cover border shrink-0"
+                          style={{ borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.6))' }}
+                        />
+                      ) : (
+                        <div
+                          className="w-7 h-7 rounded-full flex items-center justify-center font-black text-[11px] shrink-0"
+                          style={{
+                            backgroundColor: 'var(--theme-primary, #FF6B00)',
+                            color: 'var(--theme-contrast, #0D0D0D)'
+                          }}
+                        >
+                          {currentUser.name.charAt(0)}
+                        </div>
+                      )}
+                    </button>
                     <div className="text-left">
-                      <div className="font-extrabold text-neutral-100 text-[11px] leading-tight flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('PROFILE')}
+                        className="font-extrabold text-neutral-100 text-[11px] leading-tight flex items-center gap-1 hover:text-orange-400 transition-colors cursor-pointer text-left"
+                        title="Ver Meu Perfil"
+                      >
                         <span>{currentUser.name.split(' ')[0]}</span>
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                      </div>
+                      </button>
                       {currentUser.role !== 'CLIENTE' && (
                         <button
                           type="button"
@@ -2790,6 +2898,304 @@ export const ClientAppView: React.FC = () => {
             </div>
           )}
 
+          {/* TAB 9: 👤 MEU PERFIL (GESTÃO DE FOTO E DADOS DO CLIENTE) */}
+          {activeTab === 'PROFILE' && (
+            <div className="space-y-4">
+              {/* Header do Perfil */}
+              <div
+                className="rounded-2xl p-4 shadow-xl border bg-neutral-900"
+                style={{
+                  borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.4))',
+                  background: 'linear-gradient(135deg, var(--theme-light-bg, rgba(255, 107, 0, 0.2)), #171717 60%)'
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <User className="w-5 h-5" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
+                    <h3 className="font-black text-neutral-100 text-base font-heading">
+                      Meu Perfil
+                    </h3>
+                  </div>
+                  {isClient && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                      Conta Ativa
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-neutral-300 leading-relaxed mt-1">
+                  Personalize sua foto de perfil e mantenha seus dados cadastrais atualizados para agendamentos e benefícios na {currentBarbershop.name}.
+                </p>
+              </div>
+
+              {/* Se o cliente ainda não estiver logado */}
+              {!isClient && (
+                <div className="bg-neutral-900 border border-amber-500/30 p-4 rounded-2xl space-y-2">
+                  <div className="flex items-center gap-2 text-amber-400 text-xs font-bold">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>Acesso como Convidado</span>
+                  </div>
+                  <p className="text-xs text-neutral-300 leading-relaxed">
+                    Você pode editar seus dados abaixo para seus próximos agendamentos ou conectar sua conta para salvar seu histórico e participar de sorteios.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginModal(true)}
+                    className="mt-1 px-4 py-2 font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md transition-all active:scale-95"
+                    style={{
+                      backgroundColor: 'var(--theme-primary, #FF6B00)',
+                      color: 'var(--theme-contrast, #0D0D0D)'
+                    }}
+                  >
+                    <LogIn className="w-3.5 h-3.5" />
+                    <span>Fazer Login ou Criar Conta</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Card de Troca de Foto de Perfil */}
+              <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 shadow-lg space-y-4">
+                <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+                  <h4 className="font-extrabold text-neutral-100 text-sm font-heading flex items-center gap-2">
+                    <Camera className="w-4 h-4" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
+                    <span>Foto de Perfil</span>
+                  </h4>
+                  <span className="text-[10px] text-neutral-400">Toque para trocar</span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  {/* Avatar Preview Grande */}
+                  <div className="relative group shrink-0">
+                    <div
+                      className="w-24 h-24 rounded-2xl overflow-hidden border-2 shadow-xl bg-neutral-950 flex items-center justify-center relative"
+                      style={{ borderColor: 'var(--theme-primary, #FF6B00)' }}
+                    >
+                      {profileAvatarUrl ? (
+                        <AppImage
+                          src={profileAvatarUrl}
+                          alt={profileName || 'Cliente'}
+                          fallbackType="userAvatar"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div
+                          className="w-full h-full flex items-center justify-center font-black text-2xl"
+                          style={{
+                            backgroundColor: 'var(--theme-primary, #FF6B00)',
+                            color: 'var(--theme-contrast, #0D0D0D)'
+                          }}
+                        >
+                          {(profileName || 'C').charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    {/* Botão de câmera sobreposto */}
+                    <button
+                      type="button"
+                      onClick={() => avatarFileInputRef.current?.click()}
+                      className="absolute -bottom-1 -right-1 p-2 rounded-xl bg-neutral-950 border border-neutral-700 shadow-lg text-neutral-200 hover:text-orange-400 active:scale-95 transition-all cursor-pointer"
+                      title="Escolher foto do seu aparelho"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Ações de Foto */}
+                  <div className="flex-1 space-y-2 text-center sm:text-left w-full">
+                    <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
+                      {/* Input file invisível */}
+                      <input
+                        ref={avatarFileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleAvatarFileSelect}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => avatarFileInputRef.current?.click()}
+                        className="px-3.5 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <Camera className="w-3.5 h-3.5" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
+                        <span>Carregar do Aparelho</span>
+                      </button>
+
+                      {profileAvatarUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setProfileAvatarUrl('')}
+                          className="px-3 py-2 bg-neutral-950 hover:bg-neutral-800 text-neutral-400 hover:text-red-400 border border-neutral-800 rounded-xl text-xs transition-colors cursor-pointer"
+                        >
+                          Remover Foto
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-neutral-400 leading-tight">
+                      Formatos aceitos: JPG, PNG ou WEBP. A foto é ajustada automaticamente.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Opção de Avatares Rápidos Estilosos */}
+                <div className="pt-2 border-t border-neutral-800/80">
+                  <span className="text-[11px] font-bold text-neutral-400 block mb-2">
+                    Ou selecione um estilo pronto:
+                  </span>
+                  <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-none">
+                    {CLIENT_AVATAR_PRESETS.map((preset, idx) => {
+                      const isSelected = profileAvatarUrl === preset;
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setProfileAvatarUrl(preset)}
+                          className={`w-11 h-11 rounded-xl overflow-hidden border-2 shrink-0 transition-all cursor-pointer ${
+                            isSelected ? 'scale-105 shadow-md' : 'opacity-70 hover:opacity-100'
+                          }`}
+                          style={{
+                            borderColor: isSelected ? 'var(--theme-primary, #FF6B00)' : '#333'
+                          }}
+                        >
+                          <img src={preset} alt={`Estilo ${idx + 1}`} className="w-full h-full object-cover" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Card de Dados Pessoais / Formulário */}
+              <form onSubmit={handleSaveProfile} className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 shadow-lg space-y-4">
+                <div className="border-b border-neutral-800 pb-2">
+                  <h4 className="font-extrabold text-neutral-100 text-sm font-heading flex items-center gap-2">
+                    <User className="w-4 h-4" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
+                    <span>Dados Cadastrais</span>
+                  </h4>
+                  <p className="text-[11px] text-neutral-400 mt-0.5">
+                    Estes são os dados que o aplicativo utiliza nos seus agendamentos.
+                  </p>
+                </div>
+
+                {/* Feedback Toast/Alert */}
+                {profileSuccessMsg && (
+                  <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 p-3 rounded-xl text-xs flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                    <span>{profileSuccessMsg}</span>
+                  </div>
+                )}
+                {profileErrorMsg && (
+                  <div className="bg-red-500/10 border border-red-500/30 text-red-300 p-3 rounded-xl text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+                    <span>{profileErrorMsg}</span>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  {/* Nome Completo */}
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-300 mb-1">
+                      Nome Completo / Como prefere ser chamado *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={profileName}
+                      onChange={e => setProfileName(e.target.value)}
+                      placeholder="Ex: Carlos da Silva"
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors"
+                    />
+                  </div>
+
+                  {/* WhatsApp */}
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-300 mb-1 flex items-center justify-between">
+                      <span>WhatsApp / Telefone</span>
+                      <span className="text-[10px] text-neutral-500 font-normal">Para confirmações de horário</span>
+                    </label>
+                    <div className="relative">
+                      <Phone className="w-4 h-4 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="tel"
+                        value={profileWhatsapp}
+                        onChange={e => setProfileWhatsapp(formatPhoneNumber(e.target.value))}
+                        placeholder="(11) 98765-4321"
+                        maxLength={15}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-9 pr-3.5 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Data de Nascimento */}
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-300 mb-1 flex items-center justify-between">
+                      <span>Data de Nascimento</span>
+                      <span className="text-[10px] text-orange-400/80 font-normal">🎁 Mimo de Aniversário</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={profileBirthDate}
+                      onChange={e => setProfileBirthDate(e.target.value)}
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors"
+                    />
+                  </div>
+
+                  {/* E-mail */}
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-300 mb-1">
+                      E-mail
+                    </label>
+                    <input
+                      type="email"
+                      value={profileEmail}
+                      onChange={e => setProfileEmail(e.target.value)}
+                      placeholder="seu.email@exemplo.com"
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                {/* Resumo de Agendamentos */}
+                <div className="bg-neutral-950/80 border border-neutral-800/80 rounded-xl p-3 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2 text-neutral-400">
+                    <CalendarCheck className="w-4 h-4" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
+                    <span>Cortes na {currentBarbershop.name}:</span>
+                  </div>
+                  <strong className="text-neutral-100 font-black font-mono">
+                    {clientAppointments.length} realizados
+                  </strong>
+                </div>
+
+                {/* Botão de Salvar */}
+                <button
+                  type="submit"
+                  disabled={isSavingProfile}
+                  className="w-full py-3 rounded-xl font-black text-xs transition-all shadow-lg active:scale-95 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                  style={{
+                    backgroundColor: 'var(--theme-primary, #FF6B00)',
+                    color: 'var(--theme-contrast, #0D0D0D)'
+                  }}
+                >
+                  <Check className="w-4 h-4 stroke-[3]" />
+                  <span>{isSavingProfile ? 'SALVANDO DADOS...' : 'SALVAR ALTERAÇÕES'}</span>
+                </button>
+              </form>
+
+              {/* Botão de Sair se estiver logado */}
+              {authenticatedUser && (
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={logoutClient}
+                    className="px-4 py-2 text-xs text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Desconectar desta Conta</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Rodapé Elegante com Link para Gestão da Barbearia */}
           <div className="pt-8 pb-14 text-center">
             <button
@@ -2849,8 +3255,8 @@ export const ClientAppView: React.FC = () => {
                   { id: 'BOOKING', label: 'Agendar', icon: Scissors },
                   { id: 'ABOUT', label: 'Salão', icon: Building2 },
                   { id: 'MY_APPOINTMENTS', label: 'Meus agendamentos', icon: Calendar, badge: clientAppointments.length },
-                  { id: 'PROMOTIONS', label: 'Promoções', icon: Tag, badge: promotions.filter(p => p.active).length },
-                  { id: 'RAFFLES', label: 'Sorteios', icon: Gift }
+                  { id: 'RAFFLES', label: 'Sorteios', icon: Gift },
+                  { id: 'PROFILE', label: 'Perfil', icon: User }
                 ].map(tab => {
                   const Icon = tab.icon;
                   const isActive = activeTab === tab.id;
