@@ -19,9 +19,12 @@ import {
   Layers,
   ArrowRight,
   Sparkles,
-  Tag
+  Tag,
+  Download,
+  FileSpreadsheet
 } from 'lucide-react';
 import { MY_BARBER_PLANS, CustomPlan } from '../../types';
+import { exportClientsData, exportBarbershopsData } from '../../utils/exportData';
 import { MasterAdminBarbershops } from './MasterAdminBarbershops';
 import { MasterAdminUsers } from './MasterAdminUsers';
 import { MasterAdminServicesAppointments } from './MasterAdminServicesAppointments';
@@ -40,7 +43,8 @@ export const MasterAdminView: React.FC = () => {
     allServices,
     allAppointments,
     auditLogs,
-    customPlans
+    customPlans,
+    getBarbershopDirectUrl
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<MasterAdminTab>('overview');
@@ -48,6 +52,42 @@ export const MasterAdminView: React.FC = () => {
 
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [errorToast, setErrorToast] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+
+  const handleExportClients = () => {
+    try {
+      setIsExporting(true);
+      exportClientsData({
+        users,
+        barbershops,
+        allAppointments
+      });
+      setSuccessToast(`Planilha de clientes exportada com sucesso! (${users.filter(u => u.role === 'CLIENTE').length} clientes mapeados)`);
+    } catch (err: any) {
+      setErrorToast(`Falha ao exportar dados dos clientes: ${err?.message || 'Erro desconhecido'}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportBarbershops = () => {
+    try {
+      setIsExporting(true);
+      exportBarbershopsData({
+        barbershops,
+        users,
+        allServices,
+        allAppointments,
+        customPlans,
+        getBarbershopDirectUrl
+      });
+      setSuccessToast(`Planilha de barbearias exportada com sucesso! (${barbershops.length} barbearias mapeadas)`);
+    } catch (err: any) {
+      setErrorToast(`Falha ao exportar dados das barbearias: ${err?.message || 'Erro desconhecido'}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Active custom plans or fallback
   const activeSaaSPlans = customPlans && customPlans.length > 0
@@ -105,6 +145,29 @@ export const MasterAdminView: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+            {/* Botão de Exportar Clientes */}
+            <button
+              onClick={handleExportClients}
+              disabled={isExporting}
+              title="Baixar planilha de todos os clientes cadastrados em todas as barbearias"
+              className="px-4 py-3 bg-neutral-950 hover:bg-neutral-800 text-orange-400 hover:text-orange-300 font-black rounded-2xl text-xs sm:text-sm flex items-center gap-2 border border-orange-500/30 hover:border-orange-500/60 shadow-lg active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-orange-400" />
+              <span>Baixar Dados dos Clientes</span>
+            </button>
+
+            {/* Botão de Exportar Barbearias */}
+            <button
+              onClick={handleExportBarbershops}
+              disabled={isExporting}
+              title="Baixar planilha com todas as barbearias parceiras e status de assinatura"
+              className="px-4 py-3 bg-neutral-950 hover:bg-neutral-800 text-orange-400 hover:text-orange-300 font-black rounded-2xl text-xs sm:text-sm flex items-center gap-2 border border-orange-500/30 hover:border-orange-500/60 shadow-lg active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <Download className="w-4 h-4 text-orange-400" />
+              <span>Baixar Dados das Barbearias</span>
+            </button>
+
+            {/* Cadastrar Nova Barbearia */}
             <button
               onClick={() => setShowRegisterModal(true)}
               className="px-5 py-3 bg-orange-500 hover:bg-orange-400 text-neutral-950 font-black rounded-2xl text-xs sm:text-sm flex items-center gap-2 shadow-xl shadow-orange-500/20 active:scale-95 transition-all cursor-pointer"
@@ -263,6 +326,38 @@ export const MasterAdminView: React.FC = () => {
                 </button>
               );
             })}
+
+            {/* Quick Export Hub Card in Desktop Sidebar */}
+            <div className="mt-4 pt-3 border-t border-neutral-800/80 px-2 space-y-2">
+              <span className="text-[10px] font-black text-neutral-500 uppercase tracking-wider block">
+                Exportação de Dados
+              </span>
+              <button
+                onClick={handleExportClients}
+                disabled={isExporting}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-[11px] font-bold text-neutral-300 hover:text-orange-400 bg-neutral-950/70 hover:bg-neutral-800 border border-neutral-800 transition-all cursor-pointer disabled:opacity-50"
+                title="Download da planilha de clientes de todas as barbearias"
+              >
+                <div className="flex items-center gap-2">
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                  <span className="truncate">Baixar Clientes</span>
+                </div>
+                <Download className="w-3 h-3 text-neutral-500 shrink-0" />
+              </button>
+
+              <button
+                onClick={handleExportBarbershops}
+                disabled={isExporting}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-[11px] font-bold text-neutral-300 hover:text-orange-400 bg-neutral-950/70 hover:bg-neutral-800 border border-neutral-800 transition-all cursor-pointer disabled:opacity-50"
+                title="Download da planilha de barbearias cadastradas"
+              >
+                <div className="flex items-center gap-2">
+                  <Building2 className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                  <span className="truncate">Baixar Barbearias</span>
+                </div>
+                <Download className="w-3 h-3 text-neutral-500 shrink-0" />
+              </button>
+            </div>
           </div>
         </aside>
 

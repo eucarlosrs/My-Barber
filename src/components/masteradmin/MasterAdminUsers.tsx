@@ -13,16 +13,32 @@ import {
   Plus,
   Filter,
   CheckCircle,
-  X
+  X,
+  FileSpreadsheet
 } from 'lucide-react';
 import { User, UserRole } from '../../types';
 import { AppImage } from '../common/AppImage';
+import { exportClientsData } from '../../utils/exportData';
 
 export const MasterAdminUsers: React.FC = () => {
-  const { users, barbershops } = useApp();
+  const { users, barbershops, allAppointments } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
   const [shopFilter, setShopFilter] = useState<string>('ALL');
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleDownloadClients = () => {
+    setIsExporting(true);
+    try {
+      exportClientsData({
+        users,
+        barbershops,
+        allAppointments
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const filteredUsers = users.filter(u => {
     const matchesSearch =
@@ -100,6 +116,16 @@ export const MasterAdminUsers: React.FC = () => {
             Supervisione todos os perfis registrados: Donos de Salão, Gerentes, Barbeiros e Clientes em cada barbearia cadastrada.
           </p>
         </div>
+
+        <button
+          onClick={handleDownloadClients}
+          disabled={isExporting}
+          className="px-4 py-2.5 bg-neutral-950 hover:bg-neutral-800 text-orange-400 hover:text-orange-300 border border-orange-500/30 hover:border-orange-500/60 font-black rounded-2xl text-xs flex items-center gap-2 shadow-lg active:scale-95 transition-all cursor-pointer shrink-0 disabled:opacity-50"
+          title="Baixar planilha com todos os clientes de todas as barbearias"
+        >
+          <FileSpreadsheet className="w-4 h-4 text-orange-400" />
+          <span>Baixar Dados dos Clientes</span>
+        </button>
       </div>
 
       {/* Filters Bar */}

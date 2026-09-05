@@ -31,7 +31,8 @@ import {
   Zap,
   Eye,
   EyeOff,
-  KeyRound
+  KeyRound,
+  Download
 } from 'lucide-react';
 import { PlanId, MY_BARBER_PLANS, RegisterBarbershopInput, Barbershop, BarbershopStatus, CustomPlan } from '../../types';
 import { AppImage } from '../common/AppImage';
@@ -39,6 +40,7 @@ import { ImageEditModal } from '../common/ImageEditModal';
 import { SaveButton } from '../common/SaveButton';
 import { UnsavedChangesModal } from '../common/UnsavedChangesModal';
 import { getBarbershopEffectiveStatus, getTrialStatusInfo, formatPhoneNumber } from '../../utils/formatters';
+import { exportBarbershopsData } from '../../utils/exportData';
 
 // Curated high quality presets for quick logo & banner selection
 const LOGO_PRESETS = [
@@ -80,8 +82,31 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
     getBarbershopExclusiveDomain,
     updateUser,
     createManagerAccess,
-    customPlans
+    customPlans,
+    allServices,
+    allAppointments
   } = useApp();
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleDownloadBarbershops = () => {
+    setIsExporting(true);
+    try {
+      exportBarbershopsData({
+        barbershops,
+        users,
+        allServices,
+        allAppointments,
+        customPlans,
+        getBarbershopDirectUrl
+      });
+      setSuccessToast(`Planilha de barbearias exportada com sucesso! (${barbershops.length} cadastradas)`);
+    } catch (err: any) {
+      setErrorToast(`Falha ao exportar: ${err?.message || 'Erro desconhecido'}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const availablePlans = useMemo(() => {
     if (customPlans && customPlans.length > 0) {
@@ -520,7 +545,7 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
           <p className="text-xs text-neutral-400">Controle de ativação, planos, identidade e responsáveis</p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <div className="relative w-full sm:w-64">
             <Search className="w-4 h-4 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -531,6 +556,16 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
               className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-orange-500"
             />
           </div>
+
+          <button
+            onClick={handleDownloadBarbershops}
+            disabled={isExporting}
+            className="px-3.5 py-2 bg-neutral-950 hover:bg-neutral-800 text-orange-400 hover:text-orange-300 border border-orange-500/30 hover:border-orange-500/60 font-black rounded-xl text-xs flex items-center gap-1.5 shadow-lg active:scale-95 transition-all cursor-pointer shrink-0 disabled:opacity-50"
+            title="Baixar planilha de todas as barbearias parceiras"
+          >
+            <Download className="w-4 h-4 text-orange-400" />
+            <span>Baixar Barbearias</span>
+          </button>
 
           <button
             onClick={() => setShowRegisterModal(true)}
