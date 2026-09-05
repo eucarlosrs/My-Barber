@@ -274,10 +274,13 @@ export const ClientAppView: React.FC = () => {
     setProfileErrorMsg(null);
     setIsSavingProfile(true);
     try {
+      // Se a data de nascimento já existia no cadastro, mantém a original para impedir alterações indevidas
+      const finalBirthDate = currentUser?.birthDate ? currentUser.birthDate : profileBirthDate.trim();
+
       updateUser(currentUser.id, {
         name: profileName.trim(),
         whatsapp: profileWhatsapp.trim(),
-        birthDate: profileBirthDate.trim(),
+        birthDate: finalBirthDate,
         email: profileEmail.trim(),
         avatarUrl: profileAvatarUrl.trim() || undefined
       });
@@ -3113,16 +3116,42 @@ export const ClientAppView: React.FC = () => {
 
                       {/* Data de Nascimento */}
                       <div>
-                        <label className="block text-xs font-bold text-neutral-300 mb-1 flex items-center justify-between">
-                          <span>Data de Nascimento</span>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-xs font-bold text-neutral-300">
+                            Data de Nascimento
+                          </label>
                           <span className="text-[10px] text-orange-400/80 font-normal">🎁 Mimo de Aniversário</span>
-                        </label>
-                        <input
-                          type="date"
-                          value={profileBirthDate}
-                          onChange={e => setProfileBirthDate(e.target.value)}
-                          className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors"
-                        />
+                        </div>
+                        <div className="relative">
+                          <input
+                            type="date"
+                            value={profileBirthDate}
+                            disabled={Boolean(currentUser?.birthDate)}
+                            onChange={e => {
+                              if (!currentUser?.birthDate) {
+                                setProfileBirthDate(e.target.value);
+                              }
+                            }}
+                            className={`w-full bg-neutral-950 border rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 transition-colors ${
+                              currentUser?.birthDate
+                                ? 'border-neutral-800/80 opacity-70 cursor-not-allowed bg-neutral-950/90 text-neutral-400 select-none'
+                                : 'border-neutral-800 focus:outline-none focus:border-orange-500'
+                            }`}
+                          />
+                        </div>
+
+                        {/* Notificação/Aviso referente à Data de Nascimento */}
+                        {currentUser?.birthDate ? (
+                          <div className="mt-1.5 flex items-start gap-1.5 px-2.5 py-1.5 rounded-lg bg-neutral-950/60 border border-neutral-800/60 text-[11px] text-neutral-400">
+                            <span className="text-xs">🔒</span>
+                            <span>Data de nascimento confirmada. Não é possível alterá-la após o cadastro.</span>
+                          </div>
+                        ) : (
+                          <div className="mt-1.5 flex items-start gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300/90">
+                            <span className="text-xs shrink-0">⚠️</span>
+                            <span>Atenção: A data de nascimento só pode ser definida uma única vez e não poderá ser alterada depois.</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* E-mail */}
