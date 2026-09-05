@@ -2901,10 +2901,10 @@ export const ClientAppView: React.FC = () => {
           {/* TAB 9: 👤 MEU PERFIL (GESTÃO DE FOTO E DADOS DO CLIENTE) */}
           {activeTab === 'PROFILE' && (
             <div className="space-y-4">
-              {/* QUANDO O USUÁRIO NÃO ESTIVER LOGADO: ÁREA CONVIDATIVA DE LOGIN & AGENDAMENTO */}
+              {/* QUANDO O USUÁRIO NÃO ESTIVER LOGADO: ÁREA CONVIDATIVA DE LOGIN */}
               {!authenticatedUser ? (
                 <div className="space-y-4">
-                  {/* Card Principal Convidativo */}
+                  {/* Card Principal: Logo, Texto e Botão Login */}
                   <div
                     className="rounded-3xl p-6 shadow-2xl border text-center relative overflow-hidden bg-neutral-900"
                     style={{
@@ -2912,16 +2912,9 @@ export const ClientAppView: React.FC = () => {
                       background: 'radial-gradient(circle at 50% 0%, var(--theme-light-bg, rgba(255, 107, 0, 0.25)) 0%, #121212 75%)'
                     }}
                   >
-                    {/* Badge de Destaque */}
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider mb-4 border shadow-sm bg-neutral-950/80 border-neutral-700/80"
-                      style={{ color: 'var(--theme-primary, #FF6B00)' }}
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Área do Cliente</span>
-                    </div>
-
-                    {/* Ícone de Estilo / Barbearia */}
-                    <div className="mx-auto w-20 h-20 rounded-2xl flex items-center justify-center mb-4 shadow-xl border relative"
+                    {/* Logo da Barbearia */}
+                    <div
+                      className="mx-auto w-20 h-20 rounded-2xl flex items-center justify-center mb-4 shadow-xl border relative"
                       style={{
                         backgroundColor: 'var(--theme-light-bg, rgba(255, 107, 0, 0.15))',
                         borderColor: 'var(--theme-border, rgba(255, 107, 0, 0.5))'
@@ -2939,17 +2932,13 @@ export const ClientAppView: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Título Convidativo Solicitado */}
-                    <h3 className="font-black text-neutral-100 text-xl md:text-2xl font-heading leading-tight max-w-sm mx-auto">
-                      Faça Login para continuar e agendar o trato no visual
+                    {/* Texto Solicitado */}
+                    <h3 className="font-black text-neutral-100 text-xl font-heading leading-tight max-w-sm mx-auto">
+                      Faça Login para continuar
                     </h3>
 
-                    <p className="text-xs text-neutral-300 leading-relaxed mt-2.5 max-w-xs mx-auto">
-                      Acesse sua conta para escolher seu barbeiro favorito, acompanhar seus horários e garantir seu estilo na {currentBarbershop.name}.
-                    </p>
-
-                    {/* Botão de Ação Chamativo para Login */}
-                    <div className="mt-6 space-y-2.5">
+                    {/* Botão com o texto Login */}
+                    <div className="mt-5">
                       <button
                         type="button"
                         onClick={() => setShowLoginModal(true)}
@@ -2960,27 +2949,18 @@ export const ClientAppView: React.FC = () => {
                         }}
                       >
                         <LogIn className="w-4 h-4 stroke-[2.5]" />
-                        <span>FAZER LOGIN OU ENTRAR COM GOOGLE</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab('BOOKING')}
-                        className="w-full py-2.5 px-4 rounded-xl font-bold text-xs text-neutral-300 hover:text-white bg-neutral-950/60 hover:bg-neutral-800/80 border border-neutral-800 transition-all cursor-pointer flex items-center justify-center gap-2"
-                      >
-                        <Scissors className="w-3.5 h-3.5" style={{ color: 'var(--theme-primary, #FF6B00)' }} />
-                        <span>Ver Serviços & Agendar Agora</span>
+                        <span>Login</span>
                       </button>
                     </div>
                   </div>
 
-                  {/* Benefícios Exclusivos do Cliente */}
+                  {/* Vantagens de Ter sua Conta Conectada (Conteúdo da Segunda Imagem) */}
                   <div className="bg-neutral-900/90 border border-neutral-800/80 rounded-2xl p-4 shadow-lg space-y-3">
                     <span className="text-[11px] font-extrabold uppercase tracking-wider text-neutral-400 block text-center sm:text-left">
-                      Vantagens de ter sua conta conectada:
+                      VANTAGENS DE TER SUA CONTA CONECTADA:
                     </span>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div className="flex flex-col gap-2.5">
                       <div className="bg-neutral-950/70 border border-neutral-800/60 p-3 rounded-xl flex items-start gap-3">
                         <div className="p-2 rounded-lg bg-orange-500/10 text-orange-400 shrink-0">
                           <Scissors className="w-4 h-4" />
