@@ -69,6 +69,11 @@
       "title": "Eventos de Webhook Mercado Pago",
       "description": "Trilha de idempotência e processamento de eventos do Mercado Pago",
       "type": "object"
+    },
+    "plans": {
+      "title": "Catálogo de Planos do SaaS",
+      "description": "Planos disponíveis para contratação pelas barbearias parceiras com limites, preços promocionais e degustação",
+      "type": "object"
     }
   }
 }

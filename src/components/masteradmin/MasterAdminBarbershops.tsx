@@ -35,6 +35,7 @@ import {
   Download
 } from 'lucide-react';
 import { PlanId, MY_BARBER_PLANS, RegisterBarbershopInput, Barbershop, BarbershopStatus, CustomPlan } from '../../types';
+import { INITIAL_CUSTOM_PLANS } from '../../data/initialData';
 import { AppImage } from '../common/AppImage';
 import { ImageEditModal } from '../common/ImageEditModal';
 import { SaveButton } from '../common/SaveButton';
@@ -110,43 +111,10 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
 
   const availablePlans = useMemo(() => {
     if (customPlans && customPlans.length > 0) {
-      return customPlans.filter(p => p.status === 'ACTIVE');
+      const active = customPlans.filter(p => p.status === 'ACTIVE');
+      if (active.length > 0) return active;
     }
-    return [
-      {
-        id: 'PLANO_UNICO',
-        name: 'Plano Único & Fixo',
-        description: 'Até 10 profissionais (proprietário, gerente e barbeiros) e agendamentos ilimitados.',
-        status: 'ACTIVE',
-        priceMonthly: 49.90,
-        billingCycle: 'MONTHLY',
-        hasTrial: false,
-        trialDuration: 0,
-        trialUnit: 'DAYS',
-        hasPromotion: false,
-        scheduleStages: [],
-        features: {
-          agenda: true,
-          clientes: true,
-          profissionais: true,
-          servicos: true,
-          pacotes: true,
-          comunicacoes: true,
-          promocoes: true,
-          sorteios: true,
-          galeria: true,
-          estoque: true,
-          relatorios_financeiros: true
-        },
-        limits: {
-          maxProfessionals: 10,
-          maxUnits: 1,
-          maxClients: 'UNLIMITED'
-        },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      } as CustomPlan
-    ];
+    return INITIAL_CUSTOM_PLANS.filter(p => p.status === 'ACTIVE');
   }, [customPlans]);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -257,7 +225,7 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
     city: 'São Paulo',
     state: 'SP',
     zipCode: '01310-100',
-    planId: 'PLANO_UNICO',
+    planId: availablePlans[0]?.id || 'plano-essencial',
     commercialMode: 'PAGO',
     managerName: '',
     managerWhatsApp: '(11) 98888-7777',
@@ -342,7 +310,7 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
         city: 'São Paulo',
         state: 'SP',
         zipCode: '01001-000',
-        planId: 'PLANO_UNICO',
+        planId: availablePlans[0]?.id || 'plano-essencial',
         commercialMode: 'PAGO',
         managerName: '',
         managerWhatsApp: '(11) 98888-7777',
@@ -1563,58 +1531,70 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {/* OPÇÃO 1: TESTE GRÁTIS — 3 DIAS */}
-                  <div
-                    onClick={() => setFormState(prev => ({
-                      ...prev,
-                      commercialMode: 'TESTE_GRATIS',
-                      planId: prev.planId || availablePlans[0]?.id || 'PLANO_UNICO'
-                    }))}
-                    className={`p-4 rounded-2xl border cursor-pointer transition-all relative flex flex-col justify-between ${
-                      formState.commercialMode === 'TESTE_GRATIS'
-                        ? 'bg-amber-500/15 border-amber-500 text-neutral-100 shadow-xl ring-1 ring-amber-500/50'
-                        : 'bg-neutral-950 border-neutral-800 hover:border-neutral-700 text-neutral-400'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-2">
-                          <Sparkles className={`w-4 h-4 ${formState.commercialMode === 'TESTE_GRATIS' ? 'text-amber-400' : 'text-neutral-500'}`} />
-                          <span className="text-xs font-black tracking-wide text-amber-300">TESTE GRÁTIS — 3 DIAS</span>
-                        </div>
-                        {formState.commercialMode === 'TESTE_GRATIS' ? (
-                          <div className="w-5 h-5 rounded-full bg-amber-400 text-neutral-950 flex items-center justify-center">
-                            <Check className="w-3.5 h-3.5 stroke-[3]" />
+                  {/* OPÇÃO 1: TESTE GRÁTIS — CONFORME DEGUSTAÇÃO DO PLANO */}
+                  {(() => {
+                    const selectedPlanForTrial = availablePlans.find(p => p.id === formState.planId) || availablePlans[0];
+                    const trialDays = selectedPlanForTrial?.hasTrial && selectedPlanForTrial.trialDuration ? selectedPlanForTrial.trialDuration : 14;
+                    return (
+                      <div
+                        onClick={() => setFormState(prev => ({
+                          ...prev,
+                          commercialMode: 'TESTE_GRATIS',
+                          planId: prev.planId || availablePlans[0]?.id || 'plano-essencial'
+                        }))}
+                        className={`p-4 rounded-2xl border cursor-pointer transition-all relative flex flex-col justify-between ${
+                          formState.commercialMode === 'TESTE_GRATIS'
+                            ? 'bg-amber-500/15 border-amber-500 text-neutral-100 shadow-xl ring-1 ring-amber-500/50'
+                            : 'bg-neutral-950 border-neutral-800 hover:border-neutral-700 text-neutral-400'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div className="flex items-center gap-2">
+                              <Sparkles className={`w-4 h-4 ${formState.commercialMode === 'TESTE_GRATIS' ? 'text-amber-400' : 'text-neutral-500'}`} />
+                              <span className="text-xs font-black tracking-wide text-amber-300">TESTE GRÁTIS — {trialDays} DIAS</span>
+                            </div>
+                            {formState.commercialMode === 'TESTE_GRATIS' ? (
+                              <div className="w-5 h-5 rounded-full bg-amber-400 text-neutral-950 flex items-center justify-center">
+                                <Check className="w-3.5 h-3.5 stroke-[3]" />
+                              </div>
+                            ) : (
+                              <div className="w-5 h-5 rounded-full border border-neutral-700" />
+                            )}
                           </div>
-                        ) : (
-                          <div className="w-5 h-5 rounded-full border border-neutral-700" />
-                        )}
-                      </div>
 
-                      <div className="text-lg font-black text-amber-300 font-mono">
-                        Gratuito <span className="text-xs font-normal text-amber-400/80">(3 Dias)</span>
-                      </div>
+                          <div className="text-lg font-black text-amber-300 font-mono">
+                            Gratuito <span className="text-xs font-normal text-amber-400/80">({trialDays} Dias de Degustação)</span>
+                          </div>
 
-                      <div className="mt-2.5 space-y-1.5 text-[11px]">
-                        <div className="flex items-center gap-1.5 text-amber-300 font-semibold">
-                          <Clock className="w-3.5 h-3.5 shrink-0 text-amber-400" />
-                          <span>Status inicial: <strong className="text-amber-200 font-black">TESTE</strong></span>
+                          <div className="mt-2.5 space-y-1.5 text-[11px]">
+                            <div className="flex items-center gap-1.5 text-amber-300 font-semibold">
+                              <Clock className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+                              <span>Status inicial: <strong className="text-amber-200 font-black">TESTE</strong></span>
+                            </div>
+                            <p className="text-neutral-400 text-[10px] leading-relaxed">
+                              Degustação completa de {trialDays} dias: Proprietário, Barbeiros, Clientes, Agenda, Serviços, Imagens e Link Exclusivo.
+                            </p>
+                          </div>
                         </div>
-                        <p className="text-neutral-400 text-[10px] leading-relaxed">
-                          Mesma estrutura real e completa: Proprietário, Barbeiros, Clientes, Agenda, Serviços, Imagens e Link Exclusivo.
-                        </p>
                       </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
 
                   {/* OPÇÕES DINÂMICAS: PLANOS SAAS DISPONÍVEIS */}
                   {availablePlans.map(plan => {
                     const isSelected = formState.commercialMode !== 'TESTE_GRATIS' && formState.planId === plan.id;
                     const isCustom = 'limits' in plan;
                     const maxProfs = isCustom && (plan as CustomPlan).limits?.maxProfessionals !== undefined
-                      ? ((plan as CustomPlan).limits.maxProfessionals === 'UNLIMITED' ? 'Ilimitados' : `Até ${(plan as CustomPlan).limits.maxProfessionals}`)
-                      : 'Até 10';
+                      ? ((plan as CustomPlan).limits.maxProfessionals === 'UNLIMITED' ? 'Ilimitados' : `Até ${(plan as CustomPlan).limits.maxProfessionals} prof.`)
+                      : 'Até 10 prof.';
+                    const maxUnits = isCustom && (plan as CustomPlan).limits?.maxUnits !== undefined
+                      ? ((plan as CustomPlan).limits.maxUnits === 'UNLIMITED' ? 'Unid. Ilimitadas' : `${(plan as CustomPlan).limits.maxUnits} ${(plan as CustomPlan).limits.maxUnits === 1 ? 'Unidade' : 'Unidades'}`)
+                      : '1 Unidade';
                     const hasPromo = isCustom && (plan as CustomPlan).hasPromotion && (plan as CustomPlan).promotionalPrice !== undefined;
+                    const promoPrice = hasPromo ? (plan as CustomPlan).promotionalPrice! : plan.priceMonthly;
+                    const hasTrial = Boolean(plan.hasTrial && plan.trialDuration && plan.trialDuration > 0);
+                    const planTrialDays = hasTrial ? plan.trialDuration : 14;
 
                     return (
                       <div
@@ -1643,14 +1623,32 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                             )}
                           </div>
 
-                          <div className="text-lg font-black text-neutral-100 font-mono">
-                            R$ {plan.priceMonthly.toFixed(2).replace('.', ',')}
-                            <span className="text-xs font-normal text-neutral-400">/mês</span>
-                          </div>
+                          {hasPromo ? (
+                            <div className="space-y-0.5">
+                              <div className="flex items-baseline gap-1.5">
+                                <span className="text-lg font-black text-neutral-100 font-mono">
+                                  R$ {promoPrice.toFixed(2).replace('.', ',')}
+                                </span>
+                                <span className="text-xs font-normal text-neutral-400">/mês</span>
+                                <span className="text-xs text-neutral-500 line-through">
+                                  R$ {plan.priceMonthly.toFixed(2).replace('.', ',')}
+                                </span>
+                              </div>
+                              <div className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded inline-block">
+                                Promoção: {(plan as CustomPlan).promotionDuration || 3} {(plan as CustomPlan).promotionUnit === 'MONTHS' ? 'meses' : 'dias'}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-lg font-black text-neutral-100 font-mono">
+                              R$ {plan.priceMonthly.toFixed(2).replace('.', ',')}
+                              <span className="text-xs font-normal text-neutral-400">/mês</span>
+                            </div>
+                          )}
 
-                          {hasPromo && (
-                            <div className="mt-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded">
-                              Promo: R$ {(plan as CustomPlan).promotionalPrice?.toFixed(2).replace('.', ',')}/mês
+                          {hasTrial && (
+                            <div className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-emerald-400">
+                              <Sparkles className="w-3 h-3 shrink-0" />
+                              <span>{planTrialDays} dias de degustação</span>
                             </div>
                           )}
 
@@ -1659,8 +1657,8 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                               <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                               <span>Status inicial: <strong className="text-emerald-300 font-black">ATIVA</strong></span>
                             </div>
-                            <p className="text-neutral-400 text-[10px] leading-relaxed line-clamp-2">
-                              Capacidade: {maxProfs} profissionais. Ativação integral.
+                            <p className="text-neutral-400 text-[10px] leading-relaxed">
+                              {maxProfs} • {maxUnits}
                             </p>
                           </div>
                         </div>

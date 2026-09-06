@@ -26,7 +26,8 @@ import {
   INITIAL_RETURN_MESSAGES,
   INITIAL_GALLERY_WORKS,
   INITIAL_SUBSCRIPTIONS,
-  INITIAL_SUBSCRIPTION_PAYMENTS
+  INITIAL_SUBSCRIPTION_PAYMENTS,
+  INITIAL_CUSTOM_PLANS
 } from '../data/initialData';
 
 /**
@@ -122,6 +123,20 @@ export async function seedFirestoreIfEmpty() {
 
       console.log('Firebase Firestore seeding complete.');
     }
+
+    // Ensure SaaS plans collection is populated
+    try {
+      const plansCol = collection(db, 'plans');
+      const plansSnap = await getDocs(plansCol);
+      if (plansSnap.empty) {
+        console.log('Seeding initial SaaS plans to Firebase Firestore...');
+        for (const item of INITIAL_CUSTOM_PLANS) {
+          await setDoc(doc(db, 'plans', item.id), item);
+        }
+      }
+    } catch (err) {
+      console.warn('Plans collection check/seed note:', err);
+    }
   } catch (error) {
     console.warn('Firebase auto-seed error (offline/fallback mode active):', error);
   }
@@ -154,6 +169,8 @@ export function subscribeCollection<T>(
               localStorage.setItem('mybarber_cached_appointments', JSON.stringify(items));
             } else if (collectionName === 'users') {
               localStorage.setItem('mybarber_cached_users', JSON.stringify(items));
+            } else if (collectionName === 'plans') {
+              localStorage.setItem('mybarber_cached_plans', JSON.stringify(items));
             }
           } catch {
             // ignore
@@ -176,6 +193,14 @@ export function subscribeCollection<T>(
             }
           } else if (collectionName === 'users') {
             const cached = localStorage.getItem('mybarber_cached_users');
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                dataToUse = parsed as unknown as T[];
+              }
+            }
+          } else if (collectionName === 'plans') {
+            const cached = localStorage.getItem('mybarber_cached_plans');
             if (cached) {
               const parsed = JSON.parse(cached);
               if (Array.isArray(parsed) && parsed.length > 0) {

@@ -140,41 +140,175 @@ function get14DaysFromDate(baseDate = new Date()): string {
   return d.toISOString().split('T')[0];
 }
 
-// Plans In-Memory Database with default plans
+// Plans In-Memory Database with default plans matching system catalog
 const plansDB: Map<string, StoredPlan> = new Map([
   [
-    'PLANO_UNICO',
+    'plano-essencial',
     {
-      id: 'PLANO_UNICO',
-      name: 'Plano Único & Fixo',
-      description: 'Até 10 profissionais (incluindo proprietário, gerente e barbeiros) — R$ 49,90 por mês com todas as ferramentas de gestão.',
+      id: 'plano-essencial',
+      name: 'Plano Essencial',
+      description: 'Para barbeiros autônomos e barbearias pequenas que querem organizar a agenda e começar a receber agendamentos online.',
       status: 'ACTIVE',
-      priceMonthly: 49.90,
+      priceMonthly: 39.90,
       billingCycle: 'MONTHLY',
       hasTrial: true,
       trialDuration: 14,
       trialUnit: 'DAYS',
       hasPromotion: false,
-      promotionalPrice: 49.90,
+      promotionalPrice: 39.90,
       promotionDuration: 0,
       promotionUnit: 'MONTHS',
-      priceAfterPromotion: 49.90,
+      priceAfterPromotion: 39.90,
       scheduleStages: [
         {
-          id: 'stage-trial-1',
+          id: 'stage-trial-essencial',
           order: 1,
-          name: 'Período Gratuito',
+          name: 'Período Gratuito de Degustação',
           duration: 14,
           unit: 'DAYS',
           price: 0.00
         },
         {
-          id: 'stage-regular-1',
+          id: 'stage-regular-essencial',
           order: 2,
-          name: 'Assinatura Recorrente',
+          name: 'Preço Normal Recorrente',
           duration: 0,
           unit: 'INDEFINITE',
+          price: 39.90
+        }
+      ],
+      features: {
+        agenda: true,
+        clientes: true,
+        profissionais: true,
+        servicos: true,
+        pacotes: true,
+        comunicacoes: true,
+        promocoes: true,
+        sorteios: true,
+        galeria: true,
+        estoque: true,
+        relatorios_financeiros: true
+      },
+      limits: {
+        maxProfessionals: 1,
+        maxUnits: 1,
+        maxClients: 'UNLIMITED'
+      },
+      mercadopagoPlanId: 'mp-plan-essencial-3990',
+      subscribersCount: 2,
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z'
+    }
+  ],
+  [
+    'plano-profissional',
+    {
+      id: 'plano-profissional',
+      name: 'Plano Profissional',
+      description: 'Gestão robusta para barbearias em expansão. Inclui 14 dias grátis, 3 meses a R$ 49,90 e depois R$ 69,90/mês.',
+      status: 'ACTIVE',
+      priceMonthly: 69.90,
+      billingCycle: 'MONTHLY',
+      hasTrial: true,
+      trialDuration: 14,
+      trialUnit: 'DAYS',
+      hasPromotion: true,
+      promotionalPrice: 49.90,
+      promotionDuration: 3,
+      promotionUnit: 'MONTHS',
+      priceAfterPromotion: 69.90,
+      scheduleStages: [
+        {
+          id: 'stage-prof-trial',
+          order: 1,
+          name: 'Período Gratuito de Degustação',
+          duration: 14,
+          unit: 'DAYS',
+          price: 0.00
+        },
+        {
+          id: 'stage-prof-promo',
+          order: 2,
+          name: 'Promoção de Entrada / Lançamento',
+          duration: 3,
+          unit: 'MONTHS',
           price: 49.90
+        },
+        {
+          id: 'stage-prof-regular',
+          order: 3,
+          name: 'Preço Normal Recorrente',
+          duration: 0,
+          unit: 'INDEFINITE',
+          price: 69.90
+        }
+      ],
+      features: {
+        agenda: true,
+        clientes: true,
+        profissionais: true,
+        servicos: true,
+        pacotes: true,
+        comunicacoes: true,
+        promocoes: true,
+        sorteios: true,
+        galeria: true,
+        estoque: true,
+        relatorios_financeiros: true
+      },
+      limits: {
+        maxProfessionals: 5,
+        maxUnits: 1,
+        maxClients: 'UNLIMITED'
+      },
+      mercadopagoPlanId: 'mp-plan-prof-6990',
+      subscribersCount: 0,
+      createdAt: '2026-02-01T00:00:00Z',
+      updatedAt: '2026-02-01T00:00:00Z'
+    }
+  ],
+  [
+    'plano-premium',
+    {
+      id: 'plano-premium',
+      name: 'Plano Premium',
+      description: 'Para barbearias maiores e redes que precisam de recursos avançados, com vários profissionais e mais unidades.',
+      status: 'ACTIVE',
+      priceMonthly: 89.90,
+      billingCycle: 'MONTHLY',
+      hasTrial: true,
+      trialDuration: 14,
+      trialUnit: 'DAYS',
+      hasPromotion: true,
+      promotionalPrice: 69.90,
+      promotionDuration: 3,
+      promotionUnit: 'MONTHS',
+      priceAfterPromotion: 89.90,
+      scheduleStages: [
+        {
+          id: 'stage-premium-trial',
+          order: 1,
+          name: 'Período Gratuito de Degustação',
+          duration: 14,
+          unit: 'DAYS',
+          price: 0.00
+        },
+        {
+          id: 'stage-premium-promo',
+          order: 2,
+          name: 'Promoção de Entrada / Lançamento',
+          duration: 3,
+          unit: 'MONTHS',
+          price: 69.90
+        },
+        {
+          id: 'stage-premium-regular',
+          order: 3,
+          name: 'Preço Normal Recorrente',
+          duration: 0,
+          unit: 'INDEFINITE',
+          price: 89.90
         }
       ],
       features: {
@@ -192,142 +326,20 @@ const plansDB: Map<string, StoredPlan> = new Map([
       },
       limits: {
         maxProfessionals: 10,
-        maxUnits: 1,
-        maxClients: 'UNLIMITED'
-      },
-      mercadopagoPlanId: 'mp-plan-unico-fixo',
-      subscribersCount: 2,
-      createdAt: '2026-01-01T00:00:00Z',
-      updatedAt: '2026-01-01T00:00:00Z'
-    }
-  ],
-  [
-    'plano-profissional-completo',
-    {
-      id: 'plano-profissional-completo',
-      name: 'Plano Profissional Completo',
-      description: 'Gestão robusta para barbearias em expansão. Inclui 14 dias grátis, 3 meses a R$ 49,90 e depois R$ 99,90/mês.',
-      status: 'ACTIVE',
-      priceMonthly: 99.90,
-      billingCycle: 'MONTHLY',
-      hasTrial: true,
-      trialDuration: 14,
-      trialUnit: 'DAYS',
-      hasPromotion: true,
-      promotionalPrice: 49.90,
-      promotionDuration: 3,
-      promotionUnit: 'MONTHS',
-      priceAfterPromotion: 99.90,
-      scheduleStages: [
-        {
-          id: 'stage-prof-trial',
-          order: 1,
-          name: 'Período Gratuito',
-          duration: 14,
-          unit: 'DAYS',
-          price: 0.00
-        },
-        {
-          id: 'stage-prof-promo',
-          order: 2,
-          name: 'Promoção de Lançamento',
-          duration: 3,
-          unit: 'MONTHS',
-          price: 49.90
-        },
-        {
-          id: 'stage-prof-regular',
-          order: 3,
-          name: 'Preço Normal Recorrente',
-          duration: 0,
-          unit: 'INDEFINITE',
-          price: 99.90
-        }
-      ],
-      features: {
-        agenda: true,
-        clientes: true,
-        profissionais: true,
-        servicos: true,
-        pacotes: true,
-        comunicacoes: true,
-        promocoes: true,
-        sorteios: true,
-        galeria: true,
-        estoque: true,
-        relatorios_financeiros: true
-      },
-      limits: {
-        maxProfessionals: 15,
         maxUnits: 2,
         maxClients: 'UNLIMITED'
       },
-      mercadopagoPlanId: 'mp-plan-prof-9990',
-      subscribersCount: 0,
-      createdAt: '2026-02-01T00:00:00Z',
-      updatedAt: '2026-02-01T00:00:00Z'
-    }
-  ],
-  [
-    'plano-starter-essencial',
-    {
-      id: 'plano-starter-essencial',
-      name: 'Plano Starter Essencial',
-      description: 'Para barbeiros autônomos ou pequenos estúdios com até 3 profissionais e agenda online automatizada.',
-      status: 'ACTIVE',
-      priceMonthly: 39.90,
-      billingCycle: 'MONTHLY',
-      hasTrial: true,
-      trialDuration: 7,
-      trialUnit: 'DAYS',
-      hasPromotion: false,
-      promotionalPrice: 39.90,
-      promotionDuration: 0,
-      promotionUnit: 'MONTHS',
-      priceAfterPromotion: 39.90,
-      scheduleStages: [
-        {
-          id: 'stage-starter-trial',
-          order: 1,
-          name: 'Período de Teste',
-          duration: 7,
-          unit: 'DAYS',
-          price: 0.00
-        },
-        {
-          id: 'stage-starter-regular',
-          order: 2,
-          name: 'Assinatura Mensal',
-          duration: 0,
-          unit: 'INDEFINITE',
-          price: 39.90
-        }
-      ],
-      features: {
-        agenda: true,
-        clientes: true,
-        profissionais: true,
-        servicos: true,
-        pacotes: true,
-        comunicacoes: true,
-        promocoes: false,
-        sorteios: false,
-        galeria: true,
-        estoque: false,
-        relatorios_financeiros: true
-      },
-      limits: {
-        maxProfessionals: 3,
-        maxUnits: 1,
-        maxClients: 'UNLIMITED'
-      },
-      mercadopagoPlanId: 'mp-plan-starter-3990',
+      mercadopagoPlanId: 'mp-plan-premium-8990',
       subscribersCount: 0,
       createdAt: '2026-02-15T00:00:00Z',
       updatedAt: '2026-02-15T00:00:00Z'
     }
   ]
 ]);
+
+// Backward compatibility alias for PLANO_UNICO
+const legacyPlanEssencial = plansDB.get('plano-essencial')!;
+plansDB.set('PLANO_UNICO', { ...legacyPlanEssencial, id: 'PLANO_UNICO', name: 'Plano Essencial' });
 
 // In-Memory Database with persistent initial seed
 const subscriptionsDB: Map<string, StoredSubscription> = new Map([
@@ -586,20 +598,25 @@ function calculatePlanScheduleStages(planData: Partial<StoredPlan>): StoredPlanB
 // 0. Plans CRUD Endpoints
 app.get('/api/plans', (_req: Request, res: Response) => {
   // Update subscribers count dynamically
-  const plansArray = Array.from(plansDB.values()).map(plan => {
-    let subscribers = 0;
-    subscriptionsDB.forEach(sub => {
-      if (sub.status !== 'CANCELED') {
-        if (sub.planId === plan.id || (plan.id === 'PLANO_UNICO' && (!sub.planId || sub.plan === 'Plano MY BARBER' || sub.plan === 'Plano Único & Fixo'))) {
-          subscribers++;
+  const plansArray = Array.from(plansDB.values())
+    .filter(p => p.id !== 'PLANO_UNICO') // exclude legacy alias from catalog list
+    .map(plan => {
+      let subscribers = 0;
+      subscriptionsDB.forEach(sub => {
+        if (sub.status !== 'CANCELED') {
+          if (
+            sub.planId === plan.id ||
+            ((plan.id === 'plano-essencial' || plan.id === 'PLANO_UNICO') && (!sub.planId || sub.plan === 'Plano MY BARBER' || sub.plan === 'Plano Único & Fixo' || sub.plan === 'Plano Essencial'))
+          ) {
+            subscribers++;
+          }
         }
-      }
+      });
+      return {
+        ...plan,
+        subscribersCount: subscribers
+      };
     });
-    return {
-      ...plan,
-      subscribersCount: subscribers
-    };
-  });
 
   res.json({
     success: true,

@@ -2112,9 +2112,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const now = new Date();
     const isTrial = input.commercialMode === 'TESTE_GRATIS';
     const trialStartedAt = isTrial ? now.toISOString() : undefined;
-    // Validade estrita de 3 dias (72 horas)
+    
+    // Identificar plano alvo dinamicamente para aplicar regras de degustação e limites
+    const targetPlan = customPlans.find(p => p.id === input.planId) || INITIAL_CUSTOM_PLANS.find(p => p.id === input.planId) || INITIAL_CUSTOM_PLANS[0];
+    const trialDays = targetPlan.hasTrial && targetPlan.trialDuration ? targetPlan.trialDuration : (isTrial ? 14 : 0);
     const trialExpiresAt = isTrial 
-      ? new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString() 
+      ? new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000).toISOString() 
       : undefined;
 
     const newBarbershop: Barbershop = {
@@ -2281,25 +2284,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Initialize Mercado Pago Recurring Subscription
     const trialStartDate = now.toISOString().split('T')[0];
-    const trialEndDate = new Date(Date.now() + (isTrial ? 3 : 14) * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-    const targetPlan = customPlans.find(p => p.id === input.planId) || (MY_BARBER_PLANS[input.planId] ? {
-      id: input.planId,
-      name: MY_BARBER_PLANS[input.planId].name,
-      priceMonthly: MY_BARBER_PLANS[input.planId].priceMonthly,
-      billingCycle: 'MONTHLY' as const,
-      hasTrial: isTrial,
-      trialDuration: 3,
-      trialUnit: 'DAYS' as const
-    } : {
-      id: 'PLANO_UNICO',
-      name: 'Plano Único & Fixo',
-      priceMonthly: 49.90,
-      billingCycle: 'MONTHLY' as const,
-      hasTrial: isTrial,
-      trialDuration: 3,
-      trialUnit: 'DAYS' as const
-    });
+    const trialEndDate = new Date(Date.now() + (isTrial ? trialDays : 0) * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     const initialSubscription: Subscription = {
       id: `sub-${newTenantId}`,
@@ -2312,7 +2297,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: isTrial ? 'TRIAL_14_DAYS' : 'PENDING',
       plan: targetPlan.name,
       planId: targetPlan.id,
-      currentPrice: isTrial ? 0.00 : targetPlan.priceMonthly,
+      currentPrice: isTrial ? 0.00 : (targetPlan.hasPromotion && targetPlan.promotionalPrice !== undefined ? targetPlan.promotionalPrice : targetPlan.priceMonthly),
       billingCycle: targetPlan.billingCycle || 'MONTHLY',
       isInTrial: isTrial,
       trialStartDate,

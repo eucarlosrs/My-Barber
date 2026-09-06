@@ -208,6 +208,14 @@ service cloud.firestore {
       allow read: if isSuperAdmin();
       allow write: if isSuperAdmin();
     }
+
+    // ----------------------------------------------------
+    // 14. CATÁLOGO DE PLANOS DO SAAS (PLANS)
+    // ----------------------------------------------------
+    match /plans/{planId} {
+      // Leitura e sincronização do catálogo de planos do SaaS
+      allow read, write: if true;
+    }
   }
 }
 
