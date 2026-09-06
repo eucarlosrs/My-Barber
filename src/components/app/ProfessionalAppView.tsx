@@ -180,21 +180,23 @@ export const ProfessionalAppView: React.FC = () => {
             </button>
           </div>
 
-          {/* Barber Simulator Selector */}
-          <div className="mt-3 pt-3 border-t border-neutral-800/80 flex items-center justify-between text-xs">
-            <span className="text-xs text-neutral-400">Simular Barbeiro:</span>
-            <select
-              value={activeProf.id}
-              onChange={e => setCurrentUserId(e.target.value)}
-              className="bg-neutral-950 border border-neutral-800 rounded-xl px-2.5 py-1 text-xs text-neutral-200 focus:outline-none"
-            >
-              {professionals.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.name} {p.canViewAllProfessionals ? '★ (Líder)' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Barber Selector - Apenas se tiver permissão de visualizar toda a equipe concedida pelo proprietário/gerente */}
+          {canViewAll && professionals.length > 1 && (
+            <div className="mt-3 pt-3 border-t border-neutral-800/80 flex items-center justify-between text-xs">
+              <span className="text-xs text-neutral-400">Visualizar Barbeiro:</span>
+              <select
+                value={activeProf.id}
+                onChange={e => setCurrentUserId(e.target.value)}
+                className="bg-neutral-950 border border-neutral-800 rounded-xl px-2.5 py-1 text-xs text-neutral-200 focus:outline-none"
+              >
+                {professionals.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} {p.canViewAllProfessionals ? '★ (Líder)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* ========================================================================= */}

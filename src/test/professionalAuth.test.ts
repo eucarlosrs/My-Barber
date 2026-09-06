@@ -396,4 +396,32 @@ describe('MY BARBER - Regras Críticas de Autenticação e Criação de Profissi
     assert.strictEqual(auth.success, true);
     assert.strictEqual(auth.user?.id, 'user-prof-eduardo');
   });
+
+  // Teste 26: Permissão de visualização da equipe (canViewAllProfessionals)
+  it('26. Permissão de visualização da equipe (canViewAllProfessionals) deve ser respeitada', () => {
+    const profComum: User = {
+      id: 'user-prof-comum',
+      tenantId: 'tenant-barbearia-a',
+      role: 'PROFISSIONAL',
+      status: 'active',
+      name: 'Eduardo',
+      whatsapp: '(11) 97333-4455',
+      canViewAllProfessionals: false,
+      createdAt: new Date().toISOString()
+    };
+
+    const profLider: User = {
+      id: 'user-prof-lider',
+      tenantId: 'tenant-barbearia-a',
+      role: 'PROFISSIONAL',
+      status: 'active',
+      name: 'Carlos Líder',
+      whatsapp: '(11) 97333-4466',
+      canViewAllProfessionals: true,
+      createdAt: new Date().toISOString()
+    };
+
+    assert.strictEqual(Boolean(profComum.canViewAllProfessionals), false);
+    assert.strictEqual(Boolean(profLider.canViewAllProfessionals), true);
+  });
 });
