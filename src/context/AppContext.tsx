@@ -54,6 +54,11 @@ import {
   deleteDocFromDb,
   syncAppointmentWithLock
 } from '../lib/firestoreSync';
+import {
+  authenticateUserCredentials,
+  validateProfessionalCreation,
+  normalizeLogin
+} from '../utils/professionalAuthEngine';
 import { uploadImageToStorage } from '../lib/storage';
 
 export type AppViewMode = 'LOGIN' | 'STAFF_LOGIN' | 'ARCHITECTURE' | 'MASTER_ADMIN' | 'WEBADMIN' | 'CLIENT_APP' | 'PROFISSIONAL_APP' | 'DISCOVERY';
@@ -874,43 +879,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: true, role: 'SUPER_ADMIN' as UserRole, user: superAdmin };
     }
 
-    // Search matching user in users list
-    let matched = users.find(u => 
-      (u.username && u.username.toLowerCase() === clean) ||
-      (u.email && u.email.toLowerCase() === clean) ||
-      (u.whatsapp && cleanDigits.length >= 8 && u.whatsapp.replace(/\D/g, '').endsWith(cleanDigits.slice(-8))) ||
-      u.id.toLowerCase() === clean ||
-      u.name.toLowerCase() === clean
-    );
+    // Centralized strict authentication validation
+    const authResult = authenticateUserCredentials({
+      identifier,
+      password: _password,
+      users
+    });
+
+    let matched = authResult.user;
 
     // If client with phone doesn't exist yet, auto-register as client
-    if (!matched && cleanDigits.length >= 8) {
+    if (!matched && cleanDigits.length >= 8 && !_password) {
       const isEmail = identifier.includes('@');
       matched = {
         id: `user-client-${Date.now()}`,
         tenantId: activeTenantId,
         role: 'CLIENTE',
+        status: 'active',
         name: isEmail ? identifier.split('@')[0] : 'Cliente',
         email: isEmail ? identifier.trim().toLowerCase() : undefined,
         whatsapp: identifier.trim(),
         createdAt: new Date().toISOString()
       };
-      setUsers(prev => [...prev, matched!]);
+      const nextUsers = [...users, matched];
+      setUsers(nextUsers);
+      try {
+        localStorage.setItem('mybarber_cached_users', JSON.stringify(nextUsers));
+      } catch {
+        // ignore
+      }
       syncDoc('users', matched.id, matched);
     }
 
     if (!matched) {
       return {
         success: false,
-        error: 'Nenhuma conta encontrada com este e-mail, WhatsApp ou usuário. Verifique os dados ou utilize uma das contas de teste rápido.'
+        error: authResult.error || 'Nenhuma conta encontrada com este e-mail, WhatsApp ou usuário. Verifique os dados ou utilize uma das contas de teste rápido.'
       };
     }
 
-    // Se o usuário possui senha cadastrada (Proprietário, Gerente, etc.), validar a senha
-    if (matched.password && _password && matched.password !== _password) {
+    // Se o resultado de autenticação apontou erro de senha ou status inativo, bloquear
+    if (!authResult.success && authResult.error) {
       return {
         success: false,
-        error: `Senha incorreta para o login de ${matched.name}. Verifique a senha digitada.`
+        error: authResult.error
       };
     }
 
@@ -918,6 +930,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentUserId(matched.id);
     try {
       localStorage.setItem('mybarber_session_user_id', matched.id);
+      localStorage.setItem('mybarber_session_user', JSON.stringify(matched));
     } catch {
       // ignore
     }
@@ -1449,10 +1462,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     const target = users.find(u => u.id === profId);
     if (target) {
-      const merged = { ...target, ...data };
+      const targetShop = barbershops.find(b => b.id === (target.tenantId || activeTenantId));
+      let normalizedUsername = target.username;
+      let normalizedEmail = target.email;
+      if (data.username || data.email) {
+        const norm = normalizeLogin(data.username || data.email || '', targetShop?.slug);
+        if (norm) {
+          normalizedUsername = norm.username;
+          normalizedEmail = norm.email;
+        }
+      }
+
+      const merged: User = {
+        ...target,
+        ...data,
+        username: normalizedUsername,
+        email: normalizedEmail,
+        password: data.password !== undefined ? (data.password.trim() || undefined) : target.password
+      };
+
       syncDoc('users', profId, merged);
+      const nextUsers = updatedUsers.map(u => (u.id === profId ? merged : u));
+      setUsers(nextUsers);
+      try {
+        localStorage.setItem('mybarber_cached_users', JSON.stringify(nextUsers));
+      } catch {
+        // ignore
+      }
+      if (authenticatedUser?.id === profId) {
+        setAuthenticatedUser(merged);
+      }
     }
-    setUsers(updatedUsers.map(u => (u.id === profId ? { ...u, ...data } : u)));
   };
 
   const deleteProfessional = (profId: string) => {
@@ -1502,42 +1542,89 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const addProfessional = (userData: Omit<User, 'id' | 'createdAt'>) => {
-    const currentStaff = tenantUsers.filter(
-      u => u.role === 'PROFISSIONAL' || u.role === 'PROPRIETARIO' || u.role === 'GERENTE'
-    );
-    const customPlan = customPlans.find(p => p.id === currentBarbershop.planId);
+  const addProfessional = (userData: Omit<User, 'id' | 'createdAt'>): { success: boolean; error?: string; user?: User } => {
+    const targetTenantId = userData.tenantId || activeTenantId;
+    const targetShop = barbershops.find(b => b.id === targetTenantId);
+
+    const customPlan = customPlans.find(p => p.id === targetShop?.planId);
     const maxStaff = customPlan && customPlan.limits?.maxProfessionals !== undefined
       ? (customPlan.limits.maxProfessionals === 'UNLIMITED' ? 9999 : Number(customPlan.limits.maxProfessionals))
-      : (MY_BARBER_PLANS[currentBarbershop.planId]?.maxProfessionals || 10);
-    const planName = customPlan ? customPlan.name : (MY_BARBER_PLANS[currentBarbershop.planId]?.name || 'Plano Oficial');
+      : (MY_BARBER_PLANS[targetShop?.planId || '']?.maxProfessionals || 10);
+    const currentStaffCount = users.filter(
+      u => u.tenantId === targetTenantId && (u.role === 'PROFISSIONAL' || u.role === 'PROPRIETARIO' || u.role === 'GERENTE')
+    ).length;
 
-    if (currentStaff.length >= maxStaff) {
-      return {
-        success: false,
-        error: `Limite de equipe do ${planName} atingido (${currentStaff.length}/${maxStaff} membros cadastrados, incluindo proprietário, gerente e profissionais).`
-      };
+    // Validação centralizada e rigorosa
+    const valResult = validateProfessionalCreation({
+      name: userData.name,
+      tenantId: targetTenantId,
+      login: userData.username || userData.email,
+      password: userData.password,
+      creatorRole: authenticatedUser?.role,
+      creatorTenantId: authenticatedUser?.tenantId,
+      existingUsers: users,
+      barbershops,
+      maxStaff,
+      currentStaffCount
+    });
+
+    if (!valResult.valid) {
+      return { success: false, error: valResult.error || 'Dados inválidos para cadastro de profissional.' };
     }
 
     // Regra Seção 7: Se este profissional for marcado com canViewAllProfessionals, desmarca os outros
     let updatedUsers = [...users];
     if (userData.canViewAllProfessionals) {
       updatedUsers = updatedUsers.map(u =>
-        u.tenantId === activeTenantId && u.role === 'PROFISSIONAL'
+        u.tenantId === targetTenantId && u.role === 'PROFISSIONAL'
           ? { ...u, canViewAllProfessionals: false }
           : u
       );
     }
 
+    const normalized = valResult.normalized;
     const newUser: User = {
       ...userData,
       id: `user-prof-${Date.now()}`,
+      tenantId: targetTenantId,
+      role: 'PROFISSIONAL',
+      status: userData.status || 'active',
+      name: userData.name.trim(),
+      username: normalized?.username || (userData.username ? userData.username.trim().toLowerCase() : undefined),
+      email: normalized?.email || (userData.email ? userData.email.trim().toLowerCase() : undefined),
+      password: userData.password ? userData.password.trim() : undefined,
+      createdByUserId: currentUserId || authenticatedUser?.id,
       createdAt: new Date().toISOString()
     };
 
-    syncDoc('users', newUser.id, newUser);
-    setUsers([...updatedUsers, newUser]);
-    return { success: true };
+    try {
+      syncDoc('users', newUser.id, newUser);
+      const nextUsers = [...updatedUsers, newUser];
+      setUsers(nextUsers);
+      try {
+        localStorage.setItem('mybarber_cached_users', JSON.stringify(nextUsers));
+      } catch {
+        // ignore
+      }
+
+      addAuditLog({
+        actorUserId: authenticatedUser?.id || 'system',
+        actorUserName: authenticatedUser?.name || 'Administrador',
+        actorRole: authenticatedUser?.role || 'GERENTE',
+        action: 'CRIAR_PROFISSIONAL',
+        targetTenantId: targetTenantId,
+        targetTenantName: targetShop?.name || 'Barbearia',
+        details: `Profissional ${newUser.name} cadastrado com sucesso com login ${newUser.username || newUser.email || 'WhatsApp'}.`,
+        status: 'SUCESSO'
+      });
+
+      return { success: true, user: newUser };
+    } catch {
+      return {
+        success: false,
+        error: 'Não foi possível criar o acesso deste profissional. O cadastro não foi concluído. Tente novamente.'
+      };
+    }
   };
 
   const updateStockQuantity = (id: string, delta: number) => {

@@ -114,6 +114,7 @@ export interface User {
   googleId?: string; // ID Google para login de clientes
   authProvider?: 'GOOGLE' | 'SYSTEM';
   createdByUserId?: string; // ID de quem criou este acesso (Dono do App -> Proprietário/Gerente -> Profissional)
+  status?: 'active' | 'inactive'; // Status de acesso do usuário/profissional
   // Regra Seção 7: Profissional com visualização de todos
   canViewAllProfessionals?: boolean;
   commissionPercentage?: number; // Para profissionais

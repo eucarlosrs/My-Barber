@@ -251,19 +251,22 @@ export const INITIAL_USERS: User[] = [
     specialties: ['Corte Degradê', 'Barba Terapia', 'Pigmentação'],
     createdAt: '2026-01-15T10:00:00Z'
   },
-  // Barbearia do João - Profissional 2 (Individual com canViewAllProfessionals = false)
+  // Barbearia do João - Profissional 2 (Eduardo)
   {
     id: 'user-felipe-barber',
     tenantId: 'tenant-barbearia-do-joao',
     role: 'PROFISSIONAL',
-    name: 'Felipe Santana',
-    email: 'felipe@barbeariadojoao.com.br',
+    status: 'active',
+    name: 'Eduardo',
+    username: 'eduardo.rodrigues',
+    email: 'eduardo.rodrigues@barbeariarodrigues.com.br',
+    password: '123456',
     whatsapp: '(11) 97333-4455',
     avatarUrl: APP_ASSETS.barberFelipe,
     birthDate: '1996-11-05',
     canViewAllProfessionals: false, // REGRA SEÇÃO 7: Visualiza apenas suas próprias informações
     commissionPercentage: 45,
-    specialties: ['Corte Clássico', 'Barba na Toalha Quente', 'Tratamentos'],
+    specialties: ['Cortes em Geral'],
     createdAt: '2026-01-20T10:00:00Z'
   },
   // Barbearia do João - Profissional 3

@@ -14,18 +14,105 @@ import {
   Filter,
   CheckCircle,
   X,
-  FileSpreadsheet
+  FileSpreadsheet,
+  UserPlus,
+  Lock,
+  Eye,
+  EyeOff,
+  Check
 } from 'lucide-react';
 import { User, UserRole } from '../../types';
 import { AppImage } from '../common/AppImage';
 import { exportClientsData } from '../../utils/exportData';
 
 export const MasterAdminUsers: React.FC = () => {
-  const { users, barbershops, allAppointments } = useApp();
+  const { users, barbershops, allAppointments, createProfessionalAccess } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
   const [shopFilter, setShopFilter] = useState<string>('ALL');
   const [isExporting, setIsExporting] = useState(false);
+
+  // Modal de Criação de Profissional pelo Administrador Geral
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [targetShopId, setTargetShopId] = useState('');
+  const [profName, setProfName] = useState('');
+  const [profWhatsapp, setProfWhatsapp] = useState('');
+  const [profLogin, setProfLogin] = useState('');
+  const [profPassword, setProfPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [profCommission, setProfCommission] = useState(45);
+  const [profCanViewAll, setProfCanViewAll] = useState(false);
+  const [profSpecialties, setProfSpecialties] = useState('Cortes em Geral, Barba');
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createSuccess, setCreateSuccess] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+
+  const activeBarbershops = barbershops.filter(b => b.status === 'ACTIVE' || (b as any).status === 'active');
+
+  const openCreateModal = () => {
+    setTargetShopId(activeBarbershops[0]?.id || '');
+    setProfName('');
+    setProfWhatsapp('');
+    setProfLogin('');
+    setProfPassword('123456');
+    setShowPassword(false);
+    setProfCommission(45);
+    setProfCanViewAll(false);
+    setProfSpecialties('Cortes em Geral, Barba');
+    setCreateError(null);
+    setCreateSuccess(null);
+    setShowCreateModal(true);
+  };
+
+  const handleCreateProfessionalSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateError(null);
+    setCreateSuccess(null);
+
+    if (!targetShopId) {
+      setCreateError('É obrigatório selecionar uma barbearia vinculada.');
+      return;
+    }
+    if (!profName.trim()) {
+      setCreateError('Informe o nome do profissional.');
+      return;
+    }
+    if (!profLogin.trim()) {
+      setCreateError('Informe o e-mail ou nome de usuário de login.');
+      return;
+    }
+
+    setIsCreating(true);
+    const specialtiesList = profSpecialties
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    const result = createProfessionalAccess({
+      tenantId: targetShopId,
+      name: profName.trim(),
+      whatsapp: profWhatsapp.trim() || '(11) 99999-0000',
+      email: profLogin.trim(),
+      password: profPassword.trim() || undefined,
+      commissionPercentage: profCommission,
+      canViewAllProfessionals: profCanViewAll,
+      specialties: specialtiesList.length > 0 ? specialtiesList : ['Cortes em Geral'],
+      role: 'PROFISSIONAL',
+      status: 'active'
+    });
+
+    setIsCreating(false);
+
+    if (result.success) {
+      setCreateSuccess(`Profissional ${profName} cadastrado com sucesso e credencial de acesso vinculada!`);
+      setTimeout(() => {
+        setShowCreateModal(false);
+        setCreateSuccess(null);
+      }, 1500);
+    } else {
+      setCreateError(result.error || 'Erro ao cadastrar profissional. Verifique os dados e tente novamente.');
+    }
+  };
 
   const handleDownloadClients = () => {
     setIsExporting(true);
@@ -117,15 +204,26 @@ export const MasterAdminUsers: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={handleDownloadClients}
-          disabled={isExporting}
-          className="px-4 py-2.5 bg-neutral-950 hover:bg-neutral-800 text-orange-400 hover:text-orange-300 border border-orange-500/30 hover:border-orange-500/60 font-black rounded-2xl text-xs flex items-center gap-2 shadow-lg active:scale-95 transition-all cursor-pointer shrink-0 disabled:opacity-50"
-          title="Baixar planilha com todos os clientes de todas as barbearias"
-        >
-          <FileSpreadsheet className="w-4 h-4 text-orange-400" />
-          <span>Baixar Dados dos Clientes</span>
-        </button>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={openCreateModal}
+            className="px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-neutral-950 font-black rounded-2xl text-xs flex items-center gap-2 shadow-lg active:scale-95 transition-all cursor-pointer shrink-0"
+            title="Cadastrar novo profissional vinculado a uma barbearia"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Cadastrar Profissional</span>
+          </button>
+
+          <button
+            onClick={handleDownloadClients}
+            disabled={isExporting}
+            className="px-4 py-2.5 bg-neutral-950 hover:bg-neutral-800 text-orange-400 hover:text-orange-300 border border-orange-500/30 hover:border-orange-500/60 font-black rounded-2xl text-xs flex items-center gap-2 shadow-lg active:scale-95 transition-all cursor-pointer shrink-0 disabled:opacity-50"
+            title="Baixar planilha com todos os clientes de todas as barbearias"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-orange-400" />
+            <span>Baixar Dados dos Clientes</span>
+          </button>
+        </div>
       </div>
 
       {/* Filters Bar */}
@@ -187,6 +285,7 @@ export const MasterAdminUsers: React.FC = () => {
                 <tr>
                   <th className="px-4 py-3.5">Usuário</th>
                   <th className="px-4 py-3.5">Cargo / Papel</th>
+                  <th className="px-4 py-3.5 text-center">Status</th>
                   <th className="px-4 py-3.5">Barbearia Vinculada</th>
                   <th className="px-4 py-3.5">Contato</th>
                   <th className="px-4 py-3.5">Permissões Especiais</th>
@@ -212,6 +311,17 @@ export const MasterAdminUsers: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {getRoleBadge(user.role)}
+                    </td>
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      {user.status === 'inactive' ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">
+                          Inativo
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          Ativo
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-1.5 text-neutral-300">
@@ -248,6 +358,213 @@ export const MasterAdminUsers: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Modal de Criação de Profissional pelo Administrador Geral */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-6 border-b border-neutral-800 bg-neutral-950 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Cadastrar Profissional</h3>
+                  <p className="text-xs text-neutral-400">Painel do Administrador Geral da Plataforma</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="w-8 h-8 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleCreateProfessionalSubmit} className="p-6 space-y-4">
+              {createError && (
+                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-2xl text-xs text-red-400 font-medium">
+                  {createError}
+                </div>
+              )}
+
+              {createSuccess && (
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-xs text-emerald-400 font-medium flex items-center gap-2">
+                  <Check className="w-4 h-4 shrink-0" />
+                  <span>{createSuccess}</span>
+                </div>
+              )}
+
+              {/* Barbearia Vinculada */}
+              <div>
+                <label className="block text-xs font-bold text-neutral-300 mb-1.5 flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-orange-400" />
+                  Barbearia de Destino (Obrigatório) *
+                </label>
+                <select
+                  value={targetShopId}
+                  onChange={e => setTargetShopId(e.target.value)}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-orange-500 cursor-pointer"
+                  required
+                >
+                  <option value="">Selecione a barbearia...</option>
+                  {activeBarbershops.map(b => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} ({b.slug})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Nome */}
+              <div>
+                <label className="block text-xs font-bold text-neutral-300 mb-1.5">
+                  Nome do Profissional *
+                </label>
+                <input
+                  type="text"
+                  value={profName}
+                  onChange={e => setProfName(e.target.value)}
+                  placeholder="Ex: Eduardo Rodrigues"
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-orange-500"
+                  required
+                />
+              </div>
+
+              {/* WhatsApp */}
+              <div>
+                <label className="block text-xs font-bold text-neutral-300 mb-1.5 flex items-center gap-1.5">
+                  <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                  WhatsApp / Celular
+                </label>
+                <input
+                  type="text"
+                  value={profWhatsapp}
+                  onChange={e => setProfWhatsapp(e.target.value)}
+                  placeholder="(11) 98765-4321"
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-orange-500"
+                />
+              </div>
+
+              {/* Seção Credenciais */}
+              <div className="pt-2 border-t border-neutral-800">
+                <div className="text-[11px] font-black uppercase text-orange-400 tracking-wider mb-2 flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5" />
+                  Dados de Acesso à Área de Barbeiro
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-300 mb-1.5">
+                      E-mail / Usuário *
+                    </label>
+                    <input
+                      type="text"
+                      value={profLogin}
+                      onChange={e => setProfLogin(e.target.value)}
+                      placeholder="eduardo.rodrigues"
+                      className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-orange-500 font-mono"
+                      required
+                    />
+                    <span className="text-[10px] text-neutral-500 mt-0.5 block">
+                      Normalizado automaticamente sem espaços.
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-300 mb-1.5">
+                      Senha de Acesso *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={profPassword}
+                        onChange={e => setProfPassword(e.target.value)}
+                        placeholder="Mínimo 4 caracteres"
+                        className="w-full bg-neutral-800 border border-neutral-700 rounded-xl pl-3 pr-9 py-2.5 text-xs text-white focus:outline-none focus:border-orange-500 font-mono"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white cursor-pointer"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Comissão e Especialidades */}
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="block text-xs font-bold text-neutral-300 mb-1.5">
+                    Comissão (%)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={profCommission}
+                    onChange={e => setProfCommission(Number(e.target.value))}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-orange-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-neutral-300 mb-1.5">
+                    Especialidades
+                  </label>
+                  <input
+                    type="text"
+                    value={profSpecialties}
+                    onChange={e => setProfSpecialties(e.target.value)}
+                    placeholder="Cortes, Barba"
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-orange-500"
+                  />
+                </div>
+              </div>
+
+              {/* Opção Visualizar toda equipe */}
+              <label className="flex items-center gap-2.5 p-3 rounded-2xl bg-neutral-800/40 border border-neutral-700/50 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={profCanViewAll}
+                  onChange={e => setProfCanViewAll(e.target.checked)}
+                  className="rounded border-neutral-700 text-orange-500 focus:ring-orange-500 w-4 h-4"
+                />
+                <div>
+                  <div className="text-xs font-bold text-white">Líder de Equipe (Visão Geral)</div>
+                  <div className="text-[10px] text-neutral-400">
+                    Permite visualizar os agendamentos de todos os profissionais na barbearia.
+                  </div>
+                </div>
+              </label>
+
+              {/* Ações */}
+              <div className="pt-3 border-t border-neutral-800 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-4 py-2.5 rounded-xl border border-neutral-700 text-neutral-300 hover:bg-neutral-800 text-xs font-bold cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreating}
+                  className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-neutral-950 text-xs font-black flex items-center gap-2 shadow-lg disabled:opacity-50 cursor-pointer"
+                >
+                  {isCreating ? 'Cadastrando...' : 'Criar Profissional e Acesso'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -215,7 +215,8 @@ export const ProfessionalsTab: React.FC = () => {
           avatarUrl: avatarUrl.trim() || undefined,
           commissionPercentage,
           canViewAllProfessionals,
-          specialties: finalSpecialties
+          specialties: finalSpecialties,
+          status: 'active'
         });
         setIsSaved(true);
         setTimeout(() => {
@@ -226,6 +227,7 @@ export const ProfessionalsTab: React.FC = () => {
         const result = createProfessionalAccess({
           tenantId: currentBarbershop.id,
           role: 'PROFISSIONAL',
+          status: 'active',
           name: name.trim(),
           whatsapp: whatsapp.trim(),
           email: email.trim() || undefined,
