@@ -582,6 +582,38 @@ export const ClientAppView: React.FC = () => {
 
   const handleSelectCategory = (cat: string) => {
     setSelectedCategory(cat);
+    // Se o serviço atualmente selecionado não pertence à categoria recém-selecionada,
+    // limpa a seleção para evitar que um serviço oculto (ex: corte de cabelo) permaneça marcado ao navegar para outra categoria (ex: barba)
+    if (selectedService && cat !== 'TODOS') {
+      const normalize = (str: string) =>
+        (str || '')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .trim();
+
+      const sel = normalize(cat);
+      const serviceCat = normalize(selectedService.category || '');
+
+      let belongsToCategory = false;
+      if (sel === 'cabelo') {
+        belongsToCategory = serviceCat === 'cabelo' || serviceCat === 'corte' || serviceCat === 'cortes';
+      } else if (sel === 'barba') {
+        belongsToCategory = serviceCat === 'barba' || serviceCat === 'barboterapia';
+      } else if (sel === 'combos' || sel === 'combo') {
+        belongsToCategory = serviceCat === 'combos' || serviceCat === 'combo';
+      } else if (sel === 'quimica') {
+        belongsToCategory = serviceCat === 'quimica' || serviceCat === 'quimicas';
+      } else if (sel === 'estetica') {
+        belongsToCategory = serviceCat === 'estetica';
+      } else {
+        belongsToCategory = serviceCat === sel;
+      }
+
+      if (!belongsToCategory) {
+        setSelectedService(null);
+      }
+    }
   };
 
   const executeBookingWithClient = (clientUser: UserType) => {
@@ -1359,7 +1391,7 @@ export const ClientAppView: React.FC = () => {
                   <div className="bg-neutral-900/80 border border-neutral-800/80 rounded-2xl p-6 text-center space-y-2">
                     <p className="text-xs font-bold text-neutral-300">Nenhum serviço encontrado nesta categoria</p>
                     <button
-                      onClick={() => setSelectedCategory('TODOS')}
+                      onClick={() => handleSelectCategory('TODOS')}
                       className="px-3 py-1.5 rounded-xl text-xs font-bold"
                       style={{
                         backgroundColor: 'var(--theme-primary, #FF6B00)',
