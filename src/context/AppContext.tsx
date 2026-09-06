@@ -24,7 +24,8 @@ import {
   SubscriptionPaymentRecord,
   SubscriptionStatus,
   ColorMode,
-  CustomPlan
+  CustomPlan,
+  PlanBillingScheduleStage
 } from '../types';
 import {
   INITIAL_BARBERSHOPS,
@@ -591,11 +592,67 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateCustomPlan = async (planId: string, updates: Partial<CustomPlan>) => {
+    const existing = customPlans.find(p => p.id === planId);
+    if (!existing) {
+      return { success: false, error: 'Plano não encontrado no sistema.' };
+    }
+
+    // Calcular ou garantir cronograma de cobrança (scheduleStages) sincronizado
+    let computedStages = updates.scheduleStages;
+    if (!computedStages || computedStages.length === 0) {
+      const hasTrial = updates.hasTrial ?? existing.hasTrial;
+      const trialDuration = updates.trialDuration ?? existing.trialDuration ?? 14;
+      const trialUnit = updates.trialUnit ?? existing.trialUnit ?? 'DAYS';
+      const hasPromotion = updates.hasPromotion ?? existing.hasPromotion;
+      const promotionDuration = updates.promotionDuration ?? existing.promotionDuration ?? 3;
+      const promotionUnit = updates.promotionUnit ?? existing.promotionUnit ?? 'MONTHS';
+      const promotionalPrice = updates.promotionalPrice ?? existing.promotionalPrice ?? existing.priceMonthly;
+      const priceAfterPromotion = updates.priceAfterPromotion ?? existing.priceAfterPromotion ?? (updates.priceMonthly ?? existing.priceMonthly);
+      const regularPrice = updates.priceMonthly ?? existing.priceMonthly;
+
+      const stages: PlanBillingScheduleStage[] = [];
+      let order = 1;
+      if (hasTrial && trialDuration > 0) {
+        stages.push({
+          id: `stage-trial-${order}`,
+          order: order++,
+          name: 'Período Gratuito',
+          duration: trialDuration,
+          unit: trialUnit,
+          price: 0
+        });
+      }
+      if (hasPromotion && promotionDuration > 0 && promotionalPrice !== undefined) {
+        stages.push({
+          id: `stage-promo-${order}`,
+          order: order++,
+          name: 'Promoção de Lançamento',
+          duration: promotionDuration,
+          unit: promotionUnit === 'CYCLES' ? 'MONTHS' : promotionUnit,
+          price: Number(promotionalPrice)
+        });
+      }
+      stages.push({
+        id: `stage-regular-${order}`,
+        order: order++,
+        name: 'Preço Normal Recorrente',
+        duration: 0,
+        unit: 'INDEFINITE',
+        price: Number(hasPromotion ? priceAfterPromotion : regularPrice)
+      });
+      computedStages = stages;
+    }
+
+    const payloadWithStages = {
+      ...updates,
+      scheduleStages: computedStages
+    };
+
     try {
       const res = await fetch(`/api/plans/${planId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates)
+        body: JSON.stringify(payloadWithStages)
       });
       const contentType = res.headers.get('content-type') || '';
       if (res.ok && contentType.includes('application/json')) {
@@ -610,15 +667,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Falha de conexão ou resposta não-JSON (fallback resiliente para Firestore e estado local)
     }
 
-    const existing = customPlans.find(p => p.id === planId);
-    if (!existing) {
-      return { success: false, error: 'Plano não encontrado no sistema.' };
-    }
-
     const updatedPlan: CustomPlan = {
       ...existing,
-      ...updates,
+      ...payloadWithStages,
       id: existing.id,
+      scheduleStages: computedStages,
       features: {
         ...existing.features,
         ...(updates.features || {})

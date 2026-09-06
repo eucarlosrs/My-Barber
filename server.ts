@@ -1183,7 +1183,11 @@ app.post('/api/subscriptions/simulate-action', async (req: Request, res: Respons
 
   switch (action) {
     case 'VALIDATE_CARD_AND_START_TRIAL': {
-      // Step 1: Card is validated by Mercado Pago -> Starts 14 Days Free Trial with full access
+      // Step 1: Card is validated by Mercado Pago -> Starts Free Trial with full access
+      const plan = plansDB.get(subscription.planId || 'PLANO_UNICO') || plansDB.get('PLANO_UNICO');
+      const trialDays = plan?.hasTrial ? (plan.trialDuration || 14) : 14;
+      const firstChargePrice = plan?.hasPromotion ? (plan.promotionalPrice ?? plan.priceMonthly) : plan?.priceMonthly;
+
       subscription.cardValidated = true;
       subscription.cardBrand = 'Mastercard';
       subscription.cardLastFourDigits = '8822';
@@ -1197,7 +1201,7 @@ app.post('/api/subscriptions/simulate-action', async (req: Request, res: Respons
       subscription.updatedAt = nowIso;
       delete subscription.pastDueSince;
 
-      message = `Cartão validado com sucesso pelo Mercado Pago! Período gratuito de 14 DIAS GRÁTIS iniciado com acesso completo. Primeira cobrança de R$ 49,90 programada para ${subscription.trialEndDate}.`;
+      message = `Cartão validado com sucesso pelo Mercado Pago! Período gratuito de ${trialDays} DIAS GRÁTIS iniciado com acesso completo. Primeira cobrança de R$ ${Number(firstChargePrice || 49.90).toFixed(2).replace('.', ',')} programada para ${subscription.trialEndDate}.`;
       break;
     }
 
@@ -1211,20 +1215,23 @@ app.post('/api/subscriptions/simulate-action', async (req: Request, res: Respons
       subscription.cardValidated = true;
       delete subscription.pastDueSince;
 
-      // Rule:
-      // Month 1, 2, 3 = R$ 49.90 (promotional)
-      // Month 4+ = R$ 69.90 (regular auto-switch)
-      const paidAmount = nextPaidCount <= 3 ? 49.90 : 69.90;
+      const plan = plansDB.get(subscription.planId || 'PLANO_UNICO') || plansDB.get('PLANO_UNICO');
+      const promoMonths = (plan?.hasPromotion && plan?.promotionDuration) ? plan.promotionDuration : 3;
+      const promoPrice = (plan?.hasPromotion && plan?.promotionalPrice !== undefined) ? Number(plan.promotionalPrice) : (plan?.priceMonthly || 49.90);
+      const regularPrice = (plan?.hasPromotion && plan?.priceAfterPromotion !== undefined) ? Number(plan.priceAfterPromotion) : (plan?.priceMonthly || 69.90);
 
-      if (nextPaidCount >= 3) {
-        // Automatically switch next recurring price to 69.90 on Mercado Pago
-        subscription.currentPrice = 69.90;
+      const isPromo = Boolean(plan?.hasPromotion && nextPaidCount <= promoMonths);
+      const paidAmount = isPromo ? promoPrice : regularPrice;
+
+      if (!isPromo || nextPaidCount >= promoMonths) {
+        // Switch next recurring price to regular price on Mercado Pago
+        subscription.currentPrice = regularPrice;
         subscription.trialOrLaunchPeriod = false;
         if (process.env.MERCADOPAGO_ACCESS_TOKEN && subscription.mercadopagoSubscriptionId) {
-          await updateMercadoPagoSubscriptionPrice(subscription.mercadopagoSubscriptionId, 69.90);
+          await updateMercadoPagoSubscriptionPrice(subscription.mercadopagoSubscriptionId, regularPrice);
         }
       } else {
-        subscription.currentPrice = 49.90;
+        subscription.currentPrice = promoPrice;
         subscription.trialOrLaunchPeriod = true;
       }
 
@@ -1248,14 +1255,11 @@ app.post('/api/subscriptions/simulate-action', async (req: Request, res: Respons
       };
       paymentsDB.unshift(newPayment);
 
-      if (nextPaidCount === 1) {
-        message = '1º Mês Pago confirmado (R$ 49,90). Faltam 2 meses promocionais antes do valor definitivo de R$ 69,90.';
-      } else if (nextPaidCount === 2) {
-        message = '2º Mês Pago confirmado (R$ 49,90). Falta 1 mês promocional antes do valor definitivo de R$ 69,90.';
-      } else if (nextPaidCount === 3) {
-        message = '3º Mês Pago confirmado (R$ 49,90). Oferta de 3 meses concluída! A próxima renovação (#4) foi atualizada automaticamente para R$ 69,90/mês no Mercado Pago.';
+      if (isPromo) {
+        const remainingPromo = promoMonths - nextPaidCount;
+        message = `${nextPaidCount}º Mês Pago confirmado (R$ ${paidAmount.toFixed(2).replace('.', ',')}). ${remainingPromo > 0 ? `Restam ${remainingPromo} mês(es) promocionais antes do valor regular de R$ ${regularPrice.toFixed(2).replace('.', ',')}.` : `Oferta promocional concluída! A próxima renovação foi programada para R$ ${regularPrice.toFixed(2).replace('.', ',')}/mês no Mercado Pago.`}`;
       } else {
-        message = `Mensalidade regular #${nextPaidCount} faturada em R$ 69,90 no Mercado Pago.`;
+        message = `Mensalidade regular #${nextPaidCount} faturada em R$ ${paidAmount.toFixed(2).replace('.', ',')} no Mercado Pago.`;
       }
       break;
     }

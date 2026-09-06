@@ -268,8 +268,13 @@ export const MasterAdminPlansBuilder: React.FC = () => {
     setModalFeedback(null);
 
     try {
+      const planPayload = {
+        ...formData,
+        scheduleStages: computedScheduleStages
+      };
+
       if (editingPlan) {
-        const result = await updateCustomPlan(editingPlan.id, formData);
+        const result = await updateCustomPlan(editingPlan.id, planPayload);
         if (result.success) {
           setIsSaved(true);
           setModalFeedback({ type: 'success', message: 'Plano atualizado com sucesso!' });
@@ -282,7 +287,7 @@ export const MasterAdminPlansBuilder: React.FC = () => {
           setModalFeedback({ type: 'error', message: result.error || 'Erro ao atualizar o plano.' });
         }
       } else {
-        const result = await createCustomPlan(formData);
+        const result = await createCustomPlan(planPayload);
         if (result.success) {
           setIsSaved(true);
           setModalFeedback({ type: 'success', message: 'Novo plano criado com sucesso e pronto para contratação!' });

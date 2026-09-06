@@ -23,6 +23,7 @@ export const MySubscriptionView: React.FC = () => {
     currentBarbershop,
     currentSubscription,
     subscriptionPayments,
+    customPlans,
     simulateSubscriptionAction,
     syncSubscription,
     toleranceDaysRemaining
@@ -32,6 +33,29 @@ export const MySubscriptionView: React.FC = () => {
   const [feedbackMessage, setFeedbackMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
   const shopPayments = subscriptionPayments.filter(p => p.barbershopId === currentBarbershop.id);
+
+  // Resolver plano ativo vinculado à barbearia
+  const activePlan = customPlans.find(p => p.id === currentBarbershop.planId) ||
+    customPlans.find(p => p.id === currentSubscription?.planId) ||
+    customPlans.find(p => p.id === 'PLANO_UNICO') ||
+    customPlans[0];
+
+  const planName = activePlan?.name || currentSubscription?.plan || 'Plano MY BARBER';
+
+  const isInTrial = currentSubscription?.status === 'TRIAL_14_DAYS';
+  const paidCount = currentSubscription?.paidBillingCount || 0;
+
+  const hasPromo = Boolean(activePlan?.hasPromotion);
+  const promoMonths = activePlan?.promotionDuration || 3;
+  const promoPrice = activePlan?.promotionalPrice ?? activePlan?.priceMonthly ?? 49.90;
+  const regularPrice = (hasPromo && activePlan?.priceAfterPromotion !== undefined)
+    ? activePlan.priceAfterPromotion
+    : (activePlan?.priceMonthly ?? 69.90);
+
+  const isLaunchOffer = hasPromo && paidCount <= promoMonths;
+  const currentPrice = isInTrial
+    ? 0.00
+    : (currentSubscription?.currentPrice ?? (isLaunchOffer ? promoPrice : regularPrice));
 
   const handleSimulate = async (action: 'CONFIRM_PAYMENT' | 'TRIGGER_PAST_DUE' | 'TRIGGER_SUSPEND' | 'REGULARIZE' | 'CANCEL' | 'VALIDATE_CARD_AND_START_TRIAL') => {
     setIsLoading(true);
@@ -132,11 +156,6 @@ export const MySubscriptionView: React.FC = () => {
         );
     }
   };
-
-  const isInTrial = currentSubscription?.status === 'TRIAL_14_DAYS';
-  const paidCount = currentSubscription?.paidBillingCount || 0;
-  const currentPrice = isInTrial ? 0.00 : (paidCount <= 3 ? 49.90 : 69.90);
-  const isLaunchOffer = paidCount <= 3;
 
   return (
     <div className="space-y-6" id="my-subscription-container">
@@ -246,7 +265,7 @@ export const MySubscriptionView: React.FC = () => {
                 <CreditCard className="w-6 h-6" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-zinc-900">Plano MY BARBER Oficial</h2>
+                <h2 className="text-lg font-bold text-zinc-900">{planName}</h2>
                 <p className="text-xs text-zinc-500">Recorrência mensal automática com transição programada</p>
               </div>
             </div>
@@ -262,57 +281,81 @@ export const MySubscriptionView: React.FC = () => {
             </div>
           </div>
 
-          {/* Pricing Milestones Progression (14 Days Free -> 3 Months R$ 49,90 -> Month 4+ R$ 69,90) */}
+          {/* Pricing Milestones Progression */}
           <div className="bg-zinc-50 rounded-xl p-4 border border-zinc-200/80 space-y-3">
             <div className="flex items-center justify-between text-xs font-semibold text-zinc-700">
-              <span>Evolução do Plano MY BARBER</span>
+              <span>Evolução do {planName}</span>
               <span className="font-bold text-amber-700">
-                {isInTrial ? 'Período de Degustação (14 Dias Grátis)' : `Mensalidade Paga #${paidCount || 1}`}
+                {isInTrial ? `Período de Degustação (${activePlan?.hasTrial ? `${activePlan.trialDuration} Dias Grátis` : '14 Dias Grátis'})` : `Mensalidade Paga #${paidCount || 1}`}
               </span>
             </div>
 
             {/* Stepper Visualizer */}
-            <div className="grid grid-cols-5 gap-2">
-              {/* 14 Days Free */}
-              <div className={`p-2.5 rounded-lg border text-center transition-all ${isInTrial ? 'bg-sky-50 border-sky-300 text-sky-900 font-medium ring-2 ring-sky-400' : (paidCount >= 1 ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-white border-zinc-200 text-zinc-600')}`}>
-                <div className="text-[9px] uppercase font-bold tracking-wider text-sky-600">Degustação</div>
-                <div className="text-xs font-semibold mt-0.5">14 Dias Grátis</div>
-                <div className="text-[10px] text-zinc-500 mt-1">
-                  {paidCount >= 1 ? '✓ Concluído' : isInTrial ? 'Em Uso' : 'Pendente'}
-                </div>
-              </div>
+            <div className={`grid gap-2 ${
+              activePlan?.scheduleStages && activePlan.scheduleStages.length > 0
+                ? (activePlan.scheduleStages.length === 2 ? 'grid-cols-2' : activePlan.scheduleStages.length === 3 ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4')
+                : 'grid-cols-3'
+            }`}>
+              {activePlan?.scheduleStages && activePlan.scheduleStages.length > 0 ? (
+                activePlan.scheduleStages.map((stage, idx) => {
+                  const isTrialStage = stage.price === 0;
+                  const isLastStage = idx === activePlan.scheduleStages.length - 1;
+                  const isCurrent = isTrialStage
+                    ? isInTrial
+                    : (!isInTrial && (isLastStage ? paidCount >= (hasPromo ? promoMonths : 1) : isLaunchOffer));
+                  const isCompleted = isTrialStage
+                    ? paidCount >= 1
+                    : (isLastStage ? paidCount > (hasPromo ? promoMonths : 1) : paidCount > promoMonths);
 
-              {/* Month 1 */}
-              <div className={`p-2.5 rounded-lg border text-center transition-all ${paidCount >= 1 ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-medium' : (!isInTrial && paidCount === 0 ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-white border-zinc-200 text-zinc-600')}`}>
-                <div className="text-[9px] uppercase font-bold tracking-wider">1º Mês</div>
-                <div className="text-xs font-semibold mt-0.5">R$ 49,90</div>
-                <div className="text-[10px] text-zinc-500 mt-1">{paidCount >= 1 ? '✓ Pago' : 'Programado'}</div>
-              </div>
-
-              {/* Month 2 */}
-              <div className={`p-2.5 rounded-lg border text-center transition-all ${paidCount >= 2 ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-medium' : paidCount === 1 ? 'bg-amber-50 border-amber-300 text-amber-800 font-medium' : 'bg-white border-zinc-200 text-zinc-600'}`}>
-                <div className="text-[9px] uppercase font-bold tracking-wider">2º Mês</div>
-                <div className="text-xs font-semibold mt-0.5">R$ 49,90</div>
-                <div className="text-[10px] text-zinc-500 mt-1">{paidCount >= 2 ? '✓ Pago' : paidCount === 1 ? 'Próximo' : 'Pendente'}</div>
-              </div>
-
-              {/* Month 3 */}
-              <div className={`p-2.5 rounded-lg border text-center transition-all ${paidCount >= 3 ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-medium' : paidCount === 2 ? 'bg-amber-50 border-amber-300 text-amber-800 font-medium' : 'bg-white border-zinc-200 text-zinc-600'}`}>
-                <div className="text-[9px] uppercase font-bold tracking-wider">3º Mês</div>
-                <div className="text-xs font-semibold mt-0.5">R$ 49,90</div>
-                <div className="text-[10px] text-zinc-500 mt-1">{paidCount >= 3 ? '✓ Pago' : paidCount === 2 ? 'Próximo' : 'Pendente'}</div>
-              </div>
-
-              {/* Month 4+ */}
-              <div className={`p-2.5 rounded-lg border text-center transition-all ${paidCount >= 4 ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-medium' : 'bg-zinc-100 border-zinc-300 text-zinc-700'}`}>
-                <div className="text-[9px] uppercase font-bold tracking-wider text-amber-600">4º Mês+</div>
-                <div className="text-xs font-semibold mt-0.5">R$ 69,90</div>
-                <div className="text-[10px] text-zinc-500 mt-1">Automático</div>
-              </div>
+                  return (
+                    <div
+                      key={stage.id || idx}
+                      className={`p-2.5 rounded-lg border text-center transition-all ${
+                        isCurrent
+                          ? 'bg-amber-50 border-amber-300 text-amber-900 font-medium ring-2 ring-amber-400'
+                          : isCompleted
+                            ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-medium'
+                            : 'bg-white border-zinc-200 text-zinc-600'
+                      }`}
+                    >
+                      <div className="text-[9px] uppercase font-bold tracking-wider text-amber-700">
+                        {stage.name}
+                      </div>
+                      <div className="text-xs font-semibold mt-0.5">
+                        {stage.price === 0 ? 'Grátis' : `R$ ${stage.price.toFixed(2).replace('.', ',')}`}
+                        {stage.duration > 0 ? ` (${stage.duration} ${stage.unit === 'DAYS' ? 'dias' : 'meses'})` : ' /mês'}
+                      </div>
+                      <div className="text-[10px] text-zinc-500 mt-1">
+                        {isCompleted ? '✓ Concluído' : isCurrent ? (isTrialStage ? 'Em Uso' : 'Atual') : 'Programado'}
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <>
+                  <div className={`p-2.5 rounded-lg border text-center transition-all ${isInTrial ? 'bg-sky-50 border-sky-300 text-sky-900 font-medium ring-2 ring-sky-400' : (paidCount >= 1 ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-white border-zinc-200 text-zinc-600')}`}>
+                    <div className="text-[9px] uppercase font-bold tracking-wider text-sky-600">Degustação</div>
+                    <div className="text-xs font-semibold mt-0.5">{activePlan?.hasTrial ? `${activePlan.trialDuration} Dias Grátis` : '14 Dias Grátis'}</div>
+                    <div className="text-[10px] text-zinc-500 mt-1">{paidCount >= 1 ? '✓ Concluído' : isInTrial ? 'Em Uso' : 'Pendente'}</div>
+                  </div>
+                  {hasPromo && (
+                    <div className={`p-2.5 rounded-lg border text-center transition-all ${isLaunchOffer && !isInTrial ? 'bg-amber-50 border-amber-300 text-amber-800 ring-2 ring-amber-400' : (paidCount > promoMonths ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-white border-zinc-200 text-zinc-600')}`}>
+                      <div className="text-[9px] uppercase font-bold tracking-wider text-amber-700">Promoção ({promoMonths} meses)</div>
+                      <div className="text-xs font-semibold mt-0.5">R$ {promoPrice.toFixed(2).replace('.', ',')}</div>
+                      <div className="text-[10px] text-zinc-500 mt-1">{paidCount > promoMonths ? '✓ Concluído' : isLaunchOffer ? 'Em Vigência' : 'Programado'}</div>
+                    </div>
+                  )}
+                  <div className={`p-2.5 rounded-lg border text-center transition-all ${!isInTrial && (!hasPromo || paidCount > promoMonths) ? 'bg-amber-50 border-amber-300 text-amber-800 font-medium' : 'bg-zinc-100 border-zinc-300 text-zinc-700'}`}>
+                    <div className="text-[9px] uppercase font-bold tracking-wider text-zinc-600">Tarifa Regular</div>
+                    <div className="text-xs font-semibold mt-0.5">R$ {regularPrice.toFixed(2).replace('.', ',')}</div>
+                    <div className="text-[10px] text-zinc-500 mt-1">Recorrente</div>
+                  </div>
+                </>
+              )}
             </div>
 
             <p className="text-xs text-zinc-500 italic">
-              * Cartão validado no Mercado Pago para liberação imediata de <strong>14 dias grátis</strong> com acesso total. A transição de R$ 49,90 para R$ 69,90 a partir do 4º mês é <strong>100% automática</strong> na mesma assinatura.
+              * Cartão validado no Mercado Pago para liberação imediata{activePlan?.hasTrial ? ` de ${activePlan.trialDuration} dias grátis com acesso total` : ''}. A transição para a tarifa recorrente é <strong>100% automática</strong> na mesma assinatura.
             </p>
           </div>
 
