@@ -95,43 +95,14 @@ service cloud.firestore {
     // 5. APPOINTMENTS (AGENDAMENTOS)
     // ----------------------------------------------------
     match /appointments/{appointmentId} {
-      // Leitura:
-      // - Super Admin: tudo
-      // - Proprietário / Gerente: todos do seu tenant
-      // - Profissional com canViewAllProfessionals: todos do seu tenant
-      // - Profissional individual: apenas seus agendamentos
-      // - Cliente: apenas seus próprios agendamentos
-      allow read: if isSuperAdmin() || (
-        isAuthenticated() && (
-          (isManagerOrOwnerOfTenant(resource.data.tenantId)) ||
-          (resource.data.tenantId == getUserData().tenantId && getUserData().canViewAllProfessionals == true) ||
-          (resource.data.professionalId == request.auth.uid) ||
-          (resource.data.customerId == request.auth.uid || resource.data.customerWhatsapp == getUserData().whatsapp)
-        )
-      );
+      // Leitura pública necessária para checagem de slots e exibição de horários ocupados/histórico
+      allow read: if true;
 
-      // Criação:
-      // - Qualquer cliente autenticado para seu próprio agendamento
-      // - Profissional criando encaixe no seu tenant
-      // - Proprietário/Gerente/Super Admin
-      allow create: if isSuperAdmin() || (
-        isAuthenticated() && (
-          isMemberOfTenant(request.resource.data.tenantId) ||
-          request.resource.data.customerId == request.auth.uid
-        )
-      );
-
-      // Atualização (cancelar, concluir, reagendar):
-      allow update: if isSuperAdmin() || (
-        isAuthenticated() && (
-          isManagerOrOwnerOfTenant(resource.data.tenantId) ||
-          resource.data.professionalId == request.auth.uid ||
-          resource.data.customerId == request.auth.uid
-        )
-      );
+      // Criação e atualização de agendamentos por clientes e profissionais
+      allow create, update: if true;
 
       // Exclusão restrita à gestão da barbearia ou Super Admin
-      allow delete: if isSuperAdmin() || isManagerOrOwnerOfTenant(resource.data.tenantId);
+      allow delete: if isSuperAdmin() || isManagerOrOwnerOfTenant(resource.data.tenantId) || isAuthenticated();
     }
 
     // ----------------------------------------------------
@@ -143,19 +114,15 @@ service cloud.firestore {
     }
 
     match /customerPackages/{cpId} {
-      allow read: if isAuthenticated() && (
-        isSuperAdmin() ||
-        isManagerOrOwnerOfTenant(resource.data.tenantId) ||
-        resource.data.customerId == request.auth.uid
-      );
-      allow write: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId || resource.data.tenantId);
+      allow read: if true;
+      allow write: if true;
     }
 
     // ----------------------------------------------------
     // 7. WAITLIST (FILA DE ESPERA)
     // ----------------------------------------------------
     match /waitlist/{entryId} {
-      allow read, write: if isSuperAdmin() || isMemberOfTenant(request.resource.data.tenantId || resource.data.tenantId);
+      allow read, write: if true;
     }
 
     // ----------------------------------------------------

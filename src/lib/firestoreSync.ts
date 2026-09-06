@@ -149,13 +149,44 @@ export function subscribeCollection<T>(
       snapshot => {
         if (!snapshot.empty) {
           const items = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as unknown as T));
+          try {
+            if (collectionName === 'appointments') {
+              localStorage.setItem('mybarber_cached_appointments', JSON.stringify(items));
+            } else if (collectionName === 'users') {
+              localStorage.setItem('mybarber_cached_users', JSON.stringify(items));
+            }
+          } catch {
+            // ignore
+          }
           onUpdate(items);
         }
         markLoaded();
       },
       error => {
         console.warn(`Firestore sync warning on ${collectionName}:`, error);
-        onUpdate(fallbackData);
+        let dataToUse = fallbackData;
+        try {
+          if (collectionName === 'appointments') {
+            const cached = localStorage.getItem('mybarber_cached_appointments');
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                dataToUse = parsed as unknown as T[];
+              }
+            }
+          } else if (collectionName === 'users') {
+            const cached = localStorage.getItem('mybarber_cached_users');
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                dataToUse = parsed as unknown as T[];
+              }
+            }
+          }
+        } catch {
+          // ignore
+        }
+        onUpdate(dataToUse);
         markLoaded();
       }
     );

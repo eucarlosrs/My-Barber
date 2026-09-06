@@ -262,6 +262,11 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [authenticatedUser, setAuthenticatedUser] = useState<User | null>(() => {
     try {
+      const savedUserJson = localStorage.getItem('mybarber_session_user');
+      if (savedUserJson) {
+        const parsed = JSON.parse(savedUserJson);
+        if (parsed && parsed.id) return parsed;
+      }
       const savedId = localStorage.getItem('mybarber_session_user_id');
       if (savedId) {
         return INITIAL_USERS.find(u => u.id === savedId) || null;
@@ -366,9 +371,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
+  const [users, setUsers] = useState<User[]>(() => {
+    try {
+      const cachedUsers = localStorage.getItem('mybarber_cached_users');
+      if (cachedUsers) {
+        const parsed = JSON.parse(cachedUsers);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const map = new Map<string, User>();
+          INITIAL_USERS.forEach(u => map.set(u.id, u));
+          parsed.forEach((u: User) => map.set(u.id, u));
+          return Array.from(map.values());
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return INITIAL_USERS;
+  });
   const [currentUserId, setCurrentUserId] = useState<string>(() => {
     try {
+      const savedUserJson = localStorage.getItem('mybarber_session_user');
+      if (savedUserJson) {
+        const parsed = JSON.parse(savedUserJson);
+        if (parsed && parsed.id) return parsed.id;
+      }
       const savedId = localStorage.getItem('mybarber_session_user_id');
       if (savedId) return savedId;
     } catch {
@@ -379,7 +405,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [services, setServices] = useState<Service[]>(INITIAL_SERVICES);
   const [schedules, setSchedules] = useState<ProfessionalScheduleConfig[]>(INITIAL_SCHEDULES);
-  const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
+  const [appointments, setAppointments] = useState<Appointment[]>(() => {
+    try {
+      const cached = localStorage.getItem('mybarber_cached_appointments');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const map = new Map<string, Appointment>();
+          INITIAL_APPOINTMENTS.forEach(a => map.set(a.id, a));
+          parsed.forEach((a: Appointment) => map.set(a.id, a));
+          return Array.from(map.values());
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return INITIAL_APPOINTMENTS;
+  });
   const [waitlist, setWaitlist] = useState<WaitlistEntry[]>(INITIAL_WAITLIST);
   const [packages, setPackages] = useState<ServicePackage[]>(INITIAL_PACKAGES);
   const [customerPackages, setCustomerPackages] = useState<CustomerPackage[]>(INITIAL_CUSTOMER_PACKAGES);
@@ -656,7 +698,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubUsers = subscribeCollection<User>('users', setUsers, INITIAL_USERS, checkInitialReady);
     const unsubServices = subscribeCollection<Service>('services', setServices, INITIAL_SERVICES, checkInitialReady);
     const unsubSchedules = subscribeCollection<ProfessionalScheduleConfig>('schedules', setSchedules, INITIAL_SCHEDULES);
-    const unsubAppointments = subscribeCollection<Appointment>('appointments', setAppointments, INITIAL_APPOINTMENTS);
+    const unsubAppointments = subscribeCollection<Appointment>(
+      'appointments',
+      (items) => {
+        setAppointments(prev => {
+          const map = new Map<string, Appointment>();
+          prev.forEach(a => map.set(a.id, a));
+          items.forEach(a => map.set(a.id, a));
+          const merged = Array.from(map.values());
+          try {
+            localStorage.setItem('mybarber_cached_appointments', JSON.stringify(merged));
+          } catch {
+            // ignore
+          }
+          return merged;
+        });
+      },
+      INITIAL_APPOINTMENTS
+    );
     const unsubWaitlist = subscribeCollection<WaitlistEntry>('waitlist', setWaitlist, INITIAL_WAITLIST);
     const unsubPackages = subscribeCollection<ServicePackage>('packages', setPackages, INITIAL_PACKAGES);
     const unsubCustomerPackages = subscribeCollection<CustomerPackage>('customerPackages', setCustomerPackages, INITIAL_CUSTOMER_PACKAGES);
@@ -1013,8 +1072,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       reminderSent: false
     };
 
-    // Atualização otimista no estado local
-    setAppointments(prev => [created, ...prev]);
+    // Atualização otimista no estado local e cache persistente
+    setAppointments(prev => {
+      const next = [created, ...prev];
+      try {
+        localStorage.setItem('mybarber_cached_appointments', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
 
     // Persistência atômica com validação de concorrência com os dados frescos do Firestore
     syncAppointmentWithLock(created, (freshList) => {
@@ -1031,8 +1098,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     }).then(lockResult => {
       if (!lockResult.success) {
-        // Reverte o estado local caso a validação no banco acuse colisão concorrente
-        setAppointments(prev => prev.filter(a => a.id !== created.id));
+        // Reverte o estado local APENAS se a validação no banco acusar colisão de horário concorrente
+        const isCollision =
+          lockResult.error === 'SLOT_OCCUPIED' ||
+          (lockResult.error && (lockResult.error.includes('reservado') || lockResult.error.includes('ocupado') || lockResult.error.includes('indisponível')));
+
+        if (isCollision) {
+          setAppointments(prev => {
+            const next = prev.filter(a => a.id !== created.id);
+            try {
+              localStorage.setItem('mybarber_cached_appointments', JSON.stringify(next));
+            } catch {
+              // ignore
+            }
+            return next;
+          });
+        }
       }
     });
 
@@ -1115,9 +1196,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (apt) {
       syncDoc('appointments', appointmentId, { ...apt, status: 'CANCELADO' });
     }
-    setAppointments(prev =>
-      prev.map(a => (a.id === appointmentId ? { ...a, status: 'CANCELADO' } : a))
-    );
+    setAppointments(prev => {
+      const next = prev.map(a => (a.id === appointmentId ? { ...a, status: 'CANCELADO' as const } : a));
+      try {
+        localStorage.setItem('mybarber_cached_appointments', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
   };
 
   const updateAppointmentStatus = (appointmentId: string, status: AppointmentStatus) => {
@@ -1125,9 +1212,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (apt) {
       syncDoc('appointments', appointmentId, { ...apt, status });
     }
-    setAppointments(prev =>
-      prev.map(a => (a.id === appointmentId ? { ...a, status } : a))
-    );
+    setAppointments(prev => {
+      const next = prev.map(a => (a.id === appointmentId ? { ...a, status } : a));
+      try {
+        localStorage.setItem('mybarber_cached_appointments', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
   };
 
   const addToWaitlist = (entry: Omit<WaitlistEntry, 'id' | 'createdAt' | 'status'>) => {
@@ -1629,6 +1722,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setWhatsappLoginPhone(cleanPhone);
     try {
       localStorage.setItem('mybarber_session_user_id', client.id);
+      localStorage.setItem('mybarber_session_user', JSON.stringify(client));
     } catch {
       // ignore
     }
@@ -1661,6 +1755,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setWhatsappLoginPhone(cleanPhone);
     try {
       localStorage.setItem('mybarber_session_user_id', client.id);
+      localStorage.setItem('mybarber_session_user', JSON.stringify(client));
     } catch {
       // ignore
     }
@@ -1745,6 +1840,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAuthenticatedUser(null);
     try {
       localStorage.removeItem('mybarber_session_user_id');
+      localStorage.removeItem('mybarber_session_user');
     } catch {
       // ignore
     }

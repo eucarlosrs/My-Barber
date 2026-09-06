@@ -398,14 +398,42 @@ export const ClientAppView: React.FC = () => {
 
   // Client's appointments
   const clientAppointments = useMemo(() => {
-    return appointments.filter(a => a.clientId === currentUser.id);
-  }, [appointments, currentUser.id]);
+    const validIds = new Set<string>();
+    if (currentUser?.id) validIds.add(currentUser.id);
+    if (authenticatedUser?.id) validIds.add(authenticatedUser.id);
+    const clientPhone = (currentUser?.whatsapp || authenticatedUser?.whatsapp || '').replace(/\D/g, '');
+
+    return appointments.filter(a => {
+      if (validIds.has(a.clientId)) return true;
+      if (clientPhone.length >= 8 && a.clientWhatsApp && a.clientWhatsApp.replace(/\D/g, '') === clientPhone) {
+        return true;
+      }
+      return false;
+    });
+  }, [appointments, currentUser, authenticatedUser]);
 
   const clientOtherAppointments = useMemo(() => {
-    return allAppointments.filter(a => a.clientId === currentUser.id && a.tenantId !== currentBarbershop.id);
-  }, [allAppointments, currentUser.id, currentBarbershop.id]);
+    const validIds = new Set<string>();
+    if (currentUser?.id) validIds.add(currentUser.id);
+    if (authenticatedUser?.id) validIds.add(authenticatedUser.id);
+    const clientPhone = (currentUser?.whatsapp || authenticatedUser?.whatsapp || '').replace(/\D/g, '');
 
-  const clientCustPackages = customerPackages.filter(cp => cp.clientId === currentUser.id);
+    return allAppointments.filter(a => {
+      if (a.tenantId === currentBarbershop.id) return false;
+      if (validIds.has(a.clientId)) return true;
+      if (clientPhone.length >= 8 && a.clientWhatsApp && a.clientWhatsApp.replace(/\D/g, '') === clientPhone) {
+        return true;
+      }
+      return false;
+    });
+  }, [allAppointments, currentUser, authenticatedUser, currentBarbershop.id]);
+
+  const clientCustPackages = useMemo(() => {
+    const validIds = new Set<string>();
+    if (currentUser?.id) validIds.add(currentUser.id);
+    if (authenticatedUser?.id) validIds.add(authenticatedUser.id);
+    return customerPackages.filter(cp => validIds.has(cp.clientId));
+  }, [customerPackages, currentUser, authenticatedUser]);
 
   // Dynamic Time Slots calculation based on fundamental availability rules
   const selectedScheduleConfig = schedules.find(s => s.professionalId === selectedProfessional?.id);
