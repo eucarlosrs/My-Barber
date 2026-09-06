@@ -522,18 +522,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(planData)
       });
-      const result = await res.json();
-      if (result.success && result.plan) {
-        setCustomPlans(prev => {
-          const filtered = prev.filter(p => p.id !== result.plan.id);
-          return [result.plan, ...filtered];
-        });
-        syncDoc('plans', result.plan.id, result.plan);
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
+        const result = await res.json();
+        if (result.success && result.plan) {
+          setCustomPlans(prev => {
+            const filtered = prev.filter(p => p.id !== result.plan.id);
+            return [result.plan, ...filtered];
+          });
+          syncDoc('plans', result.plan.id, result.plan);
+          return result;
+        }
       }
-      return result;
-    } catch (err: any) {
-      return { success: false, error: err.message || 'Erro ao criar plano personalizado' };
+    } catch {
+      // Falha de conexão ou resposta não-JSON (fallback resiliente para Firestore e estado local)
     }
+
+    const newId = planData.id || `plano-${Date.now()}`;
+    const newPlan: CustomPlan = {
+      id: newId,
+      name: planData.name || 'Novo Plano',
+      description: planData.description || '',
+      status: planData.status || 'ACTIVE',
+      priceMonthly: Number(planData.priceMonthly) || 49.9,
+      billingCycle: planData.billingCycle || 'MONTHLY',
+      hasTrial: planData.hasTrial ?? true,
+      trialDuration: planData.trialDuration ?? 14,
+      trialUnit: planData.trialUnit || 'DAYS',
+      hasPromotion: planData.hasPromotion ?? false,
+      promotionalPrice: planData.promotionalPrice,
+      promotionDuration: planData.promotionDuration,
+      promotionUnit: planData.promotionUnit || 'MONTHS',
+      priceAfterPromotion: planData.priceAfterPromotion,
+      scheduleStages: planData.scheduleStages || [],
+      features: {
+        agenda: true,
+        clientes: true,
+        profissionais: true,
+        servicos: true,
+        pacotes: true,
+        comunicacoes: true,
+        promocoes: true,
+        sorteios: true,
+        galeria: true,
+        estoque: true,
+        relatorios_financeiros: true,
+        ...(planData.features || {})
+      },
+      limits: {
+        maxProfessionals: 10,
+        maxUnits: 1,
+        maxClients: 'UNLIMITED',
+        ...(planData.limits || {})
+      },
+      subscribersCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    setCustomPlans(prev => [newPlan, ...prev.filter(p => p.id !== newPlan.id)]);
+    syncDoc('plans', newPlan.id, newPlan);
+
+    return {
+      success: true,
+      plan: newPlan,
+      message: 'Plano criado com sucesso e pronto para contratação!'
+    };
   };
 
   const updateCustomPlan = async (planId: string, updates: Partial<CustomPlan>) => {
@@ -543,43 +597,108 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
       });
-      const result = await res.json();
-      if (result.success && result.plan) {
-        setCustomPlans(prev => prev.map(p => p.id === planId ? result.plan : p));
-        syncDoc('plans', result.plan.id, result.plan);
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
+        const result = await res.json();
+        if (result.success && result.plan) {
+          setCustomPlans(prev => prev.map(p => p.id === planId ? result.plan : p));
+          syncDoc('plans', result.plan.id, result.plan);
+          return result;
+        }
       }
-      return result;
-    } catch (err: any) {
-      return { success: false, error: err.message || 'Erro ao atualizar plano' };
+    } catch {
+      // Falha de conexão ou resposta não-JSON (fallback resiliente para Firestore e estado local)
     }
+
+    const existing = customPlans.find(p => p.id === planId);
+    if (!existing) {
+      return { success: false, error: 'Plano não encontrado no sistema.' };
+    }
+
+    const updatedPlan: CustomPlan = {
+      ...existing,
+      ...updates,
+      id: existing.id,
+      features: {
+        ...existing.features,
+        ...(updates.features || {})
+      },
+      limits: {
+        ...existing.limits,
+        ...(updates.limits || {})
+      },
+      updatedAt: new Date().toISOString()
+    };
+
+    setCustomPlans(prev => prev.map(p => p.id === planId ? updatedPlan : p));
+    syncDoc('plans', updatedPlan.id, updatedPlan);
+
+    return {
+      success: true,
+      plan: updatedPlan,
+      message: 'Plano atualizado com sucesso.'
+    };
   };
 
   const togglePlanStatus = async (planId: string) => {
     try {
       const res = await fetch(`/api/plans/${planId}/toggle-status`, { method: 'POST' });
-      const result = await res.json();
-      if (result.success && result.plan) {
-        setCustomPlans(prev => prev.map(p => p.id === planId ? result.plan : p));
-        syncDoc('plans', result.plan.id, result.plan);
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
+        const result = await res.json();
+        if (result.success && result.plan) {
+          setCustomPlans(prev => prev.map(p => p.id === planId ? result.plan : p));
+          syncDoc('plans', result.plan.id, result.plan);
+          return result;
+        }
       }
-      return result;
-    } catch (err: any) {
-      return { success: false, error: err.message || 'Erro ao alternar status do plano' };
+    } catch {
+      // Fallback
     }
+
+    const existing = customPlans.find(p => p.id === planId);
+    if (!existing) return { success: false, error: 'Plano não encontrado' };
+
+    const newStatus = existing.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    const updatedPlan: CustomPlan = { ...existing, status: newStatus as any, updatedAt: new Date().toISOString() };
+    setCustomPlans(prev => prev.map(p => p.id === planId ? updatedPlan : p));
+    syncDoc('plans', updatedPlan.id, updatedPlan);
+
+    return { success: true, plan: updatedPlan };
   };
 
   const duplicateCustomPlan = async (planId: string) => {
     try {
       const res = await fetch(`/api/plans/${planId}/duplicate`, { method: 'POST' });
-      const result = await res.json();
-      if (result.success && result.plan) {
-        setCustomPlans(prev => [result.plan, ...prev]);
-        syncDoc('plans', result.plan.id, result.plan);
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
+        const result = await res.json();
+        if (result.success && result.plan) {
+          setCustomPlans(prev => [result.plan, ...prev]);
+          syncDoc('plans', result.plan.id, result.plan);
+          return result;
+        }
       }
-      return result;
-    } catch (err: any) {
-      return { success: false, error: err.message || 'Erro ao duplicar plano' };
+    } catch {
+      // Fallback
     }
+
+    const existing = customPlans.find(p => p.id === planId);
+    if (!existing) return { success: false, error: 'Plano não encontrado' };
+
+    const newId = `plano-${Date.now()}`;
+    const duplicated: CustomPlan = {
+      ...existing,
+      id: newId,
+      name: `${existing.name} (Cópia)`,
+      subscribersCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    setCustomPlans(prev => [duplicated, ...prev]);
+    syncDoc('plans', duplicated.id, duplicated);
+
+    return { success: true, plan: duplicated };
   };
 
   const createSubscription = async (data: {
