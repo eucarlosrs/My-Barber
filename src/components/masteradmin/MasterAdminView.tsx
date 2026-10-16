@@ -94,8 +94,9 @@ export const MasterAdminView: React.FC = () => {
     ? customPlans.filter(p => p.status === 'ACTIVE')
     : [];
 
-  // Total MRR calculation using dynamic plans
+  // Total MRR calculation using dynamic plans (exclui Compra Definitiva que é pagamento único)
   const totalMRR = barbershops.reduce((sum, b) => {
+    if (b.planId === 'plano-vitalicio') return sum;
     const customPlan = customPlans?.find(p => p.id === b.planId);
     const planPrice = customPlan ? customPlan.priceMonthly : (MY_BARBER_PLANS[b.planId]?.priceMonthly || 49.90);
     return sum + planPrice;

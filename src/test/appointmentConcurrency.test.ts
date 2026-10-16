@@ -56,6 +56,8 @@ describe('MY BARBER - Regra Fundamental Anti-Duplo Agendamento (Concorrência)',
     }
   ];
 
+  const testRefDate = new Date('2026-09-07T08:00:00');
+
   it('Deve BLOQUEAR estritamente um segundo agendamento com mesmo profissional, data e horário (10:30)', () => {
     const result = isTimeSlotAvailable({
       date: '2026-09-07',
@@ -65,7 +67,8 @@ describe('MY BARBER - Regra Fundamental Anti-Duplo Agendamento (Concorrência)',
       scheduleConfig: dummyScheduleConfig,
       businessHours: dummyBusinessHours,
       existingAppointments,
-      isEncaixe: false
+      isEncaixe: false,
+      referenceDate: testRefDate
     });
 
     assert.strictEqual(result.available, false);
@@ -81,7 +84,8 @@ describe('MY BARBER - Regra Fundamental Anti-Duplo Agendamento (Concorrência)',
       scheduleConfig: dummyScheduleConfig,
       businessHours: dummyBusinessHours,
       existingAppointments,
-      isEncaixe: false
+      isEncaixe: false,
+      referenceDate: testRefDate
     });
 
     assert.strictEqual(result.available, false);
@@ -96,7 +100,8 @@ describe('MY BARBER - Regra Fundamental Anti-Duplo Agendamento (Concorrência)',
       scheduleConfig: dummyScheduleConfig,
       businessHours: dummyBusinessHours,
       existingAppointments,
-      isEncaixe: false
+      isEncaixe: false,
+      referenceDate: testRefDate
     });
 
     assert.strictEqual(result.available, false);
@@ -111,7 +116,8 @@ describe('MY BARBER - Regra Fundamental Anti-Duplo Agendamento (Concorrência)',
       scheduleConfig: dummyScheduleConfig,
       businessHours: dummyBusinessHours,
       existingAppointments,
-      isEncaixe: false
+      isEncaixe: false,
+      referenceDate: new Date('2026-09-07T08:00:00')
     });
 
     assert.strictEqual(result.available, true);
@@ -126,7 +132,8 @@ describe('MY BARBER - Regra Fundamental Anti-Duplo Agendamento (Concorrência)',
       scheduleConfig: dummyScheduleConfig,
       businessHours: dummyBusinessHours,
       existingAppointments,
-      isEncaixe: false
+      isEncaixe: false,
+      referenceDate: new Date('2026-09-07T08:00:00')
     });
 
     assert.strictEqual(result.available, true);
@@ -148,7 +155,8 @@ describe('MY BARBER - Regra Fundamental Anti-Duplo Agendamento (Concorrência)',
       scheduleConfig: dummyScheduleConfig,
       businessHours: dummyBusinessHours,
       existingAppointments: cancelledAppointments,
-      isEncaixe: false
+      isEncaixe: false,
+      referenceDate: new Date('2026-09-07T08:00:00')
     });
 
     assert.strictEqual(result.available, true);
@@ -169,7 +177,8 @@ describe('MY BARBER - Regra Fundamental Anti-Duplo Agendamento (Concorrência)',
       scheduleConfig: dummyProfCarlosConfig,
       businessHours: dummyBusinessHours,
       existingAppointments,
-      isEncaixe: false
+      isEncaixe: false,
+      referenceDate: new Date('2026-09-07T08:00:00')
     });
 
     assert.strictEqual(result.available, true);

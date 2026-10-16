@@ -1,4 +1,4 @@
-import { Appointment, ProfessionalScheduleConfig, TimeShift, DayBusinessHours, WeeklyBusinessHours } from '../types';
+import { Appointment, PublicAvailabilitySlot, ProfessionalScheduleConfig, TimeShift, DayBusinessHours, WeeklyBusinessHours } from '../types';
 
 /**
  * Retorna a data local atual no formato "YYYY-MM-DD"
@@ -249,7 +249,7 @@ export interface SlotValidationParams {
   professionalId: string;
   scheduleConfig?: ProfessionalScheduleConfig;
   businessHours?: WeeklyBusinessHours;
-  existingAppointments: Appointment[];
+  existingAppointments: (Appointment | PublicAvailabilitySlot)[];
   excludeAppointmentId?: string; // Para validação de remarcação
   isEncaixe?: boolean;
   referenceDate?: Date; // Data/hora atual de referência
@@ -262,7 +262,7 @@ export interface SlotValidationParams {
 export function isTimeSlotAvailable(params: SlotValidationParams): {
   available: boolean;
   reason?: string;
-  conflictAppointment?: Appointment;
+  conflictAppointment?: Appointment | PublicAvailabilitySlot;
 } {
   const {
     date,
@@ -347,7 +347,7 @@ export function isTimeSlotAvailable(params: SlotValidationParams): {
   if (conflict) {
     return {
       available: false,
-      reason: `Horário indisponível. Já existe um agendamento com ${conflict.clientName} (${conflict.startTime} às ${conflict.endTime}).`,
+      reason: `Horário indisponível. Já existe um agendamento reservado (${conflict.startTime} às ${conflict.endTime}).`,
       conflictAppointment: conflict
     };
   }
@@ -371,7 +371,7 @@ export function generateAvailableSlots(params: {
   professionalId: string;
   scheduleConfig?: ProfessionalScheduleConfig;
   businessHours?: WeeklyBusinessHours;
-  existingAppointments: Appointment[];
+  existingAppointments: (Appointment | PublicAvailabilitySlot)[];
   stepMinutes?: number;
   referenceDate?: Date;
 }): {

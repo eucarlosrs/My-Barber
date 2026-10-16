@@ -81,7 +81,8 @@ export const WebAdminView: React.FC = () => {
     setViewMode,
     isPastDue,
     isSuspended,
-    toleranceDaysRemaining
+    toleranceDaysRemaining,
+    customPlans
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<
@@ -291,10 +292,33 @@ export const WebAdminView: React.FC = () => {
   const [serviceError, setServiceError] = useState<string | null>(null);
   const [showServiceUnsavedModal, setShowServiceUnsavedModal] = useState(false);
 
-  const plan = MY_BARBER_PLANS[currentBarbershop.planId] || Object.values(MY_BARBER_PLANS)[0];
-  const staffMembers = tenantUsers.filter(
-    u => u.role === 'PROFISSIONAL' || u.role === 'PROPRIETARIO' || u.role === 'GERENTE'
+  const resolvedPlan = useMemo(() => {
+    const custom = customPlans.find(p => p.id === currentBarbershop.planId) ||
+      (currentBarbershop.planId === 'PLANO_UNICO' ? customPlans.find(p => p.id === 'plano-essencial') : undefined) ||
+      customPlans.find(p => p.id === 'plano-essencial') ||
+      customPlans[0];
+
+    const maxProfs = custom && custom.limits?.maxProfessionals !== undefined
+      ? (custom.limits.maxProfessionals === 'UNLIMITED' ? 9999 : Number(custom.limits.maxProfessionals))
+      : (MY_BARBER_PLANS[currentBarbershop.planId]?.maxProfessionals || 1);
+
+    const price = custom
+      ? (custom.hasPromotion && custom.promotionalPrice !== undefined ? custom.promotionalPrice : custom.priceMonthly)
+      : (MY_BARBER_PLANS[currentBarbershop.planId]?.priceMonthly || 39.90);
+
+    return {
+      id: custom?.id || currentBarbershop.planId || 'plano-essencial',
+      name: custom?.name || MY_BARBER_PLANS[currentBarbershop.planId]?.name || 'Plano Essencial',
+      priceMonthly: price,
+      maxProfessionals: maxProfs
+    };
+  }, [customPlans, currentBarbershop.planId]);
+
+  const plan = resolvedPlan;
+  const activeProfessionals = tenantUsers.filter(
+    u => (u.role === 'PROFISSIONAL' || (u as any).canonicalRole === 'barber') && u.status !== 'inactive'
   );
+  const staffMembers = activeProfessionals;
 
   // Financial calculations
   const totalRevenue = appointments
@@ -304,7 +328,7 @@ export const WebAdminView: React.FC = () => {
   const totalCommissions = appointments
     .filter(a => a.status === 'AGENDADO' || a.status === 'CONCLUIDO')
     .reduce((sum, a) => {
-      const prof = professionals.find(p => p.id === a.professionalId);
+      const prof = professionals.find(p => p.id === a.professionalId) || tenantUsers.find(u => u.id === a.professionalId || u.uid === a.professionalId);
       const rate = prof?.commissionPercentage || 40;
       return sum + (a.servicePrice * rate) / 100;
     }, 0);
@@ -515,8 +539,8 @@ export const WebAdminView: React.FC = () => {
             </div>
             <div className="min-w-[130px]">
               <div className="flex items-center justify-between text-xs font-bold">
-                <span className="text-neutral-300 text-[11px]">Equipe</span>
-                <span className="text-orange-400">{staffMembers.length} / {plan.maxProfessionals}</span>
+                <span className="text-neutral-300 text-[11px]">Profissionais</span>
+                <span className="text-orange-400">{activeProfessionals.length} / {plan.maxProfessionals}</span>
               </div>
               <div className="w-full bg-neutral-800 h-1.5 rounded-full overflow-hidden mt-1">
                 <div
@@ -1266,7 +1290,19 @@ export const WebAdminView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-800 text-neutral-300">
-                  {professionals.map(prof => {
+                  {(() => {
+                    const profMap = new Map<string, UserType>();
+                    professionals.forEach(p => profMap.set(p.id, p));
+                    appointments.forEach(a => {
+                      if (!profMap.has(a.professionalId)) {
+                        const histProf = tenantUsers.find(u => u.id === a.professionalId || u.uid === a.professionalId);
+                        if (histProf) {
+                          profMap.set(a.professionalId, histProf);
+                        }
+                      }
+                    });
+                    return Array.from(profMap.values());
+                  })().map(prof => {
                     const profAppointments = appointments.filter(a => a.professionalId === prof.id);
                     const gross = profAppointments.reduce((sum, a) => sum + a.servicePrice, 0);
                     const rate = prof.commissionPercentage || 40;
@@ -1274,7 +1310,14 @@ export const WebAdminView: React.FC = () => {
 
                     return (
                       <tr key={prof.id} className="hover:bg-neutral-800/40">
-                        <td className="p-3 font-semibold text-neutral-100">{prof.name}</td>
+                        <td className="p-3 font-semibold text-neutral-100">
+                          {prof.name}
+                          {prof.status === 'inactive' && (
+                            <span className="ml-2 text-xs px-2 py-0.5 rounded bg-neutral-800 text-neutral-400 font-normal">
+                              Inativo
+                            </span>
+                          )}
+                        </td>
                         <td className="p-3">{profAppointments.length} cortes</td>
                         <td className="p-3 font-mono">R$ {gross.toFixed(2).replace('.', ',')}</td>
                         <td className="p-3 font-bold text-neutral-300">{rate}%</td>

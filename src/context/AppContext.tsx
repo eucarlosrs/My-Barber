@@ -47,20 +47,66 @@ import {
   INITIAL_SUBSCRIPTION_PAYMENTS,
   INITIAL_CUSTOM_PLANS
 } from '../data/initialData';
+import { collection, getDocs, query, where, limit } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { isTimeSlotAvailable, timeToMinutes, minutesToTime } from '../utils/scheduleEngine';
 import {
-  seedFirestoreIfEmpty,
   subscribeCollection,
+  subscribeTenantCollection,
+  subscribeSubcollection,
+  subscribeQuery,
+  subscribeDoc,
   syncDoc,
   deleteDocFromDb,
-  syncAppointmentWithLock
+  fetchHistoricalAppointments
 } from '../lib/firestoreSync';
+import {
+  PublicAvailabilitySlot,
+  PublicProfessionalProfile,
+  PublicCommunication,
+  PublicRaffle,
+  PublicService,
+  PublicProfessionalScheduleConfig,
+  PublicBarbershop,
+  PublicPackage,
+  PublicPromotion,
+  PublicGalleryWork
+} from '../types';
+import {
+  toPublicAvailabilitySlot,
+  toPublicProfessionalProfile,
+  toPublicCommunication,
+  toPublicRaffle,
+  toPublicService,
+  toPublicSchedule,
+  toPublicBarbershop,
+  toPublicPackage,
+  toPublicPromotion,
+  toPublicGalleryWork
+} from '../utils/projections';
 import {
   authenticateUserCredentials,
   validateProfessionalCreation,
   normalizeLogin
 } from '../utils/professionalAuthEngine';
 import { uploadImageToStorage } from '../lib/storage';
+import {
+  subscribeToAuthChanges,
+  getFirebaseCurrentUser,
+  logoutFromFirebaseAuth,
+  tryMigrateUserToFirebaseAuth,
+  getIdTokenFromCurrentUser,
+  sanitizeUserProfileForFirestore
+} from '../lib/authService';
+import {
+  AuthUserClaims,
+  CanonicalRole,
+  getAuthClaims,
+  refreshAuthClaimsSafely,
+  toCanonicalRole,
+  toLegacyRole
+} from '../lib/authClaims';
+import { getAppCheckToken } from '../lib/appCheck';
 
 export type AppViewMode = 'LOGIN' | 'STAFF_LOGIN' | 'ARCHITECTURE' | 'MASTER_ADMIN' | 'WEBADMIN' | 'CLIENT_APP' | 'PROFISSIONAL_APP' | 'DISCOVERY';
 
@@ -148,7 +194,7 @@ interface AppContextType {
   currentBarbershop: Barbershop;
   updateBarbershop: (updated: Partial<Barbershop>, targetShopId?: string) => void;
   barbershops: Barbershop[];
-  registerBarbershop: (input: RegisterBarbershopInput) => { success: boolean; barbershopId: string; error?: string };
+  registerBarbershop: (input: RegisterBarbershopInput) => Promise<{ success: boolean; barbershopId: string; subscription?: Subscription; initPointUrl?: string; error?: string }>;
   deleteBarbershop: (barbershopId: string) => { success: boolean; error?: string };
   toggleBarbershopStatus: (barbershopId: string, active: boolean) => void;
 
@@ -183,8 +229,26 @@ interface AppContextType {
 
   // Operations
   addAppointment: (appointment: Omit<Appointment, 'id' | 'createdAt' | 'reminderSent'>) => { success: boolean; error?: string };
-  rescheduleAppointment: (appointmentId: string, newDate: string, newStartTime: string, newEndTime: string) => { success: boolean; error?: string };
-  cancelAppointment: (appointmentId: string) => void;
+  bookOnlineAppointment: (params: {
+    tenantId: string;
+    professionalId: string;
+    serviceId: string;
+    date: string;
+    startTime: string;
+    clientName: string;
+    clientWhatsApp: string;
+    notes?: string;
+  }) => Promise<{ success: boolean; error?: string; appointment?: Appointment }>;
+  rescheduleAppointment: (
+    appointmentId: string,
+    newDate: string,
+    newStartTime: string,
+    newEndTime?: string
+  ) => Promise<{ success: boolean; error?: string; appointment?: Appointment }>;
+  cancelAppointment: (
+    appointmentId: string,
+    reason?: string
+  ) => Promise<{ success: boolean; error?: string }>;
   updateAppointmentStatus: (appointmentId: string, status: AppointmentStatus) => void;
   addToWaitlist: (entry: Omit<WaitlistEntry, 'id' | 'createdAt' | 'status'>) => void;
   
@@ -209,14 +273,14 @@ interface AppContextType {
   togglePromotionActive: (promoId: string) => void;
   deletePromotion: (promoId: string) => void;
 
-  usePackageItem: (customerPackageId: string, itemId: string) => boolean;
+  usePackageItem: (customerPackageId: string, itemId: string) => Promise<boolean> | boolean;
   addService: (service: Omit<Service, 'id'>) => void;
   updateService: (serviceId: string, data: Partial<Service>) => void;
   updateUser: (userId: string, data: Partial<User>) => void;
-  addProfessional: (user: Omit<User, 'id' | 'createdAt'>) => { success: boolean; error?: string };
+  addProfessional: (user: Omit<User, 'id' | 'createdAt'>) => Promise<{ success: boolean; error?: string; user?: User }> | { success: boolean; error?: string; user?: User };
   updateProfessional: (profId: string, data: Partial<User>) => void;
-  deleteProfessional: (profId: string) => { success: boolean; error?: string };
-  updateStockQuantity: (id: string, delta: number) => void;
+  deleteProfessional: (profId: string) => Promise<{ success: boolean; error?: string }> | { success: boolean; error?: string };
+  updateStockQuantity: (id: string, delta: number) => Promise<boolean> | boolean | void;
   addStockItem: (item: Omit<StockItem, 'id' | 'tenantId'>) => void;
   updateStockItem: (stockId: string, data: Partial<StockItem>) => void;
   createCommunication: (comm: Omit<CommunicationMessage, 'id' | 'sentAt' | 'logs'>) => void;
@@ -225,12 +289,12 @@ interface AppContextType {
   // Client Google Authentication with WhatsApp & Birth Date
   whatsappLoginPhone: string;
   loginWithWhatsApp: (phone: string, name?: string) => User;
-  loginWithGoogle: (data: { googleId?: string; email: string; name: string; avatarUrl?: string; whatsapp: string; birthDate: string }) => User;
+  loginWithGoogle: (data: { googleId?: string; email: string; name: string; avatarUrl?: string; whatsapp: string; birthDate: string; emailVerified?: boolean }) => User;
   logoutClient: () => void;
 
   // Access Hierarchy: Master creates Owner/Manager, Manager creates Professional
   createManagerAccess: (data: { tenantId: string; name: string; email: string; whatsapp: string; role: 'PROPRIETARIO' | 'GERENTE'; avatarUrl?: string; birthDate?: string }) => { success: boolean; error?: string; user?: User };
-  createProfessionalAccess: (data: Omit<User, 'id' | 'createdAt'>) => { success: boolean; error?: string; user?: User };
+  createProfessionalAccess: (data: Omit<User, 'id' | 'createdAt'>) => Promise<{ success: boolean; error?: string; user?: User }> | { success: boolean; error?: string; user?: User };
 
   // Super Admin Exclusive: Impersonation / "Visualizar como Usuário"
   isImpersonating: boolean;
@@ -240,10 +304,10 @@ interface AppContextType {
 
   // Plans Management (SaaS Custom Plans & Builder)
   customPlans: CustomPlan[];
-  createCustomPlan: (planData: Partial<CustomPlan>) => Promise<{ success: boolean; plan?: CustomPlan; error?: string }>;
+  createCustomPlan: (planData: Partial<CustomPlan>, idempotencyKey?: string) => Promise<{ success: boolean; plan?: CustomPlan; error?: string; isReplay?: boolean }>;
   updateCustomPlan: (planId: string, updates: Partial<CustomPlan>) => Promise<{ success: boolean; plan?: CustomPlan; error?: string }>;
-  togglePlanStatus: (planId: string) => Promise<{ success: boolean; plan?: CustomPlan; error?: string }>;
-  duplicateCustomPlan: (planId: string) => Promise<{ success: boolean; plan?: CustomPlan; error?: string }>;
+  togglePlanStatus: (planId: string, targetStatus: 'ACTIVE' | 'INACTIVE') => Promise<{ success: boolean; plan?: CustomPlan; error?: string }>;
+  duplicateCustomPlan: (planId: string, idempotencyKey?: string) => Promise<{ success: boolean; plan?: CustomPlan; error?: string; isReplay?: boolean }>;
 
   // Recurring Subscriptions (Mercado Pago)
   subscriptions: Subscription[];
@@ -253,6 +317,8 @@ interface AppContextType {
   isSuspended: boolean;
   toleranceDaysRemaining: number;
   createSubscription: (data: { barbershopId: string; barbershopName?: string; payerEmail: string; payerName?: string; payerPhone?: string; planId?: string }) => Promise<{ success: boolean; subscription?: Subscription; initPointUrl?: string; error?: string }>;
+  createLifetimeCheckout: (data: { barbershopId: string; barbershopName?: string; payerEmail: string; payerName?: string }) => Promise<{ success: boolean; initPointUrl?: string; preferenceId?: string; price?: number; error?: string }>;
+  activateLifetimeLicense: (data: { barbershopId: string; paymentId: string; paymentMethod?: string }) => Promise<{ success: boolean; subscription?: Subscription; message?: string; error?: string }>;
   cancelSubscription: (barbershopId: string, reason?: string) => Promise<{ success: boolean; error?: string }>;
   syncSubscription: (barbershopId: string) => Promise<{ success: boolean; subscription?: Subscription; error?: string }>;
   simulateSubscriptionAction: (barbershopId: string, action: 'CONFIRM_PAYMENT' | 'TRIGGER_PAST_DUE' | 'TRIGGER_SUSPEND' | 'REGULARIZE' | 'CANCEL' | 'STEP_BILLING_COUNT' | 'VALIDATE_CARD_AND_START_TRIAL') => Promise<{ success: boolean; subscription?: Subscription; message?: string; error?: string }>;
@@ -261,27 +327,36 @@ interface AppContextType {
   colorMode: ColorMode;
   setColorMode: (mode: ColorMode) => void;
   toggleColorMode: () => void;
+
+  // IAM & Custom Claims (RBAC Soberano / Multi-tenant)
+  authClaims: AuthUserClaims | null;
+  refreshClaims: () => Promise<AuthUserClaims | null>;
+  changeUserRoleWithClaims: (targetUid: string, newRole: CanonicalRole | UserRole, tenantId?: string) => Promise<{ success: boolean; error?: string }>;
+
+  // Projeções Públicas Blindadas (Zero PII / Isolamento Rigoroso)
+  publicAvailability: PublicAvailabilitySlot[];
+  publicProfessionals: PublicProfessionalProfile[];
+  publicServices: PublicService[];
+  publicSchedules: PublicProfessionalScheduleConfig[];
+  publicCommunications: PublicCommunication[];
+  publicRaffles: PublicRaffle[];
+  publicBarbershops: PublicBarbershop[];
+  publicPackages: PublicPackage[];
+  publicPromotions: PublicPromotion[];
+  publicGalleryWorks: PublicGalleryWork[];
+
+  // Isolamento de Leitura e Consultas Sob Demanda (FASE 2.2B)
+  loadHistoricalAppointments: (options?: { tenantId?: string; startDate?: string; endDate?: string; limitCount?: number }) => Promise<Appointment[]>;
+  loadTenantDataForAdmin: (tenantId: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [authenticatedUser, setAuthenticatedUser] = useState<User | null>(() => {
-    try {
-      const savedUserJson = localStorage.getItem('mybarber_session_user');
-      if (savedUserJson) {
-        const parsed = JSON.parse(savedUserJson);
-        if (parsed && parsed.id) return parsed;
-      }
-      const savedId = localStorage.getItem('mybarber_session_user_id');
-      if (savedId) {
-        return INITIAL_USERS.find(u => u.id === savedId) || null;
-      }
-    } catch {
-      // ignore
-    }
-    return null;
-  });
+  // REGRA DE SEGURANÇA: Firebase Auth é a ÚNICA fonte de verdade da identidade.
+  // Nenhum dado em localStorage pode autenticar o usuário ou conceder privilégios.
+  const [authenticatedUser, setAuthenticatedUser] = useState<User | null>(null);
+  const [authClaims, setAuthClaims] = useState<AuthUserClaims | null>(null);
 
   const [viewMode, setViewMode] = useState<AppViewMode>(() => {
     try {
@@ -302,35 +377,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const isStaffPath = pathname.endsWith('/admin') || pathname.endsWith('/gestao') || pathname.endsWith('/staff');
 
         if (isStaffParam || isStaffHash || isStaffPath) {
-          const savedId = localStorage.getItem('mybarber_session_user_id');
-          if (savedId) {
-            const u = INITIAL_USERS.find(user => user.id === savedId);
-            if (u) {
-              if (u.role === 'SUPER_ADMIN') return 'MASTER_ADMIN';
-              if (u.role === 'PROPRIETARIO' || u.role === 'GERENTE') return 'WEBADMIN';
-              if (u.role === 'PROFISSIONAL') return 'PROFISSIONAL_APP';
-            }
-          }
           return 'STAFF_LOGIN';
-        }
-      }
-    } catch {
-      // ignore
-    }
-
-    const urlTenant = getInitialTenantFromUrl();
-    if (urlTenant) {
-      return 'CLIENT_APP';
-    }
-    try {
-      const savedId = localStorage.getItem('mybarber_session_user_id');
-      if (savedId) {
-        const u = INITIAL_USERS.find(user => user.id === savedId);
-        if (u) {
-          if (u.role === 'SUPER_ADMIN') return 'MASTER_ADMIN';
-          if (u.role === 'PROPRIETARIO' || u.role === 'GERENTE') return 'WEBADMIN';
-          if (u.role === 'PROFISSIONAL') return 'PROFISSIONAL_APP';
-          if (u.role === 'CLIENTE') return 'CLIENT_APP';
         }
       }
     } catch {
@@ -339,7 +386,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return 'CLIENT_APP';
   });
 
-  const [barbershops, setBarbershops] = useState<Barbershop[]>(INITIAL_BARBERSHOPS);
+  const [barbershops, setBarbershops] = useState<Barbershop[]>(() => {
+    try {
+      const cached = localStorage.getItem('mybarber_cached_barbershops');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const map = new Map<string, Barbershop>();
+          INITIAL_BARBERSHOPS.forEach(b => map.set(b.id, b));
+          parsed.forEach((b: Barbershop) => map.set(b.id, b));
+          return Array.from(map.values());
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return INITIAL_BARBERSHOPS;
+  });
   const [activeTenantId, setActiveTenantIdState] = useState<string>(() => {
     const urlTenant = getInitialTenantFromUrl();
     if (urlTenant) {
@@ -354,13 +417,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const savedTenantId = localStorage.getItem('mybarber_active_tenant_id');
       if (savedTenantId) {
         return savedTenantId;
-      }
-      const savedUserId = localStorage.getItem('mybarber_session_user_id');
-      if (savedUserId) {
-        const u = INITIAL_USERS.find(user => user.id === savedUserId);
-        if (u && u.tenantId && u.tenantId !== 'platform-global') {
-          return u.tenantId;
-        }
       }
     } catch {
       // ignore
@@ -377,57 +433,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const [users, setUsers] = useState<User[]>(() => {
-    try {
-      const cachedUsers = localStorage.getItem('mybarber_cached_users');
-      if (cachedUsers) {
-        const parsed = JSON.parse(cachedUsers);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const map = new Map<string, User>();
-          INITIAL_USERS.forEach(u => map.set(u.id, u));
-          parsed.forEach((u: User) => map.set(u.id, u));
-          return Array.from(map.values());
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return INITIAL_USERS;
-  });
-  const [currentUserId, setCurrentUserId] = useState<string>(() => {
-    try {
-      const savedUserJson = localStorage.getItem('mybarber_session_user');
-      if (savedUserJson) {
-        const parsed = JSON.parse(savedUserJson);
-        if (parsed && parsed.id) return parsed.id;
-      }
-      const savedId = localStorage.getItem('mybarber_session_user_id');
-      if (savedId) return savedId;
-    } catch {
-      // ignore
-    }
-    return INITIAL_USERS[0].id;
-  });
+  // Limpeza de resíduos de cache legados contendo PII
+  try {
+    localStorage.removeItem('mybarber_cached_users');
+    localStorage.removeItem('mybarber_cached_appointments');
+  } catch {
+    // ignore
+  }
+
+  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
+  // Visitante padrão não autenticado (Zero privilégio)
+  const [currentUserId, setCurrentUserId] = useState<string>('user-guest-client');
 
   const [services, setServices] = useState<Service[]>(INITIAL_SERVICES);
   const [schedules, setSchedules] = useState<ProfessionalScheduleConfig[]>(INITIAL_SCHEDULES);
-  const [appointments, setAppointments] = useState<Appointment[]>(() => {
-    try {
-      const cached = localStorage.getItem('mybarber_cached_appointments');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const map = new Map<string, Appointment>();
-          INITIAL_APPOINTMENTS.forEach(a => map.set(a.id, a));
-          parsed.forEach((a: Appointment) => map.set(a.id, a));
-          return Array.from(map.values());
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return INITIAL_APPOINTMENTS;
-  });
+  const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
   const [waitlist, setWaitlist] = useState<WaitlistEntry[]>(INITIAL_WAITLIST);
   const [packages, setPackages] = useState<ServicePackage[]>(INITIAL_PACKAGES);
   const [customerPackages, setCustomerPackages] = useState<CustomerPackage[]>(INITIAL_CUSTOMER_PACKAGES);
@@ -441,6 +461,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [subscriptions, setSubscriptions] = useState<Subscription[]>(INITIAL_SUBSCRIPTIONS);
   const [subscriptionPayments, setSubscriptionPayments] = useState<SubscriptionPaymentRecord[]>(INITIAL_SUBSCRIPTION_PAYMENTS);
   const [customPlans, setCustomPlans] = useState<CustomPlan[]>(INITIAL_CUSTOM_PLANS);
+
+  // Projeções Públicas de Dados (Zero PII / Isolamento Rigoroso)
+  const [publicAvailability, setPublicAvailability] = useState<PublicAvailabilitySlot[]>(() =>
+    INITIAL_APPOINTMENTS.map(toPublicAvailabilitySlot)
+  );
+  const [publicProfessionals, setPublicProfessionals] = useState<PublicProfessionalProfile[]>(() =>
+    INITIAL_USERS.filter(u => u.role === 'PROFISSIONAL').map(toPublicProfessionalProfile)
+  );
+  const [publicServices, setPublicServices] = useState<PublicService[]>(() =>
+    INITIAL_SERVICES.map(toPublicService)
+  );
+  const [publicSchedules, setPublicSchedules] = useState<PublicProfessionalScheduleConfig[]>(() =>
+    INITIAL_SCHEDULES.map(s => toPublicSchedule(s))
+  );
+  const [publicCommunications, setPublicCommunications] = useState<PublicCommunication[]>(() =>
+    INITIAL_COMMUNICATIONS.map(toPublicCommunication)
+  );
+  const [publicRaffles, setPublicRaffles] = useState<PublicRaffle[]>(() =>
+    INITIAL_RAFFLES.map(toPublicRaffle)
+  );
+  const [publicBarbershops, setPublicBarbershops] = useState<PublicBarbershop[]>(() =>
+    INITIAL_BARBERSHOPS.map(toPublicBarbershop)
+  );
+  const [publicPackages, setPublicPackages] = useState<PublicPackage[]>(() =>
+    INITIAL_PACKAGES.map(toPublicPackage)
+  );
+  const [publicPromotions, setPublicPromotions] = useState<PublicPromotion[]>(() =>
+    INITIAL_PROMOTIONS.map(toPublicPromotion)
+  );
+  const [publicGalleryWorks, setPublicGalleryWorks] = useState<PublicGalleryWork[]>(() =>
+    INITIAL_GALLERY_WORKS.map(toPublicGalleryWork)
+  );
 
   // Dark Theme Permanent (Modo Escuro Padrão e Único do Sistema)
   const [colorMode] = useState<ColorMode>('dark');
@@ -475,28 +527,197 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return barbershops.find(b => b.id === activeTenantId) || barbershops[0];
   }, [barbershops, activeTenantId]);
 
-  // Current User (memoized for rock-solid stability)
+  // Guest user representation for unauthenticated sessions
+  const guestUser: User = useMemo(() => ({
+    id: 'user-guest-client',
+    tenantId: activeTenantId,
+    role: 'CLIENTE',
+    name: 'Visitante',
+    whatsapp: '',
+    createdAt: new Date().toISOString()
+  }), [activeTenantId]);
+
+  // Current User (memoized for rock-solid stability and zero privilege leak)
   const currentUser = useMemo(() => {
-    return users.find(u => u.id === currentUserId) || users[0];
-  }, [users, currentUserId]);
+    if (isImpersonating && currentUserId) {
+      const simulated = users.find(u => u.id === currentUserId);
+      if (simulated) return simulated;
+    }
+    if (authenticatedUser) {
+      return users.find(u => u.id === authenticatedUser.id || (authenticatedUser.uid && u.uid === authenticatedUser.uid)) || authenticatedUser;
+    }
+    return guestUser;
+  }, [authenticatedUser, users, isImpersonating, currentUserId, guestUser]);
 
   // Tenant-scoped users
   const tenantUsers = users.filter(u => u.tenantId === activeTenantId);
-  const professionals = tenantUsers.filter(u => u.role === 'PROFISSIONAL');
+  const professionals = useMemo(() => {
+    const userMap = new Map<string, User>();
+    tenantUsers
+      .filter(u => u.role === 'PROFISSIONAL' && u.status !== 'inactive')
+      .forEach(u => userMap.set(u.id, u));
+
+    // Se houver profissionais na projeção pública que não estão na coleção privada
+    // (ex: profissional comum autenticado que só lê seu próprio doc em /users, ou visitante/cliente)
+    publicProfessionals
+      .filter(p => p.tenantId === activeTenantId)
+      .forEach(p => {
+        if (!userMap.has(p.id)) {
+          userMap.set(p.id, {
+            id: p.id,
+            name: p.name,
+            tenantId: p.tenantId,
+            role: 'PROFISSIONAL' as const,
+            avatarUrl: p.avatarUrl,
+            specialties: p.specialties,
+            createdAt: ''
+          } as User);
+        }
+      });
+
+    return Array.from(userMap.values());
+  }, [tenantUsers, publicProfessionals, activeTenantId]);
   const clients = tenantUsers.filter(u => u.role === 'CLIENTE');
 
   // Tenant-scoped collections
-  const tenantServices = services.filter(s => s.tenantId === activeTenantId);
+  const tenantServices = useMemo(() => {
+    const fromServices = services.filter(s => s.tenantId === activeTenantId);
+    if (fromServices.length > 0) return fromServices;
+    // Fallback gracioso para a projeção pública caso o cliente não tenha acesso aos campos de comissão de /services
+    return publicServices
+      .filter(s => s.tenantId === activeTenantId)
+      .map(s => ({
+        ...s,
+        commissionPercentage: 0,
+        returnReminderDays: 0
+      } as Service));
+  }, [services, publicServices, activeTenantId]);
+
   const tenantAppointments = appointments.filter(a => a.tenantId === activeTenantId);
   const tenantWaitlist = waitlist.filter(w => w.tenantId === activeTenantId);
-  const tenantPackages = packages.filter(p => p.tenantId === activeTenantId);
+  
+  const tenantPackages = useMemo(() => {
+    const isManager = currentUser.role === 'PROPRIETARIO' || currentUser.role === 'GERENTE' || currentUser.role === 'SUPER_ADMIN';
+    if (isManager) {
+      return packages.filter(p => p.tenantId === activeTenantId);
+    }
+    return publicPackages
+      .filter(p => p.tenantId === activeTenantId)
+      .map(p => ({
+        id: p.id,
+        tenantId: p.tenantId,
+        title: p.title,
+        description: p.description,
+        price: p.price,
+        items: p.items,
+        active: p.active,
+        createdAt: ''
+      } as ServicePackage));
+  }, [currentUser, packages, publicPackages, activeTenantId]);
+
   const tenantCustomerPackages = customerPackages.filter(cp => cp.tenantId === activeTenantId);
-  const tenantRaffles = raffles.filter(r => r.tenantId === activeTenantId);
-  const tenantPromotions = promotions.filter(p => p.tenantId === activeTenantId);
-  const tenantCommunications = communications.filter(c => c.tenantId === activeTenantId);
+
+  const tenantRaffles = useMemo(() => {
+    const isManager = currentUser.role === 'PROPRIETARIO' || currentUser.role === 'GERENTE' || currentUser.role === 'SUPER_ADMIN';
+    if (isManager) {
+      return raffles.filter(r => r.tenantId === activeTenantId);
+    }
+    // Para clientes e visitantes, utiliza a projeção pública de sorteios (zero dados de participantes)
+    return publicRaffles
+      .filter(r => r.tenantId === activeTenantId)
+      .map(r => ({
+        id: r.id,
+        tenantId: r.tenantId,
+        title: r.title,
+        description: r.description,
+        prize: r.prize,
+        drawDate: r.drawDate,
+        imageUrl: r.imageUrl,
+        status: r.status,
+        showInHighlights: r.showInHighlights,
+        highlightTag: r.highlightTag,
+        participantsCount: r.participantsCount,
+        winnerName: r.winnerName,
+        winnerClientName: r.winnerClientName,
+        createdAt: r.createdAt,
+        participants: []
+      } as Raffle));
+  }, [currentUser, raffles, publicRaffles, activeTenantId]);
+
+  const tenantPromotions = useMemo(() => {
+    const isManager = currentUser.role === 'PROPRIETARIO' || currentUser.role === 'GERENTE' || currentUser.role === 'SUPER_ADMIN';
+    if (isManager) {
+      return promotions.filter(p => p.tenantId === activeTenantId);
+    }
+    return publicPromotions
+      .filter(p => p.tenantId === activeTenantId)
+      .map(p => ({
+        id: p.id,
+        tenantId: p.tenantId,
+        title: p.title,
+        description: p.description,
+        discountPercentage: p.discountPercentage,
+        discountPercent: p.discountPercent,
+        promotionalPrice: p.promotionalPrice,
+        serviceId: p.serviceId,
+        serviceName: p.serviceName,
+        serviceCategory: p.serviceCategory,
+        code: p.code,
+        validUntil: p.validUntil,
+        active: p.active,
+        imageUrl: p.imageUrl,
+        bannerUrl: p.bannerUrl,
+        showInHighlights: p.showInHighlights,
+        highlightTag: p.highlightTag,
+        createdAt: ''
+      } as Promotion));
+  }, [currentUser, promotions, publicPromotions, activeTenantId]);
+
+  const tenantCommunications = useMemo(() => {
+    const isManager = currentUser.role === 'PROPRIETARIO' || currentUser.role === 'GERENTE' || currentUser.role === 'SUPER_ADMIN';
+    if (isManager) {
+      return communications.filter(c => c.tenantId === activeTenantId);
+    }
+    // Para clientes e visitantes, utiliza a projeção pública de novidades (zero logs e zero números de WhatsApp)
+    return publicCommunications
+      .filter(c => c.tenantId === activeTenantId)
+      .map(c => ({
+        id: c.id,
+        tenantId: c.tenantId,
+        title: c.title,
+        content: c.content,
+        type: c.type,
+        channel: c.channel,
+        sentAt: c.sentAt,
+        logs: []
+      } as CommunicationMessage));
+  }, [currentUser, communications, publicCommunications, activeTenantId]);
   const tenantStock = stock.filter(s => s.tenantId === activeTenantId);
   const tenantReturnMessages = returnMessages.filter(r => r.tenantId === activeTenantId);
-  const tenantGalleryWorks = galleryWorks.filter(g => g.tenantId === activeTenantId);
+  
+  const tenantGalleryWorks = useMemo(() => {
+    const isManager = currentUser.role === 'PROPRIETARIO' || currentUser.role === 'GERENTE' || currentUser.role === 'SUPER_ADMIN';
+    if (isManager) {
+      return galleryWorks.filter(g => g.tenantId === activeTenantId);
+    }
+    return publicGalleryWorks
+      .filter(g => g.tenantId === activeTenantId)
+      .map(g => ({
+        id: g.id,
+        tenantId: g.tenantId,
+        title: g.title,
+        category: g.category,
+        imageUrl: g.imageUrl,
+        professionalId: g.professionalId,
+        professionalName: g.professionalName,
+        serviceId: g.serviceId,
+        serviceName: g.serviceName,
+        servicePrice: g.servicePrice,
+        likesCount: g.likesCount,
+        description: g.description,
+        createdAt: g.createdAt
+      } as GalleryWork));
+  }, [currentUser, galleryWorks, publicGalleryWorks, activeTenantId]);
 
   // Subscription status for the active tenant
   const currentSubscription = useMemo(() => {
@@ -515,80 +736,63 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return Math.max(0, (currentSubscription.toleranceDays || 7) - elapsedDays);
   }, [currentSubscription]);
 
-  // Custom Plans Management Handlers
-  const createCustomPlan = async (planData: Partial<CustomPlan>) => {
+  // Custom Plans Management Handlers — Autoridade Única Backend + Fail-Closed (FASE 4.8B.2 / FASE 4.9D)
+  const createCustomPlan = async (planData: Partial<CustomPlan>, idempotencyKey?: string) => {
     try {
+      const token = await getIdTokenFromCurrentUser();
+      if (!token) {
+        return {
+          success: false,
+          error: 'Sessão expirada ou usuário não autenticado como Super Admin.'
+        };
+      }
+
+      const effectiveKey = idempotencyKey || (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `idemp_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+
       const res = await fetch('/api/plans', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Idempotency-Key': effectiveKey
+        },
         body: JSON.stringify(planData)
       });
+
       const contentType = res.headers.get('content-type') || '';
-      if (res.ok && contentType.includes('application/json')) {
+      if (!res.ok) {
+        const errData = contentType.includes('application/json') ? await res.json().catch(() => ({})) : {};
+        return {
+          success: false,
+          error: errData.error || `Erro ao criar plano (${res.status}).`
+        };
+      }
+
+      if (contentType.includes('application/json')) {
         const result = await res.json();
         if (result.success && result.plan) {
           setCustomPlans(prev => {
             const filtered = prev.filter(p => p.id !== result.plan.id);
             return [result.plan, ...filtered];
           });
-          syncDoc('plans', result.plan.id, result.plan);
           return result;
         }
+        return {
+          success: false,
+          error: result.error || 'Resposta inválida do servidor ao criar plano.'
+        };
       }
-    } catch {
-      // Falha de conexão ou resposta não-JSON (fallback resiliente para Firestore e estado local)
+
+      return {
+        success: false,
+        error: 'Resposta inválida do servidor ao criar plano.'
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err.message || 'Erro de conexão com o servidor ao criar plano.'
+      };
     }
-
-    const newId = planData.id || `plano-${Date.now()}`;
-    const newPlan: CustomPlan = {
-      id: newId,
-      name: planData.name || 'Novo Plano',
-      description: planData.description || '',
-      status: planData.status || 'ACTIVE',
-      priceMonthly: Number(planData.priceMonthly) || 49.9,
-      billingCycle: planData.billingCycle || 'MONTHLY',
-      hasTrial: planData.hasTrial ?? true,
-      trialDuration: planData.trialDuration ?? 14,
-      trialUnit: planData.trialUnit || 'DAYS',
-      hasPromotion: planData.hasPromotion ?? false,
-      promotionalPrice: planData.promotionalPrice,
-      promotionDuration: planData.promotionDuration,
-      promotionUnit: planData.promotionUnit || 'MONTHS',
-      priceAfterPromotion: planData.priceAfterPromotion,
-      scheduleStages: planData.scheduleStages || [],
-      features: {
-        agenda: true,
-        clientes: true,
-        profissionais: true,
-        servicos: true,
-        pacotes: true,
-        comunicacoes: true,
-        promocoes: true,
-        sorteios: true,
-        galeria: true,
-        estoque: true,
-        relatorios_financeiros: true,
-        ...(planData.features || {})
-      },
-      limits: {
-        maxProfessionals: 10,
-        maxUnits: 1,
-        maxClients: 'UNLIMITED',
-        ...(planData.limits || {})
-      },
-      subscribersCount: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    setCustomPlans(prev => [newPlan, ...prev.filter(p => p.id !== newPlan.id)]);
-    syncDoc('plans', newPlan.id, newPlan);
-
-    return {
-      success: true,
-      plan: newPlan,
-      message: 'Plano criado com sucesso e pronto para contratação!'
-    };
   };
 
   const updateCustomPlan = async (planId: string, updates: Partial<CustomPlan>) => {
@@ -597,161 +801,214 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: 'Plano não encontrado no sistema.' };
     }
 
-    // Calcular ou garantir cronograma de cobrança (scheduleStages) sincronizado
-    let computedStages = updates.scheduleStages;
-    if (!computedStages || computedStages.length === 0) {
-      const hasTrial = updates.hasTrial ?? existing.hasTrial;
-      const trialDuration = updates.trialDuration ?? existing.trialDuration ?? 14;
-      const trialUnit = updates.trialUnit ?? existing.trialUnit ?? 'DAYS';
-      const hasPromotion = updates.hasPromotion ?? existing.hasPromotion;
-      const promotionDuration = updates.promotionDuration ?? existing.promotionDuration ?? 3;
-      const promotionUnit = updates.promotionUnit ?? existing.promotionUnit ?? 'MONTHS';
-      const promotionalPrice = updates.promotionalPrice ?? existing.promotionalPrice ?? existing.priceMonthly;
-      const priceAfterPromotion = updates.priceAfterPromotion ?? existing.priceAfterPromotion ?? (updates.priceMonthly ?? existing.priceMonthly);
-      const regularPrice = updates.priceMonthly ?? existing.priceMonthly;
-
-      const stages: PlanBillingScheduleStage[] = [];
-      let order = 1;
-      if (hasTrial && trialDuration > 0) {
-        stages.push({
-          id: `stage-trial-${order}`,
-          order: order++,
-          name: 'Período Gratuito',
-          duration: trialDuration,
-          unit: trialUnit,
-          price: 0
-        });
-      }
-      if (hasPromotion && promotionDuration > 0 && promotionalPrice !== undefined) {
-        stages.push({
-          id: `stage-promo-${order}`,
-          order: order++,
-          name: 'Promoção de Lançamento',
-          duration: promotionDuration,
-          unit: promotionUnit === 'CYCLES' ? 'MONTHS' : promotionUnit,
-          price: Number(promotionalPrice)
-        });
-      }
-      stages.push({
-        id: `stage-regular-${order}`,
-        order: order++,
-        name: 'Preço Normal Recorrente',
-        duration: 0,
-        unit: 'INDEFINITE',
-        price: Number(hasPromotion ? priceAfterPromotion : regularPrice)
-      });
-      computedStages = stages;
-    }
-
-    const payloadWithStages = {
-      ...updates,
-      scheduleStages: computedStages
-    };
-
     try {
+      const token = await getIdTokenFromCurrentUser();
+      if (!token) {
+        return {
+          success: false,
+          error: 'Sessão expirada ou usuário não autenticado como Super Admin.'
+        };
+      }
+
+      // Calcular ou garantir cronograma de cobrança (scheduleStages) sincronizado
+      let computedStages = updates.scheduleStages;
+      if (!computedStages || computedStages.length === 0) {
+        const hasTrial = updates.hasTrial ?? existing.hasTrial;
+        const trialDuration = updates.trialDuration ?? existing.trialDuration ?? 14;
+        const trialUnit = updates.trialUnit ?? existing.trialUnit ?? 'DAYS';
+        const hasPromotion = updates.hasPromotion ?? existing.hasPromotion;
+        const promotionDuration = updates.promotionDuration ?? existing.promotionDuration ?? 3;
+        const promotionUnit = updates.promotionUnit ?? existing.promotionUnit ?? 'MONTHS';
+        const promotionalPrice = updates.promotionalPrice ?? existing.promotionalPrice ?? existing.priceMonthly;
+        const priceAfterPromotion = updates.priceAfterPromotion ?? existing.priceAfterPromotion ?? (updates.priceMonthly ?? existing.priceMonthly);
+        const regularPrice = updates.priceMonthly ?? existing.priceMonthly;
+
+        const stages: PlanBillingScheduleStage[] = [];
+        let order = 1;
+        if (hasTrial && trialDuration > 0) {
+          stages.push({
+            id: `stage-trial-${order}`,
+            order: order++,
+            name: 'Período Gratuito',
+            duration: trialDuration,
+            unit: trialUnit,
+            price: 0
+          });
+        }
+        if (hasPromotion && promotionDuration > 0 && promotionalPrice !== undefined) {
+          stages.push({
+            id: `stage-promo-${order}`,
+            order: order++,
+            name: 'Promoção de Lançamento',
+            duration: promotionDuration,
+            unit: promotionUnit === 'CYCLES' ? 'MONTHS' : promotionUnit,
+            price: Number(promotionalPrice)
+          });
+        }
+        stages.push({
+          id: `stage-regular-${order}`,
+          order: order++,
+          name: 'Preço Normal Recorrente',
+          duration: 0,
+          unit: 'INDEFINITE',
+          price: Number(hasPromotion ? priceAfterPromotion : regularPrice)
+        });
+        computedStages = stages;
+      }
+
+      const payloadWithStages = {
+        ...updates,
+        scheduleStages: computedStages
+      };
+
       const res = await fetch(`/api/plans/${planId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(payloadWithStages)
       });
+
       const contentType = res.headers.get('content-type') || '';
-      if (res.ok && contentType.includes('application/json')) {
+      if (!res.ok) {
+        const errData = contentType.includes('application/json') ? await res.json().catch(() => ({})) : {};
+        return {
+          success: false,
+          error: errData.error || `Erro ao atualizar plano (${res.status}).`
+        };
+      }
+
+      if (contentType.includes('application/json')) {
         const result = await res.json();
         if (result.success && result.plan) {
           setCustomPlans(prev => prev.map(p => p.id === planId ? result.plan : p));
-          syncDoc('plans', result.plan.id, result.plan);
           return result;
         }
+        return {
+          success: false,
+          error: result.error || 'Resposta inválida do servidor ao atualizar plano.'
+        };
       }
-    } catch {
-      // Falha de conexão ou resposta não-JSON (fallback resiliente para Firestore e estado local)
+
+      return {
+        success: false,
+        error: 'Resposta inválida do servidor ao atualizar plano.'
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err.message || 'Erro de conexão com o servidor ao atualizar plano.'
+      };
     }
-
-    const updatedPlan: CustomPlan = {
-      ...existing,
-      ...payloadWithStages,
-      id: existing.id,
-      scheduleStages: computedStages,
-      features: {
-        ...existing.features,
-        ...(updates.features || {})
-      },
-      limits: {
-        ...existing.limits,
-        ...(updates.limits || {})
-      },
-      updatedAt: new Date().toISOString()
-    };
-
-    setCustomPlans(prev => prev.map(p => p.id === planId ? updatedPlan : p));
-    syncDoc('plans', updatedPlan.id, updatedPlan);
-
-    return {
-      success: true,
-      plan: updatedPlan,
-      message: 'Plano atualizado com sucesso.'
-    };
   };
 
-  const togglePlanStatus = async (planId: string) => {
+  const togglePlanStatus = async (planId: string, targetStatus: 'ACTIVE' | 'INACTIVE') => {
     try {
-      const res = await fetch(`/api/plans/${planId}/toggle-status`, { method: 'POST' });
+      const token = await getIdTokenFromCurrentUser();
+      if (!token) {
+        return {
+          success: false,
+          error: 'Sessão expirada ou usuário não autenticado como Super Admin.'
+        };
+      }
+
+      const res = await fetch(`/api/plans/${planId}/toggle-status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ targetStatus })
+      });
+
       const contentType = res.headers.get('content-type') || '';
-      if (res.ok && contentType.includes('application/json')) {
+      if (!res.ok) {
+        const errData = contentType.includes('application/json') ? await res.json().catch(() => ({})) : {};
+        return {
+          success: false,
+          error: errData.error || `Erro ao alternar status do plano (${res.status}).`
+        };
+      }
+
+      if (contentType.includes('application/json')) {
         const result = await res.json();
         if (result.success && result.plan) {
           setCustomPlans(prev => prev.map(p => p.id === planId ? result.plan : p));
-          syncDoc('plans', result.plan.id, result.plan);
           return result;
         }
+        return {
+          success: false,
+          error: result.error || 'Resposta inválida do servidor ao alternar status do plano.'
+        };
       }
-    } catch {
-      // Fallback
-    }
 
+      return {
+        success: false,
+        error: 'Resposta inválida do servidor ao alternar status do plano.'
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err.message || 'Erro de conexão com o servidor ao alternar status do plano.'
+      };
+    }
+  };
+
+  const duplicateCustomPlan = async (planId: string, idempotencyKey?: string) => {
     const existing = customPlans.find(p => p.id === planId);
-    if (!existing) return { success: false, error: 'Plano não encontrado' };
+    if (!existing) return { success: false, error: 'Plano não encontrado no sistema.' };
 
-    const newStatus = existing.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-    const updatedPlan: CustomPlan = { ...existing, status: newStatus as any, updatedAt: new Date().toISOString() };
-    setCustomPlans(prev => prev.map(p => p.id === planId ? updatedPlan : p));
-    syncDoc('plans', updatedPlan.id, updatedPlan);
-
-    return { success: true, plan: updatedPlan };
-  };
-
-  const duplicateCustomPlan = async (planId: string) => {
     try {
-      const res = await fetch(`/api/plans/${planId}/duplicate`, { method: 'POST' });
+      const token = await getIdTokenFromCurrentUser();
+      if (!token) {
+        return {
+          success: false,
+          error: 'Sessão expirada ou usuário não autenticado como Super Admin.'
+        };
+      }
+
+      const effectiveKey = idempotencyKey || (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `idemp_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+
+      const res = await fetch(`/api/plans/${planId}/duplicate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Idempotency-Key': effectiveKey
+        }
+      });
+
       const contentType = res.headers.get('content-type') || '';
-      if (res.ok && contentType.includes('application/json')) {
+      if (!res.ok) {
+        const errData = contentType.includes('application/json') ? await res.json().catch(() => ({})) : {};
+        return {
+          success: false,
+          error: errData.error || `Erro ao duplicar plano (${res.status}).`
+        };
+      }
+
+      if (contentType.includes('application/json')) {
         const result = await res.json();
         if (result.success && result.plan) {
           setCustomPlans(prev => [result.plan, ...prev]);
-          syncDoc('plans', result.plan.id, result.plan);
           return result;
         }
+        return {
+          success: false,
+          error: result.error || 'Resposta inválida do servidor ao duplicar plano.'
+        };
       }
-    } catch {
-      // Fallback
+
+      return {
+        success: false,
+        error: 'Resposta inválida do servidor ao duplicar plano.'
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err.message || 'Erro de conexão com o servidor ao duplicar plano.'
+      };
     }
-
-    const existing = customPlans.find(p => p.id === planId);
-    if (!existing) return { success: false, error: 'Plano não encontrado' };
-
-    const newId = `plano-${Date.now()}`;
-    const duplicated: CustomPlan = {
-      ...existing,
-      id: newId,
-      name: `${existing.name} (Cópia)`,
-      subscribersCount: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    setCustomPlans(prev => [duplicated, ...prev]);
-    syncDoc('plans', duplicated.id, duplicated);
-
-    return { success: true, plan: duplicated };
   };
 
   const createSubscription = async (data: {
@@ -763,9 +1020,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     planId?: string;
   }) => {
     try {
+      // FASE 4 — Obtém token soberano do Firebase Auth
+      const token = await getIdTokenFromCurrentUser();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const res = await fetch('/api/subscriptions/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(data)
       });
       const result = await res.json();
@@ -774,7 +1040,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const filtered = prev.filter(s => s.barbershopId !== data.barbershopId);
           return [result.subscription, ...filtered];
         });
-        syncDoc('subscriptions', result.subscription.id, result.subscription);
+        // FASE 9: A coleção subscriptions é controlada soberanamente pelo backend (Admin SDK).
+        // Nenhuma escrita direta client-side via syncDoc é realizada.
       }
       return result;
     } catch (err: any) {
@@ -782,17 +1049,81 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const createLifetimeCheckout = async (data: {
+    barbershopId: string;
+    barbershopName?: string;
+    payerEmail: string;
+    payerName?: string;
+  }) => {
+    try {
+      const token = await getIdTokenFromCurrentUser();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch('/api/subscriptions/checkout-lifetime', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(data)
+      });
+      return await res.json();
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Erro ao conectar ao servidor de checkout' };
+    }
+  };
+
+  const activateLifetimeLicense = async (data: {
+    barbershopId: string;
+    paymentId: string;
+    paymentMethod?: string;
+  }) => {
+    try {
+      const token = await getIdTokenFromCurrentUser();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch('/api/subscriptions/activate-lifetime', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(data)
+      });
+      const result = await res.json();
+      if (result.success && result.subscription) {
+        setSubscriptions(prev => {
+          const filtered = prev.filter(s => s.barbershopId !== data.barbershopId);
+          return [result.subscription, ...filtered];
+        });
+      }
+      return result;
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Erro ao ativar licença definitiva' };
+    }
+  };
+
   const cancelSubscription = async (barbershopId: string, reason?: string) => {
     try {
+      const token = await getIdTokenFromCurrentUser();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
       const res = await fetch('/api/subscriptions/cancel', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ barbershopId, reason })
       });
       const result = await res.json();
       if (result.success && result.subscription) {
         setSubscriptions(prev => prev.map(s => s.barbershopId === barbershopId ? result.subscription : s));
-        syncDoc('subscriptions', result.subscription.id, result.subscription);
       }
       return result;
     } catch (err: any) {
@@ -853,94 +1184,468 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Real-time Firestore synchronization and initial seeding
+  // Real-time Firestore synchronization for global catalogs (SaaS Plans) - Sem seeding client-side no boot (FASE 2.2B / FASE 4.8B)
   useEffect(() => {
-    seedFirestoreIfEmpty();
-
-    let loadedCount = 0;
-    const requiredLoads = 3; // barbershops, users, services
-    const checkInitialReady = () => {
-      loadedCount++;
-      if (loadedCount >= requiredLoads) {
-        setIsInitialLoading(false);
-      }
-    };
-
     // Safety timeout: never let loading hang longer than 600ms
     const safetyTimeout = setTimeout(() => {
       setIsInitialLoading(false);
     }, 600);
 
-    const unsubBarbershops = subscribeCollection<Barbershop>('barbershops', setBarbershops, INITIAL_BARBERSHOPS, checkInitialReady);
-    const unsubUsers = subscribeCollection<User>('users', setUsers, INITIAL_USERS, checkInitialReady);
-    const unsubServices = subscribeCollection<Service>('services', setServices, INITIAL_SERVICES, checkInitialReady);
-    const unsubSchedules = subscribeCollection<ProfessionalScheduleConfig>('schedules', setSchedules, INITIAL_SCHEDULES);
-    const unsubAppointments = subscribeCollection<Appointment>(
-      'appointments',
-      (items) => {
-        setAppointments(prev => {
-          const map = new Map<string, Appointment>();
-          prev.forEach(a => map.set(a.id, a));
-          items.forEach(a => map.set(a.id, a));
-          const merged = Array.from(map.values());
-          try {
-            localStorage.setItem('mybarber_cached_appointments', JSON.stringify(merged));
-          } catch {
-            // ignore
-          }
-          return merged;
-        });
-      },
-      INITIAL_APPOINTMENTS
-    );
-    const unsubWaitlist = subscribeCollection<WaitlistEntry>('waitlist', setWaitlist, INITIAL_WAITLIST);
-    const unsubPackages = subscribeCollection<ServicePackage>('packages', setPackages, INITIAL_PACKAGES);
-    const unsubCustomerPackages = subscribeCollection<CustomerPackage>('customerPackages', setCustomerPackages, INITIAL_CUSTOMER_PACKAGES);
-    const unsubRaffles = subscribeCollection<Raffle>('raffles', setRaffles, INITIAL_RAFFLES);
-    const unsubPromotions = subscribeCollection<Promotion>('promotions', setPromotions, INITIAL_PROMOTIONS);
-    const unsubCommunications = subscribeCollection<CommunicationMessage>('communications', setCommunications, INITIAL_COMMUNICATIONS);
-    const unsubStock = subscribeCollection<StockItem>('stock', setStock, INITIAL_STOCK);
-    const unsubReturnMessages = subscribeCollection<ReturnMessage>('returnMessages', setReturnMessages, INITIAL_RETURN_MESSAGES);
-    const unsubGallery = subscribeCollection<GalleryWork>('gallery', setGalleryWorks, INITIAL_GALLERY_WORKS);
-    const unsubAuditLogs = subscribeCollection<AuditLog>('audit_logs', setAuditLogs, INITIAL_AUDIT_LOGS);
-    const unsubSubscriptions = subscribeCollection<Subscription>('subscriptions', setSubscriptions, INITIAL_SUBSCRIPTIONS);
-    const unsubSubscriptionPayments = subscribeCollection<SubscriptionPaymentRecord>('subscription_payments', setSubscriptionPayments, INITIAL_SUBSCRIPTION_PAYMENTS);
+    // Global legitimate listener: SaaS plans catalog for MY BARBER platform
     const unsubPlans = subscribeCollection<CustomPlan>('plans', setCustomPlans, INITIAL_CUSTOM_PLANS);
-
-    // Also fetch initial plans from backend server
-    fetch('/api/plans')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && Array.isArray(data.plans) && data.plans.length > 0) {
-          setCustomPlans(data.plans);
-        }
-      })
-      .catch(() => {
-        // use initial custom plans fallback
-      });
 
     return () => {
       clearTimeout(safetyTimeout);
-      unsubBarbershops();
-      unsubUsers();
-      unsubServices();
-      unsubSchedules();
-      unsubAppointments();
-      unsubWaitlist();
-      unsubPackages();
-      unsubCustomerPackages();
-      unsubRaffles();
-      unsubPromotions();
-      unsubCommunications();
-      unsubStock();
-      unsubReturnMessages();
-      unsubGallery();
-      unsubAuditLogs();
-      unsubSubscriptions();
-      unsubSubscriptionPayments();
       unsubPlans();
     };
   }, []);
+
+  // -------------------------------------------------------------------------
+  // ISOLAMENTO MULTI-TENANT, PROJEÇÕES PÚBLICAS & AUTORIZAÇÃO NAS COLEÇÕES
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    const unsubs: (() => void)[] = [];
+    const effectiveUser = isImpersonating && currentUserId
+      ? users.find(u => u.id === currentUserId) || authenticatedUser
+      : authenticatedUser;
+    const role = effectiveUser?.role;
+    const tenantId = activeTenantId || effectiveUser?.tenantId;
+    const userId = effectiveUser?.id;
+
+    const isSuperAdminUser = !isImpersonating && (
+      authClaims?.isSuperAdmin === true ||
+      authClaims?.role === 'super_admin' ||
+      effectiveUser?.role === 'SUPER_ADMIN'
+    );
+
+    // -----------------------------------------------------------------------
+    // A) SUPER_ADMIN: Acesso administrativo sob demanda (Zero 24 listeners permanentes)
+    // -----------------------------------------------------------------------
+    if (isSuperAdminUser) {
+      // 1. Escuta apenas catálogo de barbearias/tenants e assinaturas para governança do SaaS
+      unsubs.push(subscribeCollection<Barbershop>('barbershops', setBarbershops, INITIAL_BARBERSHOPS));
+      unsubs.push(subscribeCollection<Subscription>('subscriptions', setSubscriptions, INITIAL_SUBSCRIPTIONS));
+
+      // 2. Se houver barbearia selecionada em activeTenantId, carrega dados específicos desse tenant sob demanda/janela operacional
+      if (activeTenantId) {
+        const now = new Date();
+        const past30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const future60 = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+        unsubs.push(subscribeTenantCollection<Service>('services', activeTenantId, setServices, INITIAL_SERVICES.filter(s => s.tenantId === activeTenantId)));
+        unsubs.push(subscribeTenantCollection<ProfessionalScheduleConfig>('schedules', activeTenantId, setSchedules, INITIAL_SCHEDULES.filter(s => s.tenantId === activeTenantId)));
+        unsubs.push(subscribeQuery<Appointment>(
+          'appointments',
+          [
+            where('tenantId', '==', activeTenantId),
+            where('date', '>=', past30),
+            where('date', '<=', future60)
+          ],
+          setAppointments,
+          INITIAL_APPOINTMENTS.filter(a => a.tenantId === activeTenantId && a.date >= past30 && a.date <= future60)
+        ));
+      }
+
+      return () => {
+        unsubs.forEach(u => u());
+      };
+    }
+
+    // -----------------------------------------------------------------------
+    // B) USUÁRIOS COMUNS, GESTORES, PROFISSIONAIS & VISITANTES PÚBLICOS
+    // Projeções públicas e catálogos SEMPRE restritos estritamente ao activeTenantId
+    // -----------------------------------------------------------------------
+    if (activeTenantId) {
+      // 1. Barbershop pública do tenant ativo (nunca lê a coleção privada global /barbershops)
+      unsubs.push(
+        subscribeDoc<PublicBarbershop>(
+          'publicBarbershops',
+          activeTenantId,
+          (shop) => {
+            if (shop) {
+              setPublicBarbershops(prev => [...prev.filter(b => b.id !== activeTenantId), shop]);
+              setBarbershops(prev => {
+                const existing = prev.find(b => b.id === activeTenantId);
+                const merged: Barbershop = existing
+                  ? { ...existing, ...shop }
+                  : {
+                      id: shop.id,
+                      name: shop.name,
+                      slug: shop.slug,
+                      customDomain: shop.customDomain,
+                      logoUrl: shop.logoUrl,
+                      bannerUrl: shop.bannerUrl,
+                      salonImages: shop.salonImages || [],
+                      about: shop.about,
+                      phone: shop.phone,
+                      whatsapp: shop.whatsapp,
+                      address: shop.address,
+                      coordinates: shop.coordinates,
+                      socialMedia: shop.socialMedia,
+                      businessHours: shop.businessHours,
+                      primaryColor: shop.primaryColor,
+                      theme: shop.theme,
+                      status: shop.status,
+                      planId: 'custom-plan-free',
+                      commercialMode: 'TESTE_GRATIS',
+                      reminderConfig: {
+                        enabled: false,
+                        advanceMinutes: 120,
+                        whatsappTemplate: ''
+                      },
+                      createdAt: new Date().toISOString()
+                    };
+                return [...prev.filter(b => b.id !== activeTenantId), merged];
+              });
+            }
+          },
+          INITIAL_BARBERSHOPS.map(toPublicBarbershop).find(b => b.id === activeTenantId)
+        )
+      );
+
+      // 2. Serviços Públicos do tenant ativo
+      unsubs.push(
+        subscribeQuery<PublicService>(
+          'publicServices',
+          [where('tenantId', '==', activeTenantId)],
+          setPublicServices,
+          INITIAL_SERVICES.filter(s => s.tenantId === activeTenantId).map(toPublicService)
+        )
+      );
+
+      // 3. Slots de Disponibilidade Pública do tenant ativo (com janela temporal operacional: hoje até +60 dias)
+      const todayStr = new Date().toISOString().split('T')[0];
+      const futureLimitStr = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      unsubs.push(
+        subscribeQuery<PublicAvailabilitySlot>(
+          'publicAvailability',
+          [
+            where('tenantId', '==', activeTenantId),
+            where('date', '>=', todayStr),
+            where('date', '<=', futureLimitStr)
+          ],
+          setPublicAvailability,
+          INITIAL_APPOINTMENTS.filter(a => a.tenantId === activeTenantId && a.status === 'AGENDADO' && a.date >= todayStr && a.date <= futureLimitStr).map(toPublicAvailabilitySlot)
+        )
+      );
+
+      // 4. Perfis Públicos dos Profissionais do tenant ativo
+      unsubs.push(
+        subscribeQuery<PublicProfessionalProfile>(
+          'publicProfessionalProfiles',
+          [where('tenantId', '==', activeTenantId)],
+          setPublicProfessionals,
+          INITIAL_USERS.filter(u => u.tenantId === activeTenantId && u.role === 'PROFISSIONAL').map(toPublicProfessionalProfile)
+        )
+      );
+
+      // 5. Horários Públicos de Atendimento do tenant ativo
+      unsubs.push(
+        subscribeQuery<PublicProfessionalScheduleConfig>(
+          'publicSchedules',
+          [where('tenantId', '==', activeTenantId)],
+          setPublicSchedules,
+          INITIAL_SCHEDULES.filter(s => s.tenantId === activeTenantId || INITIAL_USERS.find(u => u.id === s.professionalId)?.tenantId === activeTenantId).map(s => toPublicSchedule(s, activeTenantId))
+        )
+      );
+
+      // 6. Comunicados Públicos do tenant ativo
+      unsubs.push(
+        subscribeQuery<PublicCommunication>(
+          'publicCommunications',
+          [where('tenantId', '==', activeTenantId)],
+          setPublicCommunications,
+          INITIAL_COMMUNICATIONS.filter(c => c.tenantId === activeTenantId).map(toPublicCommunication)
+        )
+      );
+
+      // 7. Sorteios Públicos do tenant ativo
+      unsubs.push(
+        subscribeQuery<PublicRaffle>(
+          'publicRaffles',
+          [where('tenantId', '==', activeTenantId)],
+          setPublicRaffles,
+          INITIAL_RAFFLES.filter(r => r.tenantId === activeTenantId).map(toPublicRaffle)
+        )
+      );
+
+      // 8. Projeção Pública de Pacotes do tenant ativo (Path-based subcollection com isolamento soberano)
+      unsubs.push(
+        subscribeSubcollection<PublicPackage>(
+          'publicPackages',
+          activeTenantId,
+          'items',
+          setPublicPackages,
+          INITIAL_PACKAGES.filter(p => p.tenantId === activeTenantId).map(toPublicPackage)
+        )
+      );
+
+      // 9. Projeção Pública de Promoções do tenant ativo (Path-based subcollection com isolamento soberano)
+      unsubs.push(
+        subscribeSubcollection<PublicPromotion>(
+          'publicPromotions',
+          activeTenantId,
+          'items',
+          setPublicPromotions,
+          INITIAL_PROMOTIONS.filter(p => p.tenantId === activeTenantId).map(toPublicPromotion)
+        )
+      );
+
+      // 10. Projeção Pública de Galeria do tenant ativo (Path-based subcollection com isolamento soberano)
+      unsubs.push(
+        subscribeSubcollection<PublicGalleryWork>(
+          'publicGallery',
+          activeTenantId,
+          'items',
+          setPublicGalleryWorks,
+          INITIAL_GALLERY_WORKS.filter(g => g.tenantId === activeTenantId).map(toPublicGalleryWork)
+        )
+      );
+    }
+
+    // -----------------------------------------------------------------------
+    // C) COLEÇÕES PRIVADAS POR PAPEL AUTENTICADO
+    // -----------------------------------------------------------------------
+    // 1. Visitante / Anônimo: nenhum listener privado adicional
+    if (!effectiveUser || !role) {
+      return () => {
+        unsubs.forEach(u => u());
+      };
+    }
+
+    // 2. Cliente Comum (CLIENTE):
+    // Zero listeners globais. Escuta estritamente seus próprios registros privados.
+    if (role === 'CLIENTE' && userId) {
+      unsubs.push(
+        subscribeQuery<Appointment>(
+          'appointments',
+          [where('clientId', '==', userId)],
+          setAppointments,
+          INITIAL_APPOINTMENTS.filter(a => a.clientId === userId)
+        )
+      );
+      unsubs.push(
+        subscribeQuery<CustomerPackage>(
+          'customerPackages',
+          [where('clientId', '==', userId)],
+          setCustomerPackages,
+          INITIAL_CUSTOMER_PACKAGES.filter(cp => cp.clientId === userId)
+        )
+      );
+      unsubs.push(
+        subscribeQuery<WaitlistEntry>(
+          'waitlist',
+          [where('clientId', '==', userId)],
+          setWaitlist,
+          INITIAL_WAITLIST.filter(w => w.clientId === userId)
+        )
+      );
+      unsubs.push(
+        subscribeQuery<User>(
+          'users',
+          [where('id', '==', userId)],
+          (userList) => {
+            if (userList.length > 0) {
+              setUsers(prev => [...prev.filter(u => u.id !== userId), ...userList]);
+            }
+          },
+          INITIAL_USERS.filter(u => u.id === userId)
+        )
+      );
+      return () => {
+        unsubs.forEach(u => u());
+      };
+    }
+
+    // 3. Profissional (PROFISSIONAL):
+    // Acesso restrito ao documento do próprio usuário e sua agenda no tenant (janela operacional de 30 dias passados e 60 dias futuros)
+    if (role === 'PROFISSIONAL' && tenantId) {
+      if (userId) {
+        unsubs.push(
+          subscribeQuery<User>(
+            'users',
+            [where('id', '==', userId)],
+            (userList) => {
+              if (userList.length > 0) {
+                setUsers(prev => [...prev.filter(u => u.id !== userId), ...userList]);
+              }
+            },
+            INITIAL_USERS.filter(u => u.id === userId)
+          )
+        );
+      }
+      unsubs.push(
+        subscribeTenantCollection<ProfessionalScheduleConfig>(
+          'schedules',
+          tenantId,
+          setSchedules,
+          INITIAL_SCHEDULES.filter(s => s.tenantId === tenantId || INITIAL_USERS.find(u => u.id === s.professionalId)?.tenantId === tenantId)
+        )
+      );
+      unsubs.push(
+        subscribeTenantCollection<Service>('services', tenantId, setServices, INITIAL_SERVICES.filter(s => s.tenantId === tenantId))
+      );
+
+      const now = new Date();
+      const past30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const future60 = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      if (effectiveUser.canViewAllProfessionals) {
+        unsubs.push(
+          subscribeQuery<Appointment>(
+            'appointments',
+            [
+              where('tenantId', '==', tenantId),
+              where('date', '>=', past30),
+              where('date', '<=', future60)
+            ],
+            setAppointments,
+            INITIAL_APPOINTMENTS.filter(a => a.tenantId === tenantId && a.date >= past30 && a.date <= future60)
+          )
+        );
+      } else if (userId) {
+        unsubs.push(
+          subscribeQuery<Appointment>(
+            'appointments',
+            [
+              where('tenantId', '==', tenantId),
+              where('professionalId', '==', userId),
+              where('date', '>=', past30),
+              where('date', '<=', future60)
+            ],
+            setAppointments,
+            INITIAL_APPOINTMENTS.filter(a => a.tenantId === tenantId && a.professionalId === userId && a.date >= past30 && a.date <= future60)
+          )
+        );
+      }
+      unsubs.push(
+        subscribeTenantCollection<StockItem>('stock', tenantId, setStock, INITIAL_STOCK.filter(s => s.tenantId === tenantId))
+      );
+      unsubs.push(
+        subscribeTenantCollection<CustomerPackage>('customerPackages', tenantId, setCustomerPackages, INITIAL_CUSTOMER_PACKAGES.filter(cp => cp.tenantId === tenantId))
+      );
+      unsubs.push(
+        subscribeTenantCollection<WaitlistEntry>('waitlist', tenantId, setWaitlist, INITIAL_WAITLIST.filter(w => w.tenantId === tenantId))
+      );
+      return () => {
+        unsubs.forEach(u => u());
+      };
+    }
+
+    // 4. Gestores (GERENTE e PROPRIETARIO):
+    // Acesso restrito estritamente aos documentos do seu próprio tenant
+    if ((role === 'GERENTE' || role === 'PROPRIETARIO') && tenantId) {
+      // Documento da própria barbearia (configurações privadas)
+      unsubs.push(
+        subscribeDoc<Barbershop>(
+          'barbershops',
+          tenantId,
+          (shop) => {
+            if (shop) {
+              setBarbershops(prev => [...prev.filter(b => b.id !== tenantId), shop]);
+            }
+          },
+          INITIAL_BARBERSHOPS.find(b => b.id === tenantId)
+        )
+      );
+      unsubs.push(
+        subscribeTenantCollection<User>('users', tenantId, setUsers, INITIAL_USERS.filter(u => u.tenantId === tenantId))
+      );
+      unsubs.push(
+        subscribeTenantCollection<Service>('services', tenantId, setServices, INITIAL_SERVICES.filter(s => s.tenantId === tenantId))
+      );
+      unsubs.push(
+        subscribeTenantCollection<ProfessionalScheduleConfig>(
+          'schedules',
+          tenantId,
+          setSchedules,
+          INITIAL_SCHEDULES.filter(s => s.tenantId === tenantId || INITIAL_USERS.find(u => u.id === s.professionalId)?.tenantId === tenantId)
+        )
+      );
+
+      const now = new Date();
+      const past30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const future60 = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      unsubs.push(
+        subscribeQuery<Appointment>(
+          'appointments',
+          [
+            where('tenantId', '==', tenantId),
+            where('date', '>=', past30),
+            where('date', '<=', future60)
+          ],
+          setAppointments,
+          INITIAL_APPOINTMENTS.filter(a => a.tenantId === tenantId && a.date >= past30 && a.date <= future60)
+        )
+      );
+      unsubs.push(
+        subscribeTenantCollection<WaitlistEntry>('waitlist', tenantId, setWaitlist, INITIAL_WAITLIST.filter(w => w.tenantId === tenantId))
+      );
+      unsubs.push(
+        subscribeQuery<ServicePackage>(
+          'packages',
+          [where('tenantId', '==', activeTenantId)],
+          setPackages,
+          INITIAL_PACKAGES.filter(p => p.tenantId === activeTenantId)
+        )
+      );
+      unsubs.push(
+        subscribeQuery<Promotion>(
+          'promotions',
+          [where('tenantId', '==', activeTenantId)],
+          setPromotions,
+          INITIAL_PROMOTIONS.filter(p => p.tenantId === activeTenantId)
+        )
+      );
+      unsubs.push(
+        subscribeQuery<GalleryWork>(
+          'gallery',
+          [where('tenantId', '==', activeTenantId)],
+          setGalleryWorks,
+          INITIAL_GALLERY_WORKS.filter(g => g.tenantId === activeTenantId)
+        )
+      );
+      unsubs.push(
+        subscribeTenantCollection<CustomerPackage>('customerPackages', tenantId, setCustomerPackages, INITIAL_CUSTOMER_PACKAGES.filter(cp => cp.tenantId === tenantId))
+      );
+      unsubs.push(
+        subscribeTenantCollection<Raffle>('raffles', tenantId, setRaffles, INITIAL_RAFFLES.filter(r => r.tenantId === tenantId))
+      );
+      unsubs.push(
+        subscribeTenantCollection<CommunicationMessage>('communications', tenantId, setCommunications, INITIAL_COMMUNICATIONS.filter(c => c.tenantId === tenantId))
+      );
+      unsubs.push(
+        subscribeTenantCollection<StockItem>('stock', tenantId, setStock, INITIAL_STOCK.filter(s => s.tenantId === tenantId))
+      );
+      unsubs.push(
+        subscribeTenantCollection<ReturnMessage>('returnMessages', tenantId, setReturnMessages, INITIAL_RETURN_MESSAGES.filter(m => m.tenantId === tenantId))
+      );
+      unsubs.push(
+        subscribeQuery<Subscription>(
+          'subscriptions',
+          [where('barbershopId', '==', tenantId)],
+          setSubscriptions,
+          INITIAL_SUBSCRIPTIONS.filter(s => s.barbershopId === tenantId)
+        )
+      );
+      unsubs.push(
+        subscribeQuery<SubscriptionPaymentRecord>(
+          'subscription_payments',
+          [where('barbershopId', '==', tenantId)],
+          setSubscriptionPayments,
+          INITIAL_SUBSCRIPTION_PAYMENTS.filter(sp => sp.barbershopId === tenantId)
+        )
+      );
+      return () => {
+        unsubs.forEach(u => u());
+      };
+    }
+
+    return () => {
+      unsubs.forEach(u => u());
+    };
+  }, [authenticatedUser, activeTenantId, isImpersonating, currentUserId, authClaims]);
 
   // When changing tenant, reset current user if outside tenant (unless user is SUPER_ADMIN or CLIENTE)
   useEffect(() => {
@@ -966,27 +1671,126 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (activeTenantId !== urlTenant) {
           setActiveTenantId(urlTenant);
         }
-        try {
-          const savedUserId = localStorage.getItem('mybarber_session_user_id');
-          const u = users.find(user => user.id === savedUserId);
-          if (!u || u.role === 'CLIENTE') {
-            setViewMode('CLIENT_APP');
-          }
-        } catch {
+        if (!authenticatedUser || authenticatedUser.role === 'CLIENTE') {
           setViewMode('CLIENT_APP');
         }
       }
     }
-  }, [barbershops]);
+  }, [barbershops, authenticatedUser]);
 
-  // Audit logging helper
+  // Sincronização oficial em tempo real com Firebase Authentication (onAuthStateChanged)
+  // Firebase Auth é a ÚNICA fonte de verdade soberana para identidade autenticada
+  useEffect(() => {
+    const unsubscribeAuth = subscribeToAuthChanges(async (firebaseAuthUser) => {
+      if (firebaseAuthUser) {
+        const uid = firebaseAuthUser.uid;
+        const email = (firebaseAuthUser.email || '').toLowerCase().trim();
+
+        // 1. Obtenção segura e soberana dos Custom Claims do ID Token do Firebase Auth
+        const claims = await getAuthClaims(firebaseAuthUser);
+        setAuthClaims(claims);
+
+        // 2. Procura se existe perfil correspondente no estado ou seed (verificação canônica por UID ou email verificado)
+        const isEmailVerified = (firebaseAuthUser as any).emailVerified === true;
+        let matched = users.find(u => 
+          u.uid === uid || 
+          u.id === uid || 
+          (isEmailVerified && email && u.email?.toLowerCase() === email && (!u.googleId || u.googleId === uid))
+        );
+
+        // FASE 2.4C: Bloqueio estrito de sessão para usuário com status 'inactive' no banco ou nas claims
+        if (matched && matched.status === 'inactive') {
+          console.warn(`[Auth Security] Sessão bloqueada: usuário ${uid} com status 'inactive'.`);
+          setAuthenticatedUser(null);
+          setCurrentUserId(null);
+          logoutFromFirebaseAuth();
+          return;
+        }
+
+        if (claims?.status === 'inactive') {
+          console.warn(`[Auth Security] Sessão bloqueada: claims indicam status 'inactive' para ${uid}.`);
+          setAuthenticatedUser(null);
+          setCurrentUserId(null);
+          logoutFromFirebaseAuth();
+          return;
+        }
+
+        // Se o usuário possui Custom Claim de super_admin, localiza perfil administrativo
+        if (!matched && (claims?.isSuperAdmin || claims?.role === 'super_admin')) {
+          matched = users.find(u => u.role === 'SUPER_ADMIN') || INITIAL_USERS[0];
+        }
+
+        // A autoridade de role provém dos Custom Claims (com fallback seguro de compatibilidade)
+        const effectiveRole: UserRole = (claims?.isSuperAdmin || claims?.role === 'super_admin')
+          ? 'SUPER_ADMIN'
+          : claims?.role
+          ? toLegacyRole(claims.role)
+          : (matched?.role || 'CLIENTE');
+
+        const effectiveTenantId = claims?.tenantId || matched?.tenantId || (effectiveRole === 'CLIENTE' ? activeTenantId : undefined);
+
+        if (matched) {
+          const profileWithUid: User = {
+            ...matched,
+            uid,
+            id: matched.id || uid,
+            role: effectiveRole,
+            tenantId: effectiveTenantId
+          };
+          setAuthenticatedUser(profileWithUid);
+          setCurrentUserId(profileWithUid.id);
+          // Atualiza perfil no Firestore preservando ID canônico sem duplicar documentos
+          syncDoc('users', matched.id, profileWithUid);
+        } else {
+          // Provisiona perfil de cliente seguro para novo usuário autenticado
+          const newProfile: User = {
+            id: uid,
+            uid,
+            tenantId: effectiveTenantId || activeTenantId,
+            role: effectiveRole,
+            name: firebaseAuthUser.displayName || (email ? email.split('@')[0] : 'Cliente'),
+            email: email || undefined,
+            whatsapp: firebaseAuthUser.phoneNumber || '',
+            phone: firebaseAuthUser.phoneNumber || '',
+            avatarUrl: firebaseAuthUser.photoURL || undefined,
+            status: 'active',
+            authProvider: 'FIREBASE_AUTH',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          setUsers(prev => {
+            if (prev.some(u => u.id === uid || u.uid === uid)) return prev;
+            return [...prev, newProfile];
+          });
+          setAuthenticatedUser(newProfile);
+          setCurrentUserId(newProfile.id);
+          syncDoc('users', uid, newProfile);
+        }
+      } else {
+        // Se deslogado no Firebase Auth e a sessão estava associada a ele, limpa
+        setAuthClaims(null);
+        setAuthenticatedUser(prev => {
+          if (prev?.uid || prev?.authProvider === 'GOOGLE' || prev?.authProvider === 'FIREBASE_AUTH') {
+            setCurrentUserId('user-guest-client');
+            return null;
+          }
+          return prev;
+        });
+      }
+    });
+
+    return () => unsubscribeAuth();
+  }, [users, activeTenantId]);
+
+  // Audit logging helper (FASE 4.4D: Mantém estado local de UI; escritas oficiais no Firestore são exclusivas do Backend Admin SDK)
   const addAuditLog = (log: Omit<AuditLog, 'id' | 'timestamp'>) => {
     const newLog: AuditLog = {
       ...log,
       id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       timestamp: new Date().toISOString()
     };
-    syncDoc('audit_logs', newLog.id, newLog);
+    // syncDoc('audit_logs', ...) removido: Firestore Rules bloqueiam escrita client-side.
+    // Todas as trilhas oficiais de auditoria são geradas com autoridade via Backend / recordAuditLog.
     setAuditLogs(prev => [newLog, ...prev]);
   };
 
@@ -1021,22 +1825,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const clean = identifier.trim().toLowerCase();
     const cleanDigits = identifier.replace(/\D/g, '');
 
-    // Validação estrita de segurança para acesso Master (Carlos Silva)
-    if (clean === 'carlosrs.email@gmail.com') {
-      if (_password !== 'Ca.753268') {
+    // Identificação de candidato a acesso Master via usuários cadastrados (sem email hardcoded)
+    const masterCandidate = users.find(u => (u.email?.toLowerCase() === clean || u.id === clean || (u.username && u.username.toLowerCase() === clean)) && u.role === 'SUPER_ADMIN');
+    if (masterCandidate) {
+      if (!_password || !_password.trim()) {
         return {
           success: false,
-          error: 'Senha incorreta para acesso Master (Carlos Silva).'
+          error: 'Senha obrigatória para acesso Master.'
         };
       }
-      const superAdmin = users.find(u => u.role === 'SUPER_ADMIN') || INITIAL_USERS[0];
+      if (masterCandidate.password && masterCandidate.password !== _password) {
+        return {
+          success: false,
+          error: 'Senha incorreta para acesso Master.'
+        };
+      }
+      const superAdmin = masterCandidate;
       setAuthenticatedUser(superAdmin);
       setCurrentUserId(superAdmin.id);
-      try {
-        localStorage.setItem('mybarber_session_user_id', superAdmin.id);
-      } catch {
-        // ignore
+
+      // Migração e vinculação segura e não-destrutiva ao Firebase Authentication
+      if (superAdmin.email && _password) {
+        tryMigrateUserToFirebaseAuth(superAdmin.email, _password, superAdmin.name)
+          .then(async (authUser) => {
+            if (authUser) {
+              const claims = await getAuthClaims(authUser);
+              setAuthClaims(claims);
+              setAuthenticatedUser(prev => prev ? { ...prev, uid: authUser.uid } : prev);
+              syncDoc('users', superAdmin.id, { ...superAdmin, uid: authUser.uid });
+            }
+          })
+          .catch(() => {});
       }
+
       setViewMode('MASTER_ADMIN');
       addAuditLog({
         actorUserId: superAdmin.id,
@@ -1060,33 +1881,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     let matched = authResult.user;
 
-    // If client with phone doesn't exist yet, auto-register as client
-    if (!matched && cleanDigits.length >= 8 && !_password) {
-      const isEmail = identifier.includes('@');
-      matched = {
-        id: `user-client-${Date.now()}`,
-        tenantId: activeTenantId,
-        role: 'CLIENTE',
-        status: 'active',
-        name: isEmail ? identifier.split('@')[0] : 'Cliente',
-        email: isEmail ? identifier.trim().toLowerCase() : undefined,
-        whatsapp: identifier.trim(),
-        createdAt: new Date().toISOString()
-      };
-      const nextUsers = [...users, matched];
-      setUsers(nextUsers);
-      try {
-        localStorage.setItem('mybarber_cached_users', JSON.stringify(nextUsers));
-      } catch {
-        // ignore
-      }
-      syncDoc('users', matched.id, matched);
-    }
-
     if (!matched) {
       return {
         success: false,
-        error: authResult.error || 'Nenhuma conta encontrada com este e-mail, WhatsApp ou usuário. Verifique os dados ou utilize uma das contas de teste rápido.'
+        error: authResult.error || 'Nenhuma conta encontrada com este e-mail, WhatsApp ou usuário.'
       };
     }
 
@@ -1098,14 +1896,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }
 
+    // Inicia migração suave e segura para Firebase Auth em segundo plano quando há e-mail
+    if (matched && matched.email && _password) {
+      tryMigrateUserToFirebaseAuth(matched.email, _password, matched.name)
+        .then(authUser => {
+          if (authUser) {
+            setAuthenticatedUser(prev => prev ? { ...prev, uid: authUser.uid } : prev);
+            syncDoc('users', matched.id, { ...matched, uid: authUser.uid });
+          }
+        })
+        .catch(() => {});
+    }
+
     setAuthenticatedUser(matched);
     setCurrentUserId(matched.id);
-    try {
-      localStorage.setItem('mybarber_session_user_id', matched.id);
-      localStorage.setItem('mybarber_session_user', JSON.stringify(matched));
-    } catch {
-      // ignore
-    }
 
     // Direct routing according to hierarchy
     if (matched.role === 'SUPER_ADMIN') {
@@ -1142,10 +1946,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logout = () => {
+    logoutFromFirebaseAuth().catch(() => {});
     const prev = authenticatedUser;
     setAuthenticatedUser(null);
+    setCurrentUserId('user-guest-client');
     try {
       localStorage.removeItem('mybarber_session_user_id');
+      localStorage.removeItem('mybarber_session_user');
     } catch {
       // ignore
     }
@@ -1175,7 +1982,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newStatus = active ? 'ATIVA' : 'INATIVA';
     const updated = { ...target, status: newStatus as 'ATIVA' | 'INATIVA' };
     syncDoc('barbershops', barbershopId, updated);
-    setBarbershops(prev => prev.map(b => b.id === barbershopId ? updated : b));
+    setBarbershops(prev => {
+      const next = prev.map(b => b.id === barbershopId ? updated : b);
+      try {
+        localStorage.setItem('mybarber_cached_barbershops', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
     addAuditLog({
       actorUserId: currentUser.id,
       actorUserName: currentUser.name,
@@ -1194,229 +2009,363 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (target) {
       const merged = { ...target, ...updated };
       syncDoc('barbershops', target.id, merged);
+      syncDoc('publicBarbershops', target.id, toPublicBarbershop(merged));
     }
-    setBarbershops(prev =>
-      prev.map(b => (b.id === shopIdToUpdate ? { ...b, ...updated } : b))
-    );
+    setBarbershops(prev => {
+      const next = prev.map(b => (b.id === shopIdToUpdate ? { ...b, ...updated } : b));
+      try {
+        localStorage.setItem('mybarber_cached_barbershops', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const bookOnlineAppointment = async (params: {
+    tenantId: string;
+    professionalId: string;
+    serviceId: string;
+    date: string;
+    startTime: string;
+    clientName: string;
+    clientWhatsApp: string;
+    notes?: string;
+  }): Promise<{ success: boolean; error?: string; appointment?: Appointment }> => {
+    try {
+      const idempotencyKey = crypto.randomUUID();
+
+      let authHeader: string | undefined = undefined;
+      try {
+        const fbUser = getFirebaseCurrentUser();
+        if (fbUser) {
+          const idToken = await fbUser.getIdToken();
+          if (idToken) {
+            authHeader = `Bearer ${idToken}`;
+          }
+        }
+      } catch (authErr) {
+        console.warn('[bookOnlineAppointment] Aviso ao obter ID Token:', authErr);
+      }
+
+      const appCheckToken = await getAppCheckToken();
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (authHeader) {
+        headers['Authorization'] = authHeader;
+      }
+      if (appCheckToken) {
+        headers['X-Firebase-AppCheck'] = appCheckToken;
+      }
+
+      const response = await fetch('/api/appointments/book', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          tenantId: params.tenantId,
+          professionalId: params.professionalId,
+          serviceId: params.serviceId,
+          date: params.date,
+          startTime: params.startTime,
+          idempotencyKey,
+          clientName: params.clientName,
+          clientWhatsApp: params.clientWhatsApp,
+          notes: params.notes || ''
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success && data.appointment) {
+        const confirmedApt: Appointment = data.appointment;
+
+        // Atualização oficial autoritativa no estado do React após confirmação
+        setAppointments(prev => {
+          const exists = prev.some(a => a.id === confirmedApt.id);
+          return exists
+            ? prev.map(a => (a.id === confirmedApt.id ? confirmedApt : a))
+            : [confirmedApt, ...prev];
+        });
+
+        // Atualização oficial na disponibilidade pública em memória
+        setPublicAvailability(prev => {
+          const exists = prev.some(a => a.id === confirmedApt.id);
+          if (exists) return prev;
+          return [
+            ...prev,
+            {
+              id: confirmedApt.id,
+              tenantId: confirmedApt.tenantId,
+              professionalId: confirmedApt.professionalId,
+              date: confirmedApt.date,
+              startTime: confirmedApt.startTime,
+              endTime: confirmedApt.endTime,
+              status: 'AGENDADO'
+            }
+          ];
+        });
+
+        return {
+          success: true,
+          appointment: confirmedApt
+        };
+      }
+
+      const errorMsg =
+        data.message ||
+        data.error ||
+        (response.status === 409
+          ? 'Esse horário acabou de ser reservado. Escolha outro horário disponível.'
+          : 'Erro ao processar agendamento.');
+
+      return {
+        success: false,
+        error: errorMsg
+      };
+    } catch (err: any) {
+      console.error('[bookOnlineAppointment] Falha na requisição ao backend:', err);
+      return {
+        success: false,
+        error: 'Erro de conexão com o servidor. Verifique sua conexão e tente novamente.'
+      };
+    }
   };
 
   const addAppointment = (newApp: Omit<Appointment, 'id' | 'createdAt' | 'reminderSent'>): { success: boolean; error?: string } => {
-    // REGRA FUNDAMENTAL DO MY BARBER: O CLIENTE SÓ PODE AGENDAR SERVIÇOS CADASTRADOS PELA BARBEARIA
-    const srv = services.find(s => s.id === newApp.serviceId);
-    if (!srv) {
-      return {
-        success: false,
-        error: 'O serviço selecionado não pertence a este estabelecimento ou não está cadastrado.'
+    // Para agendamentos administrativos de encaixe
+    if (newApp.isEncaixe) {
+      const srv = services.find(s => s.id === newApp.serviceId);
+      const officialDuration = srv?.durationMinutes || 30;
+      const startMins = timeToMinutes(newApp.startTime);
+      const computedEnd = minutesToTime(startMins + officialDuration);
+
+      const created: Appointment = {
+        ...newApp,
+        serviceName: srv?.name || newApp.serviceName || 'Serviço',
+        servicePrice: srv?.price ?? newApp.servicePrice ?? 0,
+        serviceDuration: officialDuration,
+        endTime: newApp.endTime || computedEnd,
+        id: `apt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        createdAt: new Date().toISOString(),
+        reminderSent: false
       };
+
+      setAppointments(prev => [created, ...prev]);
+
+      syncDoc('appointments', created.id, created);
+      return { success: true };
     }
 
-    if (newApp.tenantId && srv.tenantId !== newApp.tenantId) {
-      return {
-        success: false,
-        error: 'Inconsistência de estabelecimento: o serviço não pertence a esta barbearia.'
-      };
-    }
-
-    // A duração utilizada no cálculo e no agendamento é estritamente a duração oficial cadastrada do serviço
-    const officialDuration = srv.durationMinutes;
-    const sched = schedules.find(s => s.professionalId === newApp.professionalId);
-    const targetBarbershop = barbershops.find(b => b.id === newApp.tenantId) || currentBarbershop;
-
-    // REGRA FUNDAMENTAL DO MY BARBER: Validação estrita de disponibilidade e jornada
-    if (!newApp.isEncaixe) {
-      const validation = isTimeSlotAvailable({
-        date: newApp.date,
-        startTime: newApp.startTime,
-        durationMinutes: officialDuration > 0 ? officialDuration : 30,
-        professionalId: newApp.professionalId,
-        scheduleConfig: sched,
-        businessHours: targetBarbershop?.businessHours,
-        existingAppointments: appointments,
-        isEncaixe: false
-      });
-
-      if (!validation.available) {
-        return {
-          success: false,
-          error: validation.reason || 'Esse horário acabou de ser reservado. Escolha outro horário disponível.'
-        };
-      }
-    }
-
-    const startMins = timeToMinutes(newApp.startTime);
-    const computedEnd = minutesToTime(startMins + officialDuration);
-
-    const created: Appointment = {
-      ...newApp,
-      serviceName: srv.name,
-      servicePrice: srv.price,
-      serviceDuration: officialDuration,
-      endTime: newApp.endTime || computedEnd,
-      id: `apt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      createdAt: new Date().toISOString(),
-      reminderSent: false
-    };
-
-    // Atualização otimista no estado local e cache persistente
-    setAppointments(prev => {
-      const next = [created, ...prev];
-      try {
-        localStorage.setItem('mybarber_cached_appointments', JSON.stringify(next));
-      } catch {
-        // ignore
-      }
-      return next;
-    });
-
-    // Persistência atômica com validação de concorrência com os dados frescos do Firestore
-    syncAppointmentWithLock(created, (freshList) => {
-      if (newApp.isEncaixe) return { available: true };
-      return isTimeSlotAvailable({
-        date: created.date,
-        startTime: created.startTime,
-        durationMinutes: officialDuration > 0 ? officialDuration : 30,
-        professionalId: created.professionalId,
-        scheduleConfig: sched,
-        businessHours: targetBarbershop?.businessHours,
-        existingAppointments: freshList,
-        isEncaixe: false
-      });
-    }).then(lockResult => {
-      if (!lockResult.success) {
-        // Reverte o estado local APENAS se a validação no banco acusar colisão de horário concorrente
-        const isCollision =
-          lockResult.error === 'SLOT_OCCUPIED' ||
-          (lockResult.error && (lockResult.error.includes('reservado') || lockResult.error.includes('ocupado') || lockResult.error.includes('indisponível')));
-
-        if (isCollision) {
-          setAppointments(prev => {
-            const next = prev.filter(a => a.id !== created.id);
-            try {
-              localStorage.setItem('mybarber_cached_appointments', JSON.stringify(next));
-            } catch {
-              // ignore
-            }
-            return next;
-          });
-        }
-      }
+    // Para agendamentos convencionais disparados via addAppointment, encaminha para o fluxo autoritativo
+    bookOnlineAppointment({
+      tenantId: newApp.tenantId,
+      professionalId: newApp.professionalId,
+      serviceId: newApp.serviceId,
+      date: newApp.date,
+      startTime: newApp.startTime,
+      clientName: newApp.clientName,
+      clientWhatsApp: newApp.clientWhatsApp,
+      notes: newApp.notes
     });
 
     return { success: true };
   };
 
-  const rescheduleAppointment = (
+  const rescheduleAppointment = async (
     appointmentId: string,
     newDate: string,
     newStartTime: string,
-    newEndTime: string
-  ): { success: boolean; error?: string } => {
-    const apt = appointments.find(a => a.id === appointmentId);
-    if (!apt) {
-      return { success: false, error: 'Agendamento não encontrado.' };
-    }
+    _newEndTime?: string
+  ): Promise<{ success: boolean; error?: string; appointment?: Appointment }> => {
+    try {
+      let authHeader: string | undefined = undefined;
+      try {
+        const fbUser = getFirebaseCurrentUser();
+        if (fbUser) {
+          const idToken = await fbUser.getIdToken();
+          if (idToken) {
+            authHeader = `Bearer ${idToken}`;
+          }
+        }
+      } catch (authErr) {
+        console.warn('[rescheduleAppointment] Aviso ao obter ID Token:', authErr);
+      }
 
-    const srv = services.find(s => s.id === apt.serviceId);
-    const officialDuration = srv?.durationMinutes || apt.serviceDuration || 30;
-    const sched = schedules.find(s => s.professionalId === apt.professionalId);
-    const targetBarbershop = barbershops.find(b => b.id === apt.tenantId) || currentBarbershop;
+      if (!authHeader) {
+        return {
+          success: false,
+          error: 'Autenticação necessária para remarcar agendamentos.'
+        };
+      }
 
-    const validation = isTimeSlotAvailable({
-      date: newDate,
-      startTime: newStartTime,
-      durationMinutes: officialDuration > 0 ? officialDuration : 30,
-      professionalId: apt.professionalId,
-      scheduleConfig: sched,
-      businessHours: targetBarbershop?.businessHours,
-      existingAppointments: appointments,
-      excludeAppointmentId: appointmentId,
-      isEncaixe: apt.isEncaixe
-    });
+      const appCheckToken = await getAppCheckToken();
 
-    if (!validation.available) {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Authorization: authHeader
+      };
+      if (appCheckToken) {
+        headers['X-Firebase-AppCheck'] = appCheckToken;
+      }
+
+      const response = await fetch('/api/appointments/reschedule', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          appointmentId,
+          newDate,
+          newStartTime,
+          idempotencyKey: crypto.randomUUID()
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success && data.appointment) {
+        const confirmedApt: Appointment = data.appointment;
+
+        setAppointments(prev => {
+          const exists = prev.some(a => a.id === confirmedApt.id);
+          return exists
+            ? prev.map(a => (a.id === confirmedApt.id ? confirmedApt : a))
+            : [confirmedApt, ...prev];
+        });
+
+        setPublicAvailability(prev => [
+          ...prev.filter(s => s.id !== confirmedApt.id),
+          toPublicAvailabilitySlot(confirmedApt)
+        ]);
+
+        return { success: true, appointment: confirmedApt };
+      }
+
       return {
         success: false,
-        error: validation.reason || 'Esse horário acabou de ser reservado. Escolha outro horário disponível.'
+        error: data.message || data.error || 'Falha ao remarcar agendamento.'
+      };
+    } catch (err: any) {
+      console.error('[rescheduleAppointment] Erro ao comunicar com backend autoritativo:', err);
+      return {
+        success: false,
+        error: 'Erro de comunicação ao remarcar agendamento. Tente novamente.'
       };
     }
-
-    const startMins = timeToMinutes(newStartTime);
-    const computedEnd = minutesToTime(startMins + officialDuration);
-
-    const updated: Appointment = {
-      ...apt,
-      date: newDate,
-      startTime: newStartTime,
-      endTime: computedEnd,
-      reminderSent: false
-    };
-
-    setAppointments(prev => prev.map(a => (a.id === appointmentId ? updated : a)));
-
-    syncAppointmentWithLock(updated, (freshList) => {
-      if (apt.isEncaixe) return { available: true };
-      return isTimeSlotAvailable({
-        date: newDate,
-        startTime: newStartTime,
-        durationMinutes: officialDuration > 0 ? officialDuration : 30,
-        professionalId: apt.professionalId,
-        scheduleConfig: sched,
-        businessHours: targetBarbershop?.businessHours,
-        existingAppointments: freshList,
-        excludeAppointmentId: appointmentId,
-        isEncaixe: apt.isEncaixe
-      });
-    }).then(lockResult => {
-      if (!lockResult.success) {
-        // Reverter para o agendamento original se houver colisão concorrente
-        setAppointments(prev => prev.map(a => (a.id === appointmentId ? apt : a)));
-      }
-    });
-
-    return { success: true };
   };
 
-  const cancelAppointment = (appointmentId: string) => {
-    const apt = appointments.find(a => a.id === appointmentId);
-    if (apt) {
-      syncDoc('appointments', appointmentId, { ...apt, status: 'CANCELADO' });
-    }
-    setAppointments(prev => {
-      const next = prev.map(a => (a.id === appointmentId ? { ...a, status: 'CANCELADO' as const } : a));
+  const cancelAppointment = async (
+    appointmentId: string,
+    reason?: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      let authHeader: string | undefined = undefined;
       try {
-        localStorage.setItem('mybarber_cached_appointments', JSON.stringify(next));
-      } catch {
-        // ignore
+        const fbUser = getFirebaseCurrentUser();
+        if (fbUser) {
+          const idToken = await fbUser.getIdToken();
+          if (idToken) {
+            authHeader = `Bearer ${idToken}`;
+          }
+        }
+      } catch (authErr) {
+        console.warn('[cancelAppointment] Aviso ao obter ID Token:', authErr);
       }
-      return next;
-    });
+
+      if (!authHeader) {
+        return {
+          success: false,
+          error: 'Autenticação necessária para cancelar agendamentos.'
+        };
+      }
+
+      const appCheckToken = await getAppCheckToken();
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Authorization: authHeader
+      };
+      if (appCheckToken) {
+        headers['X-Firebase-AppCheck'] = appCheckToken;
+      }
+
+      const response = await fetch('/api/appointments/cancel', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          appointmentId,
+          reason,
+          idempotencyKey: crypto.randomUUID()
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        const cancelledApt: Appointment | undefined = data.appointment;
+
+        setAppointments(prev =>
+          prev.map(a =>
+            a.id === appointmentId
+              ? cancelledApt || { ...a, status: 'CANCELADO' as const }
+              : a
+          )
+        );
+
+        // Libera imediatamente a disponibilidade pública em memória
+        setPublicAvailability(prev => prev.filter(s => s.id !== appointmentId));
+
+        return { success: true };
+      }
+
+      return {
+        success: false,
+        error: data.message || data.error || 'Falha ao cancelar agendamento.'
+      };
+    } catch (err: any) {
+      console.error('[cancelAppointment] Erro ao comunicar com backend autoritativo:', err);
+      return {
+        success: false,
+        error: 'Erro de comunicação ao cancelar agendamento. Tente novamente.'
+      };
+    }
   };
 
   const updateAppointmentStatus = (appointmentId: string, status: AppointmentStatus) => {
+    // FECHAMENTO DEFINITIVO DE BYPASS (ETAPA 2.1I):
+    // Cancelamento altera disponibilidade e locks diários e DEVE passar obrigatoriamente pelo backend autoritativo
+    if (status === 'CANCELADO') {
+      cancelAppointment(appointmentId);
+      return;
+    }
+
     const apt = appointments.find(a => a.id === appointmentId);
     if (apt) {
-      syncDoc('appointments', appointmentId, { ...apt, status });
+      const updatedApt: Appointment = { ...apt, status };
+      syncDoc('appointments', appointmentId, updatedApt);
     }
-    setAppointments(prev => {
-      const next = prev.map(a => (a.id === appointmentId ? { ...a, status } : a));
-      try {
-        localStorage.setItem('mybarber_cached_appointments', JSON.stringify(next));
-      } catch {
-        // ignore
-      }
-      return next;
-    });
+    setAppointments(prev => prev.map(a => (a.id === appointmentId ? { ...a, status } : a)));
   };
 
   const addToWaitlist = (entry: Omit<WaitlistEntry, 'id' | 'createdAt' | 'status'>) => {
-    const created: WaitlistEntry = {
-      ...entry,
+    // Sanitização e proteção contra injeção de campos internos ou status indevido
+    const sanitizedEntry: WaitlistEntry = {
+      tenantId: entry.tenantId || activeTenantId,
+      clientId: entry.clientId || `guest-${Date.now()}`,
+      clientName: entry.clientName.trim(),
+      clientWhatsApp: entry.clientWhatsApp.trim(),
+      serviceId: entry.serviceId,
+      serviceName: entry.serviceName || '',
+      preferredProfessionalId: entry.preferredProfessionalId,
+      preferredDate: entry.preferredDate,
+      preferredTimeOfDay: entry.preferredTimeOfDay || 'QUALQUER',
+      notes: entry.notes ? entry.notes.trim() : '',
       id: `wait-${Date.now()}`,
       status: 'AGUARDANDO',
       createdAt: new Date().toISOString()
     };
-    syncDoc('waitlist', created.id, created);
-    setWaitlist(prev => [created, ...prev]);
+    syncDoc('waitlist', sanitizedEntry.id, sanitizedEntry);
+    setWaitlist(prev => [sanitizedEntry, ...prev]);
   };
 
   // Sorteio: Regra estrita da Seção 23:
@@ -1582,6 +2531,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true, message: 'Inscrição confirmada com sucesso no sorteio!' };
   };
 
+  // Projeções e Promoções Sincronizadas com Backend Autoritativo (Fase 2.2E)
+  const syncPromotionProjection = async (promoId: string) => {
+    try {
+      const idToken = await getIdTokenFromCurrentUser();
+      const res = await fetch('/api/catalog/sync-promotion', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {})
+        },
+        body: JSON.stringify({ promotionId: promoId })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.warn('[syncPromotionProjection] Falha na sincronização autoritativa:', data.error || res.statusText);
+      }
+    } catch (e) {
+      console.warn('[syncPromotionProjection] Exceção de rede na sincronização de promoção:', e);
+    }
+  };
+
+  const deletePromotionProjectionCall = async (tenantId: string, promoId: string) => {
+    try {
+      const idToken = await getIdTokenFromCurrentUser();
+      const res = await fetch(`/api/catalog/promotion/${tenantId}/${promoId}`, {
+        method: 'DELETE',
+        headers: {
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {})
+        }
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.warn('[deletePromotionProjectionCall] Falha na remoção da projeção:', data.error || res.statusText);
+      }
+    } catch (e) {
+      console.warn('[deletePromotionProjectionCall] Exceção de rede na remoção de promoção pública:', e);
+    }
+  };
+
   // Promoções
   const createPromotion = (promoData: Omit<Promotion, 'id' | 'createdAt'>) => {
     const newPromo: Promotion = {
@@ -1589,29 +2577,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `promo-${Date.now()}`,
       createdAt: new Date().toISOString()
     };
+    syncDoc('promotions', newPromo.id, newPromo);
+    syncPromotionProjection(newPromo.id);
     setPromotions(prev => [newPromo, ...prev]);
   };
 
   const updatePromotion = (promoId: string, promoData: Partial<Promotion>) => {
-    setPromotions(prev =>
-      prev.map(p => (p.id === promoId ? { ...p, ...promoData } : p))
-    );
+    const target = promotions.find(p => p.id === promoId);
+    if (target) {
+      const updated = { ...target, ...promoData };
+      syncDoc('promotions', promoId, updated);
+      syncPromotionProjection(promoId);
+      setPromotions(prev => prev.map(p => (p.id === promoId ? updated : p)));
+    }
   };
 
   const togglePromotionActive = (promoId: string) => {
-    setPromotions(prev =>
-      prev.map(p => (p.id === promoId ? { ...p, active: !p.active } : p))
-    );
+    const target = promotions.find(p => p.id === promoId);
+    if (target) {
+      const updated = { ...target, active: !target.active };
+      syncDoc('promotions', promoId, updated);
+      syncPromotionProjection(promoId);
+      setPromotions(prev => prev.map(p => (p.id === promoId ? updated : p)));
+    }
   };
 
   const deletePromotion = (promoId: string) => {
-    setPromotions(prev => prev.filter(p => p.id !== promoId));
+    const target = promotions.find(p => p.id === promoId);
+    if (target) {
+      deleteDocFromDb('promotions', promoId);
+      deletePromotionProjectionCall(target.tenantId || activeTenantId, promoId);
+      setPromotions(prev => prev.filter(p => p.id !== promoId));
+    }
   };
 
   const updateUser = (userId: string, data: Partial<User>) => {
     const target = users.find(u => u.id === userId);
     if (target) {
-      const merged = { ...target, ...data };
+      // REGRA DE SEGURANÇA (RBAC / Custom Claims):
+      // Role e TenantId de autorização são soberanos nos Custom Claims e NÃO podem ser alterados arbitrariamente via frontend.
+      const safeData = { ...data };
+      delete safeData.role;
+      delete safeData.tenantId;
+      delete (safeData as any).isSuperAdmin;
+      delete (safeData as any).canonicalRole;
+
+      const merged = { ...target, ...safeData };
       syncDoc('users', userId, merged);
       setUsers(prev => prev.map(u => (u.id === userId ? merged : u)));
       if (authenticatedUser?.id === userId) {
@@ -1656,44 +2667,85 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       syncDoc('users', profId, merged);
       const nextUsers = updatedUsers.map(u => (u.id === profId ? merged : u));
       setUsers(nextUsers);
-      try {
-        localStorage.setItem('mybarber_cached_users', JSON.stringify(nextUsers));
-      } catch {
-        // ignore
-      }
       if (authenticatedUser?.id === profId) {
         setAuthenticatedUser(merged);
       }
     }
   };
 
-  const deleteProfessional = (profId: string) => {
+  const deleteProfessional = async (profId: string): Promise<{ success: boolean; error?: string }> => {
     if (professionals.length <= 1) {
       return { success: false, error: 'A barbearia deve manter ao menos 1 profissional ativo.' };
     }
-    deleteDocFromDb('users', profId);
-    setUsers(prev => prev.filter(u => u.id !== profId));
-    return { success: true };
+
+    try {
+      const token = await getIdTokenFromCurrentUser();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(`/api/team/professional/${encodeURIComponent(profId)}`, {
+        method: 'DELETE',
+        headers
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        return {
+          success: false,
+          error: errData.error || `Falha ao remover profissional (HTTP ${res.status}).`
+        };
+      }
+
+      // O backend realiza soft delete (status: 'inactive') em users/{uid} e revoga credenciais Auth,
+      // preservando o documento para relatórios de comissão, histórico de agendamentos e auditoria.
+      setUsers(prev => prev.map(u => (u.id === profId || u.uid === profId) ? { ...u, status: 'inactive' } : u));
+      setPublicProfessionals(prev => prev.filter(p => p.id !== profId));
+      return { success: true };
+    } catch (netErr: any) {
+      console.error('[deleteProfessional] Erro ao remover profissional:', netErr);
+      return {
+        success: false,
+        error: netErr?.message || 'Erro de comunicação ao remover profissional.'
+      };
+    }
   };
 
-  const usePackageItem = (customerPackageId: string, itemId: string): boolean => {
-    let success = false;
-    setCustomerPackages(prev =>
-      prev.map(cp => {
-        if (cp.id === customerPackageId) {
-          const updatedItems = cp.items.map(item => {
-            if (item.itemId === itemId && item.usedQuantity < item.totalQuantity) {
-              success = true;
-              return { ...item, usedQuantity: item.usedQuantity + 1 };
-            }
-            return item;
-          });
-          return { ...cp, items: updatedItems };
-        }
-        return cp;
-      })
-    );
-    return success;
+  const usePackageItem = async (customerPackageId: string, itemId: string): Promise<boolean> => {
+    try {
+      const token = await getIdTokenFromCurrentUser();
+      const idempotencyKey = 'pkg_use_' + (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}_${Math.random().toString(36).slice(2)}`);
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(`/api/customer-packages/${encodeURIComponent(customerPackageId)}/items/${encodeURIComponent(itemId)}/consume`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ idempotencyKey })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success && data.customerPackage) {
+        setCustomerPackages(prev =>
+          prev.map(cp => cp.id === customerPackageId ? data.customerPackage : cp)
+        );
+        return true;
+      } else {
+        console.warn('[usePackageItem] Falha ao consumir sessão:', data.message || data.error);
+        return false;
+      }
+    } catch (err) {
+      console.error('[usePackageItem] Erro de rede ao consumir pacote:', err);
+      return false;
+    }
   };
 
   const addService = (serviceData: Omit<Service, 'id'>) => {
@@ -1714,16 +2766,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const addProfessional = (userData: Omit<User, 'id' | 'createdAt'>): { success: boolean; error?: string; user?: User } => {
+  const addProfessional = async (userData: Omit<User, 'id' | 'createdAt'>): Promise<{ success: boolean; error?: string; user?: User }> => {
     const targetTenantId = userData.tenantId || activeTenantId;
     const targetShop = barbershops.find(b => b.id === targetTenantId);
 
-    const customPlan = customPlans.find(p => p.id === targetShop?.planId);
+    const customPlan = customPlans.find(p => p.id === targetShop?.planId) ||
+      (targetShop?.planId === 'PLANO_UNICO' ? customPlans.find(p => p.id === 'plano-essencial') : undefined) ||
+      customPlans.find(p => p.id === 'plano-essencial') ||
+      customPlans[0];
     const maxStaff = customPlan && customPlan.limits?.maxProfessionals !== undefined
       ? (customPlan.limits.maxProfessionals === 'UNLIMITED' ? 9999 : Number(customPlan.limits.maxProfessionals))
-      : (MY_BARBER_PLANS[targetShop?.planId || '']?.maxProfessionals || 10);
+      : (MY_BARBER_PLANS[targetShop?.planId || '']?.maxProfessionals || 1);
     const currentStaffCount = users.filter(
-      u => u.tenantId === targetTenantId && (u.role === 'PROFISSIONAL' || u.role === 'PROPRIETARIO' || u.role === 'GERENTE')
+      u => u.tenantId === targetTenantId &&
+           (u.role === 'PROFISSIONAL' || (u as any).canonicalRole === 'barber') &&
+           u.status !== 'inactive'
     ).length;
 
     // Validação centralizada e rigorosa
@@ -1744,71 +2801,117 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: valResult.error || 'Dados inválidos para cadastro de profissional.' };
     }
 
-    // Regra Seção 7: Se este profissional for marcado com canViewAllProfessionals, desmarca os outros
-    let updatedUsers = [...users];
-    if (userData.canViewAllProfessionals) {
-      updatedUsers = updatedUsers.map(u =>
-        u.tenantId === targetTenantId && u.role === 'PROFISSIONAL'
-          ? { ...u, canViewAllProfessionals: false }
-          : u
-      );
-    }
-
-    const normalized = valResult.normalized;
-    const newUser: User = {
-      ...userData,
-      id: `user-prof-${Date.now()}`,
-      tenantId: targetTenantId,
-      role: 'PROFISSIONAL',
-      status: userData.status || 'active',
-      name: userData.name.trim(),
-      username: normalized?.username || (userData.username ? userData.username.trim().toLowerCase() : undefined),
-      email: normalized?.email || (userData.email ? userData.email.trim().toLowerCase() : undefined),
-      password: userData.password ? userData.password.trim() : undefined,
-      createdByUserId: currentUserId || authenticatedUser?.id,
-      createdAt: new Date().toISOString()
-    };
-
     try {
-      syncDoc('users', newUser.id, newUser);
-      const nextUsers = [...updatedUsers, newUser];
-      setUsers(nextUsers);
-      try {
-        localStorage.setItem('mybarber_cached_users', JSON.stringify(nextUsers));
-      } catch {
-        // ignore
+      const token = await getIdTokenFromCurrentUser();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
       }
 
+      const normalized = valResult.normalized;
+      const res = await fetch('/api/team/create-professional', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          tenantId: targetTenantId,
+          name: userData.name.trim(),
+          email: normalized?.email || (userData.email ? userData.email.trim().toLowerCase() : undefined),
+          username: normalized?.username || (userData.username ? userData.username.trim().toLowerCase() : undefined),
+          password: userData.password ? userData.password.trim() : undefined,
+          whatsapp: userData.whatsapp ? userData.whatsapp.trim() : undefined,
+          phone: userData.phone ? userData.phone.trim() : (userData.whatsapp ? userData.whatsapp.trim() : undefined),
+          avatarUrl: userData.avatarUrl ? userData.avatarUrl.trim() : undefined,
+          commissionPercentage: userData.commissionPercentage,
+          canViewAllProfessionals: userData.canViewAllProfessionals,
+          specialties: userData.specialties
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        return {
+          success: false,
+          error: errData.error || `Falha ao criar profissional (HTTP ${res.status}).`
+        };
+      }
+
+      const resData = await res.json();
+      if (!resData || !resData.user) {
+        return {
+          success: false,
+          error: 'Resposta inválida do servidor ao criar profissional.'
+        };
+      }
+
+      const createdUser: User = resData.user;
+
+      // Se este profissional for marcado com canViewAllProfessionals, desmarca os outros
+      let updatedUsers = [...users];
+      if (createdUser.canViewAllProfessionals) {
+        updatedUsers = updatedUsers.map(u =>
+          u.tenantId === targetTenantId && u.role === 'PROFISSIONAL'
+            ? { ...u, canViewAllProfessionals: false }
+            : u
+        );
+      }
+
+      const nextUsers = [...updatedUsers.filter(u => u.id !== createdUser.id), createdUser];
+      setUsers(nextUsers);
+
       addAuditLog({
-        actorUserId: authenticatedUser?.id || 'system',
+        actorUserId: authenticatedUser?.uid || authenticatedUser?.id || 'system',
         actorUserName: authenticatedUser?.name || 'Administrador',
         actorRole: authenticatedUser?.role || 'GERENTE',
         action: 'CRIAR_PROFISSIONAL',
         targetTenantId: targetTenantId,
         targetTenantName: targetShop?.name || 'Barbearia',
-        details: `Profissional ${newUser.name} cadastrado com sucesso com login ${newUser.username || newUser.email || 'WhatsApp'}.`,
+        details: `Profissional ${createdUser.name} cadastrado com sucesso com UID soberano ${createdUser.uid || createdUser.id}.`,
         status: 'SUCESSO'
       });
 
-      return { success: true, user: newUser };
-    } catch {
+      return { success: true, user: createdUser };
+    } catch (netErr: any) {
+      console.error('[addProfessional] Erro de comunicação ao criar profissional:', netErr);
       return {
         success: false,
-        error: 'Não foi possível criar o acesso deste profissional. O cadastro não foi concluído. Tente novamente.'
+        error: netErr?.message || 'Erro de comunicação ao criar profissional.'
       };
     }
   };
 
-  const updateStockQuantity = (id: string, delta: number) => {
-    setStock(prev =>
-      prev.map(item => {
-        if (item.id === id) {
-          const newQty = Math.max(0, item.quantity + delta);
-          return { ...item, quantity: newQty };
-        }
-        return item;
-      })
-    );
+  const updateStockQuantity = async (id: string, delta: number): Promise<boolean> => {
+    try {
+      const token = await getIdTokenFromCurrentUser();
+      const idempotencyKey = 'stk_adj_' + (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}_${Math.random().toString(36).slice(2)}`);
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(`/api/stock/${encodeURIComponent(id)}/adjust`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ delta, idempotencyKey })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success && data.stockItem) {
+        setStock(prev =>
+          prev.map(item => (item.id === id ? { ...item, quantity: data.stockItem.quantity } : item))
+        );
+        return true;
+      }
+      console.warn('[updateStockQuantity] Falha ao ajustar estoque:', data.message || data.error);
+      return false;
+    } catch (err) {
+      console.error('[updateStockQuantity] Erro de rede ao ajustar estoque:', err);
+      return false;
+    }
   };
 
   const addStockItem = (itemData: Omit<StockItem, 'id' | 'tenantId'>) => {
@@ -1824,7 +2927,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateStockItem = (stockId: string, data: Partial<StockItem>) => {
     const target = stock.find(s => s.id === stockId);
     if (target) {
-      const merged = { ...target, ...data };
+      // FASE 4.4D: Proibição estrita de mutação de 'quantity' via client-side.
+      // O quantity original é compulsoriamente preservado; ajustes de saldo devem utilizar a rota /api/stock/:id/adjust.
+      const { quantity: _ignoredQty, ...cadastralData } = data;
+      const merged = { ...target, ...cadastralData, quantity: target.quantity };
       syncDoc('stock', stockId, merged);
       setStock(prev => prev.map(s => s.id === stockId ? merged : s));
     }
@@ -1884,26 +2990,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     avatarUrl?: string;
     whatsapp: string;
     birthDate: string;
+    emailVerified?: boolean;
   }): User => {
+    if (!data.googleId) {
+      throw new Error('Autenticação Google oficial é obrigatória (Firebase UID ausente).');
+    }
+
     const cleanPhone = data.whatsapp.trim();
     const cleanEmail = data.email.trim().toLowerCase();
+    const isVerifiedEmail = data.emailVerified === true;
     
-    // 1. Check if user is Super Admin or Staff (Proprietario, Gerente, Profissional)
+    // 1. Check if user is Super Admin or Staff (Proprietario, Gerente, Profissional) strictly by UID or verified Google email
     const existingStaffOrAdmin = users.find(
       u =>
-        (cleanEmail && u.email?.toLowerCase() === cleanEmail) ||
-        (data.googleId && u.googleId === data.googleId) ||
-        (cleanPhone && u.whatsapp && cleanPhone.replace(/\D/g, '').length >= 8 && u.whatsapp.replace(/\D/g, '') === cleanPhone.replace(/\D/g, ''))
+        (data.googleId && (u.uid === data.googleId || u.id === data.googleId || u.googleId === data.googleId)) ||
+        (isVerifiedEmail && cleanEmail && u.email?.toLowerCase() === cleanEmail && (!u.googleId || u.googleId === data.googleId))
     );
 
     if (existingStaffOrAdmin && existingStaffOrAdmin.role !== 'CLIENTE') {
+      if (existingStaffOrAdmin.status === 'inactive') {
+        throw new Error('Esta conta de usuário encontra-se inativa.');
+      }
+      if (data.googleId && !existingStaffOrAdmin.uid) {
+        existingStaffOrAdmin.uid = data.googleId;
+        syncDoc('users', existingStaffOrAdmin.id, existingStaffOrAdmin);
+      }
       setCurrentUserId(existingStaffOrAdmin.id);
       setAuthenticatedUser(existingStaffOrAdmin);
-      try {
-        localStorage.setItem('mybarber_session_user_id', existingStaffOrAdmin.id);
-      } catch {
-        // ignore
-      }
       if (existingStaffOrAdmin.role === 'SUPER_ADMIN') {
         setViewMode('MASTER_ADMIN');
       } else if (existingStaffOrAdmin.role === 'PROPRIETARIO' || existingStaffOrAdmin.role === 'GERENTE') {
@@ -1932,45 +3045,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return existingStaffOrAdmin;
     }
 
-    // 2. Check if client already exists globally across the platform by Google ID, email, or WhatsApp
+    // 2. Check if client already exists globally across the platform by canonical UID or verified email (never by phone alone)
     let client = users.find(
       u =>
         u.role === 'CLIENTE' &&
-        ((data.googleId && u.googleId === data.googleId) ||
-         (cleanEmail && u.email?.toLowerCase() === cleanEmail) ||
-         (cleanPhone && u.whatsapp && cleanPhone.replace(/\D/g, '').length >= 8 && u.whatsapp.replace(/\D/g, '') === cleanPhone.replace(/\D/g, '')))
+        ((data.googleId && (u.uid === data.googleId || u.id === data.googleId || u.googleId === data.googleId)) ||
+         (isVerifiedEmail && cleanEmail && u.email?.toLowerCase() === cleanEmail && (!u.googleId || u.googleId === data.googleId)))
     );
+
+    // FASE 2.4C: Bloqueio estrito de reativação não autorizada e login de cliente inativo
+    if (client && client.status === 'inactive') {
+      throw new Error('Esta conta de cliente foi desativada. Para assistência, entre em contato com a administração da barbearia.');
+    }
 
     if (client) {
       // Update missing client info if provided, keeping global identity intact
       const updatedClient: User = {
         ...client,
+        uid: data.googleId || client.uid,
         name: data.name.trim() || client.name,
         email: cleanEmail || client.email,
         whatsapp: cleanPhone || client.whatsapp,
+        phone: cleanPhone || client.whatsapp,
         birthDate: data.birthDate || client.birthDate,
         avatarUrl: data.avatarUrl || client.avatarUrl,
-        googleId: data.googleId || client.googleId || `google-usr-${Date.now()}`,
-        authProvider: 'GOOGLE'
+        googleId: data.googleId || client.googleId,
+        authProvider: 'GOOGLE',
+        status: 'active',
+        updatedAt: new Date().toISOString()
       };
 
       setUsers(prev => prev.map(u => (u.id === client!.id ? updatedClient : u)));
       syncDoc('users', updatedClient.id, updatedClient);
       client = updatedClient;
     } else {
-      // Create new global client via Google login
+      // Create new global client via Google login using canonical Firebase UID as document ID
       client = {
-        id: `user-client-google-${Date.now()}`,
+        id: data.googleId,
+        uid: data.googleId,
         tenantId: activeTenantId,
         role: 'CLIENTE',
+        status: 'active',
         name: data.name.trim(),
         email: cleanEmail,
         whatsapp: cleanPhone,
+        phone: cleanPhone,
         birthDate: data.birthDate,
         avatarUrl: data.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200',
-        googleId: data.googleId || `google-usr-${Date.now()}`,
+        googleId: data.googleId,
         authProvider: 'GOOGLE',
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
       syncDoc('users', client.id, client);
       setUsers(prev => [...prev, client!]);
@@ -1979,12 +3104,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentUserId(client.id);
     setAuthenticatedUser(client);
     setWhatsappLoginPhone(cleanPhone);
-    try {
-      localStorage.setItem('mybarber_session_user_id', client.id);
-      localStorage.setItem('mybarber_session_user', JSON.stringify(client));
-    } catch {
-      // ignore
-    }
     setViewMode('CLIENT_APP');
     return client;
   };
@@ -2012,12 +3131,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentUserId(client.id);
     setAuthenticatedUser(client);
     setWhatsappLoginPhone(cleanPhone);
-    try {
-      localStorage.setItem('mybarber_session_user_id', client.id);
-      localStorage.setItem('mybarber_session_user', JSON.stringify(client));
-    } catch {
-      // ignore
-    }
     setViewMode('CLIENT_APP');
     return client;
   };
@@ -2035,22 +3148,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const targetShop = barbershops.find(b => b.id === data.tenantId);
     if (!targetShop) {
       return { success: false, error: 'Barbearia selecionada não encontrada.' };
-    }
-
-    const currentStaff = users.filter(
-      u => u.tenantId === data.tenantId && (u.role === 'PROFISSIONAL' || u.role === 'PROPRIETARIO' || u.role === 'GERENTE')
-    );
-    const customPlan = customPlans.find(p => p.id === targetShop.planId);
-    const maxStaff = customPlan && customPlan.limits?.maxProfessionals !== undefined
-      ? (customPlan.limits.maxProfessionals === 'UNLIMITED' ? 9999 : Number(customPlan.limits.maxProfessionals))
-      : (MY_BARBER_PLANS[targetShop.planId]?.maxProfessionals || 10);
-    const planName = customPlan ? customPlan.name : (MY_BARBER_PLANS[targetShop.planId]?.name || 'Plano Oficial');
-
-    if (currentStaff.length >= maxStaff) {
-      return {
-        success: false,
-        error: `Limite de equipe do ${planName} atingido (${currentStaff.length}/${maxStaff} membros cadastrados para ${targetShop.name}).`
-      };
     }
 
     const newManager: User = {
@@ -2096,7 +3193,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logoutClient = () => {
+    logoutFromFirebaseAuth().catch(() => {});
     setAuthenticatedUser(null);
+    setCurrentUserId('user-guest-client');
     try {
       localStorage.removeItem('mybarber_session_user_id');
       localStorage.removeItem('mybarber_session_user');
@@ -2107,7 +3206,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setViewMode('CLIENT_APP');
   };
 
-  const registerBarbershop = (input: RegisterBarbershopInput) => {
+  const registerBarbershop = async (input: RegisterBarbershopInput): Promise<{
+    success: boolean;
+    barbershopId: string;
+    subscription?: Subscription;
+    initPointUrl?: string;
+    error?: string;
+  }> => {
     const newTenantId = `tenant-${Date.now()}`;
     const now = new Date();
     const isTrial = input.commercialMode === 'TESTE_GRATIS';
@@ -2120,8 +3225,110 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ? new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000).toISOString() 
       : undefined;
 
+    const managerEmail = (input.managerEmail?.trim() || `${input.slug.trim() || 'barbearia'}@mybarber.com.br`).toLowerCase();
+
+    // FASE 1 & FASE 3: Provisionamento seguro do gestor no backend com Firebase Admin SDK e Custom Claims
+    let ownerUid = '';
+    let additionalManagerUid: string | undefined = undefined;
+    let initialBarberData: User | null = null;
+
+    try {
+      const superAdminToken = await getIdTokenFromCurrentUser();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (superAdminToken) {
+        headers['Authorization'] = `Bearer ${superAdminToken}`;
+      }
+
+      const provisionPayload: any = {
+        email: managerEmail,
+        name: input.managerName.trim(),
+        tenantId: newTenantId,
+        password: input.managerPassword?.trim() || undefined,
+        phoneNumber: input.managerWhatsApp.trim()
+      };
+
+      if (input.hasAdditionalManager && input.additionalManagerName && input.additionalManagerWhatsApp) {
+        provisionPayload.additionalManager = {
+          email: (input.additionalManagerEmail?.trim() || `gerente-${newTenantId}@mybarber.com.br`).toLowerCase(),
+          name: input.additionalManagerName.trim(),
+          password: input.additionalManagerPassword?.trim() || undefined,
+          phoneNumber: input.additionalManagerWhatsApp.trim()
+        };
+      }
+
+      provisionPayload.initialBarber = {
+        name: `Barbeiro Oficial (${input.managerName.split(' ')[0]})`,
+        whatsapp: input.managerWhatsApp.trim()
+      };
+
+      const provRes = await fetch('/api/admin/provision-barbershop-owner', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(provisionPayload)
+      });
+
+      if (!provRes.ok) {
+        const errData = await provRes.json().catch(() => ({}));
+        const errMsg = errData.error || `Falha no provisionamento do gestor (HTTP ${provRes.status}).`;
+        console.error('[registerBarbershop] Falha no provisionamento via Admin SDK:', errMsg);
+        return {
+          success: false,
+          barbershopId: '',
+          error: `Não foi possível provisionar a conta do gestor no Firebase Authentication: ${errMsg}. O cadastro da barbearia foi cancelado sem persistência.`
+        };
+      }
+
+      const provData = await provRes.json();
+      if (!provData || !provData.ownerUid) {
+        return {
+          success: false,
+          barbershopId: '',
+          error: 'O serviço de autenticação não retornou um UID soberano válido para o gestor. O cadastro da barbearia foi cancelado.'
+        };
+      }
+
+      ownerUid = provData.ownerUid;
+      if (provData.additionalManagerUid) {
+        additionalManagerUid = provData.additionalManagerUid;
+      }
+      if (provData.initialBarber) {
+        initialBarberData = provData.initialBarber;
+      }
+    } catch (netErr: any) {
+      console.error('[registerBarbershop] Erro de rede ao contatar endpoint de provisionamento:', netErr);
+      return {
+        success: false,
+        barbershopId: '',
+        error: `Erro de comunicação com o serviço de provisionamento: ${netErr?.message || 'Falha de rede'}. O cadastro foi cancelado sem persistência.`
+      };
+    }
+
+    // Validação estrita: ownerUid DEVE ser o UID real do Firebase Auth (nunca vazio e nunca sintético)
+    if (!ownerUid || ownerUid.trim() === '' || ownerUid.startsWith('user-mgr-')) {
+      return {
+        success: false,
+        barbershopId: '',
+        error: 'UID soberano do gestor ausente ou inválido. Operação abortada sem alterações.'
+      };
+    }
+
+    // Se gerente adicional foi solicitado, exigir que seu UID tenha sido provisionado com sucesso
+    if (input.hasAdditionalManager && input.additionalManagerName && input.additionalManagerWhatsApp) {
+      if (!additionalManagerUid || additionalManagerUid.startsWith('user-mgr-')) {
+        return {
+          success: false,
+          barbershopId: '',
+          error: 'Falha no provisionamento da conta do gerente adicional no Firebase Authentication. O cadastro da barbearia foi cancelado.'
+        };
+      }
+    }
+
+    // FASE 2: ownerUid REAL da identidade soberana do gestor no Firebase Authentication
     const newBarbershop: Barbershop = {
       id: newTenantId,
+      ownerUid, // UID soberano do gestor no Firebase Auth
       name: input.name.trim(),
       slug: input.slug.trim() || input.name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
       customDomain: input.customDomain.trim() || `www.${input.slug.trim() || 'barbearia'}.com.br`,
@@ -2144,14 +3351,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         zipCode: input.zipCode.trim()
       },
       socialMedia: {
-        instagram: `@${input.slug.replace(/-/g, '')}`,
+        instagram: `@${(input.slug?.trim() || input.name.toLowerCase().replace(/[^a-z0-9]/g, '')).replace(/-/g, '')}`,
         facebook: input.name
       },
       planId: input.planId,
       status: isTrial ? 'TESTE' : 'ATIVA',
       commercialMode: isTrial ? 'TESTE_GRATIS' : 'PAGO',
-      trialStartedAt,
-      trialExpiresAt,
+      ...(trialStartedAt ? { trialStartedAt } : {}),
+      ...(trialExpiresAt ? { trialExpiresAt } : {}),
       reminderConfig: {
         advanceMinutes: 60,
         enabled: true,
@@ -2160,55 +3367,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: now.toISOString()
     };
 
-    // Create the designated Manager or Owner
+    // Perfil do Gestor/Proprietário com UID soberano e SEM SENHA no Firestore
     const newManager: User = {
-      id: `user-mgr-${Date.now()}`,
+      id: ownerUid,
+      uid: ownerUid,
       tenantId: newTenantId,
       role: input.managerRole,
       name: input.managerName.trim(),
       username: input.managerUsername?.trim() || input.managerWhatsApp.trim(),
-      password: input.managerPassword?.trim() || '123456',
-      email: input.managerEmail?.trim(),
+      email: managerEmail,
       whatsapp: input.managerWhatsApp.trim(),
+      phone: input.managerWhatsApp.trim(),
       avatarUrl: input.managerAvatarUrl?.trim() || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
       canViewAllProfessionals: true,
       commissionPercentage: 50,
-      createdByUserId: 'master-app-owner',
-      createdAt: new Date().toISOString()
+      createdByUserId: currentUser.uid || currentUser.id || 'master-app-owner',
+      status: 'active',
+      authProvider: 'FIREBASE_AUTH',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
-    // Optional additional manager (created when Owner adds a Manager during shop registration)
+    // Gerente adicional se configurado
     let additionalManager: User | null = null;
     if (input.hasAdditionalManager && input.additionalManagerName && input.additionalManagerWhatsApp) {
+      const addUid = additionalManagerUid!;
       additionalManager = {
-        id: `user-mgr-${Date.now() + 2}`,
+        id: addUid,
+        uid: addUid,
         tenantId: newTenantId,
         role: 'GERENTE',
         name: input.additionalManagerName.trim(),
         username: input.additionalManagerUsername?.trim() || input.additionalManagerWhatsApp.trim(),
-        password: input.additionalManagerPassword?.trim() || '123456',
-        email: input.additionalManagerEmail?.trim(),
+        email: input.additionalManagerEmail?.trim() || `gerente-${newTenantId}@mybarber.com.br`,
         whatsapp: input.additionalManagerWhatsApp.trim(),
+        phone: input.additionalManagerWhatsApp.trim(),
         avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200',
         canViewAllProfessionals: true,
         commissionPercentage: 50,
-        createdByUserId: 'master-app-owner',
-        createdAt: new Date().toISOString()
+        createdByUserId: currentUser.uid || currentUser.id || 'master-app-owner',
+        status: 'active',
+        authProvider: 'FIREBASE_AUTH',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
     }
 
-    // Default professional (can also be the owner/manager or a barber)
-    const initialBarber: User = {
-      id: `user-prof-${Date.now() + 1}`,
+    // Barbeiro oficial inicial provisionado canonicamente no Firebase Auth
+    const initialBarber: User = initialBarberData || {
+      id: `${ownerUid}-barber`,
+      uid: `${ownerUid}-barber`,
       tenantId: newTenantId,
       role: 'PROFISSIONAL',
+      canonicalRole: 'barber',
       name: `Barbeiro Oficial (${input.managerName.split(' ')[0]})`,
       whatsapp: input.managerWhatsApp.trim(),
+      phone: input.managerWhatsApp.trim(),
       avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
       canViewAllProfessionals: false,
       commissionPercentage: 45,
       specialties: ['Degradê Navalhado', 'Barba Terapia', 'Pigmentação'],
-      createdAt: new Date().toISOString()
+      status: 'active',
+      authProvider: 'FIREBASE_AUTH',
+      createdByUserId: ownerUid,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     // Starter services for new shop
@@ -2271,76 +3494,78 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       usersToCreate.push(additionalManager);
     }
 
-    setBarbershops(prev => [...prev, newBarbershop]);
-    setUsers(prev => [...prev, ...usersToCreate]);
-    setServices(prev => [...prev, ...defaultServices]);
-    setStock(prev => [...prev, ...defaultStock]);
-
-    // Persist permanently to Firestore
+    // Persist permanently to Firestore (SEM SENHAS em users)
     syncDoc('barbershops', newBarbershop.id, newBarbershop);
-    usersToCreate.forEach(u => syncDoc('users', u.id, u));
+    usersToCreate.forEach(u => syncDoc('users', u.id, sanitizeUserProfileForFirestore(u)));
     defaultServices.forEach(srv => syncDoc('services', srv.id, srv));
     defaultStock.forEach(stk => syncDoc('stock', stk.id, stk));
 
-    // Initialize Mercado Pago Recurring Subscription
-    const trialStartDate = now.toISOString().split('T')[0];
-    const trialEndDate = new Date(Date.now() + (isTrial ? trialDays : 0) * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    // FASE 4 & 5: Criação da Subscription através do endpoint autenticado pelo backend
+    let createdSub: Subscription | undefined = undefined;
+    let initPointUrl: string | undefined = undefined;
 
-    const initialSubscription: Subscription = {
-      id: `sub-${newTenantId}`,
-      barbershopId: newTenantId,
-      barbershopName: input.name,
-      payerEmail: input.managerEmail || `${input.slug}@mybarber.com.br`,
-      payerName: input.managerName,
-      payerPhone: input.managerWhatsApp,
-      mercadopagoSubscriptionId: `mp-sub-${Date.now()}`,
-      status: isTrial ? 'TRIAL_14_DAYS' : 'PENDING',
-      plan: targetPlan.name,
-      planId: targetPlan.id,
-      currentPrice: isTrial ? 0.00 : (targetPlan.hasPromotion && targetPlan.promotionalPrice !== undefined ? targetPlan.promotionalPrice : targetPlan.priceMonthly),
-      billingCycle: targetPlan.billingCycle || 'MONTHLY',
-      isInTrial: isTrial,
-      trialStartDate,
-      trialEndDate,
-      paidBillingCount: 0,
-      trialOrLaunchPeriod: isTrial,
-      billingCount: 0,
-      nextBillingDate: trialEndDate,
-      initPointUrl: `https://www.mercadopago.com.br/subscriptions/checkout?preapproval_id=mp-sub-${Date.now()}`,
-      cardValidated: false,
-      toleranceDays: 7,
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString()
-    };
-    setSubscriptions(prev => [initialSubscription, ...prev]);
-    syncDoc('subscriptions', initialSubscription.id, initialSubscription);
+    try {
+      if (input.planId === 'plano-vitalicio') {
+        const lifetimeRes = await createLifetimeCheckout({
+          barbershopId: newTenantId,
+          barbershopName: input.name,
+          payerEmail: managerEmail,
+          payerName: input.managerName
+        });
+        if (lifetimeRes.success) {
+          initPointUrl = lifetimeRes.initPointUrl;
+        }
+      } else {
+        const subResult = await createSubscription({
+          barbershopId: newTenantId,
+          barbershopName: input.name,
+          payerEmail: managerEmail,
+          payerName: input.managerName,
+          payerPhone: input.managerWhatsApp,
+          planId: input.planId
+        });
 
-    // Call backend asynchronously to create on Mercado Pago with selected plan
-    createSubscription({
-      barbershopId: newTenantId,
-      barbershopName: input.name,
-      payerEmail: input.managerEmail || `${input.slug}@mybarber.com.br`,
-      payerName: input.managerName,
-      payerPhone: input.managerWhatsApp,
-      planId: input.planId
-    }).catch(e => console.warn('Background subscription creation:', e));
+        if (subResult.success && subResult.subscription) {
+          createdSub = subResult.subscription;
+          initPointUrl = subResult.initPointUrl || subResult.subscription.initPointUrl;
+        }
+      }
+    } catch (subErr) {
+      console.warn('[registerBarbershop] Erro ao iniciar assinatura ou compra definitiva no backend:', subErr);
+    }
+
+    // Atualiza estados locais apenas após a execução do fluxo
+    setBarbershops(prev => {
+      const next = [...prev, newBarbershop];
+      try {
+        localStorage.setItem('mybarber_cached_barbershops', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+
+    setUsers(prev => [...prev, ...usersToCreate]);
+
+    setServices(prev => [...prev, ...defaultServices]);
+    setStock(prev => [...prev, ...defaultStock]);
 
     addAuditLog({
-      actorUserId: currentUser.id,
+      actorUserId: currentUser.uid || currentUser.id,
       actorUserName: currentUser.name,
       actorRole: currentUser.role,
       action: 'CADASTRO_BARBEARIA',
       targetTenantId: newTenantId,
       targetTenantName: input.name,
-      details: `Nova barbearia cadastrada no plano "${targetPlan.name}" (${isTrial ? 'Modalidade Teste Grátis 3 dias' : `R$ ${targetPlan.priceMonthly.toFixed(2).replace('.', ',')}/mês`}). Gestor: ${input.managerName}.`,
+      details: `Nova barbearia cadastrada no plano "${targetPlan.name}". Gestor oficial: ${input.managerName} (${managerEmail}, UID: ${ownerUid}).`,
       status: 'SUCESSO'
     });
 
     return {
       success: true,
       barbershopId: newTenantId,
-      subscription: initialSubscription,
-      initPointUrl: initialSubscription.initPointUrl
+      subscription: createdSub,
+      initPointUrl
     };
   };
 
@@ -2356,7 +3581,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     services.filter(s => s.tenantId === barbershopId).forEach(s => deleteDocFromDb('services', s.id));
     appointments.filter(a => a.tenantId === barbershopId).forEach(a => deleteDocFromDb('appointments', a.id));
 
-    setBarbershops(prev => prev.filter(b => b.id !== barbershopId));
+    setBarbershops(prev => {
+      const next = prev.filter(b => b.id !== barbershopId);
+      try {
+        localStorage.setItem('mybarber_cached_barbershops', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
     setUsers(prev => prev.filter(u => u.tenantId !== barbershopId));
     setServices(prev => prev.filter(s => s.tenantId !== barbershopId));
     setAppointments(prev => prev.filter(a => a.tenantId !== barbershopId));
@@ -2382,6 +3615,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true };
   };
 
+  // Projeções e Galeria Sincronizadas com Backend Autoritativo (Fase 2.2E)
+  const syncGalleryProjection = async (workId: string) => {
+    try {
+      const idToken = await getIdTokenFromCurrentUser();
+      const res = await fetch('/api/catalog/sync-gallery', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {})
+        },
+        body: JSON.stringify({ workId })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.warn('[syncGalleryProjection] Falha na sincronização autoritativa:', data.error || res.statusText);
+      }
+    } catch (e) {
+      console.warn('[syncGalleryProjection] Exceção de rede na sincronização de galeria:', e);
+    }
+  };
+
+  const deleteGalleryProjectionCall = async (tenantId: string, workId: string) => {
+    try {
+      const idToken = await getIdTokenFromCurrentUser();
+      const res = await fetch(`/api/catalog/gallery/${tenantId}/${workId}`, {
+        method: 'DELETE',
+        headers: {
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {})
+        }
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.warn('[deleteGalleryProjectionCall] Falha na remoção da projeção:', data.error || res.statusText);
+      }
+    } catch (e) {
+      console.warn('[deleteGalleryProjectionCall] Exceção de rede na remoção de galeria pública:', e);
+    }
+  };
+
   // Gallery Works & Media Operations
   const addGalleryWork = (work: Omit<GalleryWork, 'id' | 'tenantId' | 'likesCount' | 'createdAt'>) => {
     const newWork: GalleryWork = {
@@ -2392,6 +3664,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString()
     };
     syncDoc('gallery', newWork.id, newWork);
+    syncGalleryProjection(newWork.id);
     setGalleryWorks(prev => [newWork, ...prev]);
   };
 
@@ -2400,21 +3673,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (target) {
       const updated = { ...target, ...updates };
       syncDoc('gallery', workId, updated);
+      syncGalleryProjection(workId);
       setGalleryWorks(prev => prev.map(w => w.id === workId ? updated : w));
     }
   };
 
   const deleteGalleryWork = (workId: string) => {
-    deleteDocFromDb('gallery', workId);
-    setGalleryWorks(prev => prev.filter(w => w.id !== workId));
-  };
-
-  const likeGalleryWork = (workId: string) => {
     const target = galleryWorks.find(w => w.id === workId);
     if (target) {
-      const updated = { ...target, likesCount: target.likesCount + 1 };
-      syncDoc('gallery', workId, updated);
-      setGalleryWorks(prev => prev.map(w => w.id === workId ? updated : w));
+      deleteDocFromDb('gallery', workId);
+      deleteGalleryProjectionCall(target.tenantId || activeTenantId, workId);
+      setGalleryWorks(prev => prev.filter(w => w.id !== workId));
+    }
+  };
+
+  const likeGalleryWork = async (workId: string) => {
+    // Atualização otimista no estado local para feedback visual instantâneo
+    setGalleryWorks(prev =>
+      prev.map(w => (w.id === workId ? { ...w, likesCount: (w.likesCount || 0) + 1 } : w))
+    );
+
+    try {
+      const res = await fetch(`/api/catalog/gallery/${workId}/like`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.likesCount === 'number') {
+          setGalleryWorks(prev =>
+            prev.map(w => (w.id === workId ? { ...w, likesCount: data.likesCount } : w))
+          );
+        }
+      } else {
+        console.warn('[likeGalleryWork] Endpoint autoritativo rejeitou a curtida.');
+      }
+    } catch (e) {
+      console.warn('[likeGalleryWork] Exceção ao curtir foto da galeria:', e);
     }
   };
 
@@ -2515,6 +3810,105 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  // IAM & Custom Claims (RBAC Soberano / Multi-tenant)
+  const refreshClaims = async (): Promise<AuthUserClaims | null> => {
+    const currentFbUser = getFirebaseCurrentUser();
+    if (!currentFbUser) {
+      setAuthClaims(null);
+      return null;
+    }
+    const updated = await refreshAuthClaimsSafely(currentFbUser);
+    setAuthClaims(updated);
+    return updated;
+  };
+
+  const changeUserRoleWithClaims = async (
+    targetUid: string,
+    newRole: CanonicalRole | UserRole,
+    tenantId?: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const idToken = await getIdTokenFromCurrentUser(true);
+      if (!idToken) {
+        return { success: false, error: 'Usuário não autenticado no Firebase Authentication.' };
+      }
+
+      const canonicalRole = toCanonicalRole(newRole);
+      const res = await fetch('/api/auth/set-user-role', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          targetUid,
+          role: canonicalRole,
+          tenantId
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, error: data.error || 'Erro ao atualizar permissões no servidor.' };
+      }
+
+      await refreshClaims();
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Falha de comunicação com o servidor de autorização.' };
+    }
+  };
+
+  const loadHistoricalAppointments = async (options?: {
+    tenantId?: string;
+    startDate?: string;
+    endDate?: string;
+    limitCount?: number;
+  }): Promise<Appointment[]> => {
+    const tId = options?.tenantId || activeTenantId;
+    const fetched = await fetchHistoricalAppointments({
+      tenantId: tId,
+      startDate: options?.startDate,
+      endDate: options?.endDate,
+      limitCount: options?.limitCount
+    });
+
+    if (fetched.length > 0) {
+      setAppointments(prev => {
+        const map = new Map<string, Appointment>();
+        prev.forEach(a => map.set(a.id, a));
+        fetched.forEach(a => map.set(a.id, a));
+        return Array.from(map.values());
+      });
+    }
+    return fetched;
+  };
+
+  const loadTenantDataForAdmin = async (targetTenantId: string): Promise<void> => {
+    if (!targetTenantId) return;
+    try {
+      const [servicesSnap, usersSnap] = await Promise.all([
+        getDocs(query(collection(db, 'services'), where('tenantId', '==', targetTenantId))),
+        getDocs(query(collection(db, 'users'), where('tenantId', '==', targetTenantId)))
+      ]);
+
+      const loadedServices = servicesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Service));
+      const loadedUsers = usersSnap.docs.map(d => ({ id: d.id, ...d.data() } as User));
+
+      setServices(prev => {
+        const others = prev.filter(s => s.tenantId !== targetTenantId);
+        return [...others, ...loadedServices];
+      });
+
+      setUsers(prev => {
+        const others = prev.filter(u => u.tenantId !== targetTenantId);
+        return [...others, ...loadedUsers];
+      });
+    } catch (err) {
+      console.error('[loadTenantDataForAdmin] Erro ao carregar dados do tenant:', err);
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -2563,6 +3957,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         likeGalleryWork,
         uploadMedia,
         addAppointment,
+        bookOnlineAppointment,
         rescheduleAppointment,
         cancelAppointment,
         updateAppointmentStatus,
@@ -2613,13 +4008,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isSuspended,
         toleranceDaysRemaining,
         createSubscription,
+        createLifetimeCheckout,
+        activateLifetimeLicense,
         cancelSubscription,
         syncSubscription,
         simulateSubscriptionAction,
         // Color Mode Dark / Light
         colorMode,
         setColorMode,
-        toggleColorMode
+        toggleColorMode,
+        // IAM & Custom Claims
+        authClaims,
+        refreshClaims,
+        changeUserRoleWithClaims,
+        // Projeções Públicas Blindadas
+        publicAvailability,
+        publicProfessionals,
+        publicServices,
+        publicSchedules,
+        publicCommunications,
+        publicRaffles,
+        publicBarbershops,
+        publicPackages,
+        publicPromotions,
+        publicGalleryWorks,
+        // Isolamento de Leitura e Consultas Sob Demanda (FASE 2.2B)
+        loadHistoricalAppointments,
+        loadTenantDataForAdmin
       }}
     >
       {children}

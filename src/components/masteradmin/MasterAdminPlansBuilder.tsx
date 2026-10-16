@@ -58,6 +58,13 @@ export const MasterAdminPlansBuilder: React.FC = () => {
   // Subscribed Barbershops Modal
   const [selectedPlanForSubscribers, setSelectedPlanForSubscribers] = useState<CustomPlan | null>(null);
 
+  // Double-submit prevention for Toggle and Duplicate (FASE 4.9B)
+  const [togglingPlanIds, setTogglingPlanIds] = useState<Record<string, boolean>>({});
+  const [duplicatingPlanIds, setDuplicatingPlanIds] = useState<Record<string, boolean>>({});
+
+  // Idempotency key per creation intention (FASE 4.9D)
+  const [createIdempotencyKey, setCreateIdempotencyKey] = useState<string | null>(null);
+
   // Form State
   const [formData, setFormData] = useState<{
     name: string;
@@ -205,6 +212,8 @@ export const MasterAdminPlansBuilder: React.FC = () => {
     setInitialFormData(initialData);
     setIsSaved(false);
     setModalFeedback(null);
+    const newKey = (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `idemp_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+    setCreateIdempotencyKey(newKey);
     setIsModalOpen(true);
   };
 
@@ -287,10 +296,22 @@ export const MasterAdminPlansBuilder: React.FC = () => {
           setModalFeedback({ type: 'error', message: result.error || 'Erro ao atualizar o plano.' });
         }
       } else {
-        const result = await createCustomPlan(planPayload);
+        let effectiveKey = createIdempotencyKey;
+        if (!effectiveKey) {
+          effectiveKey = (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `idemp_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+          setCreateIdempotencyKey(effectiveKey);
+        }
+
+        const result = await createCustomPlan(planPayload, effectiveKey);
         if (result.success) {
+          setCreateIdempotencyKey(null);
           setIsSaved(true);
-          setModalFeedback({ type: 'success', message: 'Novo plano criado com sucesso e pronto para contratação!' });
+          setModalFeedback({
+            type: 'success',
+            message: result.isReplay
+              ? 'Plano recuperado via idempotência durável!'
+              : 'Novo plano criado com sucesso e pronto para contratação!'
+          });
           setTimeout(() => {
             setIsModalOpen(false);
             setInitialFormData(null);
@@ -313,22 +334,38 @@ export const MasterAdminPlansBuilder: React.FC = () => {
     } else {
       setIsModalOpen(false);
       setInitialFormData(null);
+      setCreateIdempotencyKey(null);
     }
   };
 
-  // Duplicate plan
+  // Duplicate plan (com proteção contra duplo clique/submissão simultânea e chave única)
   const handleDuplicate = async (planId: string) => {
-    const result = await duplicateCustomPlan(planId);
-    if (!result.success) {
-      alert(result.error || 'Erro ao duplicar plano');
+    if (duplicatingPlanIds[planId]) return;
+    setDuplicatingPlanIds(prev => ({ ...prev, [planId]: true }));
+    const duplicateKey = (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `idemp_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+    try {
+      const result = await duplicateCustomPlan(planId, duplicateKey);
+      if (!result.success) {
+        alert(result.error || 'Erro ao duplicar plano');
+      }
+    } finally {
+      setDuplicatingPlanIds(prev => ({ ...prev, [planId]: false }));
     }
   };
 
-  // Toggle status
-  const handleToggleStatus = async (planId: string) => {
-    const result = await togglePlanStatus(planId);
-    if (!result.success) {
-      alert(result.error || 'Erro ao alternar status do plano');
+  // Toggle status (com status absoluto explícito e proteção contra duplo clique)
+  const handleToggleStatus = async (planId: string, targetStatus?: 'ACTIVE' | 'INACTIVE') => {
+    if (togglingPlanIds[planId]) return;
+    const plan = customPlans.find(p => p.id === planId);
+    const desiredStatus: 'ACTIVE' | 'INACTIVE' = targetStatus || (plan?.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE');
+    setTogglingPlanIds(prev => ({ ...prev, [planId]: true }));
+    try {
+      const result = await togglePlanStatus(planId, desiredStatus);
+      if (!result.success) {
+        alert(result.error || 'Erro ao alternar status do plano');
+      }
+    } finally {
+      setTogglingPlanIds(prev => ({ ...prev, [planId]: false }));
     }
   };
 
@@ -591,17 +628,26 @@ export const MasterAdminPlansBuilder: React.FC = () => {
                       )}
                     </div>
 
-                    <button
-                      onClick={() => handleToggleStatus(plan.id)}
-                      title={isPlanActive ? 'Pausar/Inativar Plano' : 'Ativar Plano'}
-                      className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
-                        isPlanActive
-                          ? 'border-slate-700 text-slate-400 hover:text-rose-400 hover:border-rose-500/30'
-                          : 'border-slate-700 text-slate-400 hover:text-emerald-400 hover:border-emerald-500/30'
-                      }`}
-                    >
-                      <Power className="w-4 h-4" />
-                    </button>
+                    {(() => {
+                      const isToggling = Boolean(togglingPlanIds[plan.id]);
+                      return (
+                        <button
+                          id={`btn-toggle-plan-${plan.id}`}
+                          disabled={isToggling}
+                          onClick={() => handleToggleStatus(plan.id, isPlanActive ? 'INACTIVE' : 'ACTIVE')}
+                          title={isToggling ? 'Alterando status...' : isPlanActive ? 'Pausar/Inativar Plano' : 'Ativar Plano'}
+                          className={`p-1.5 rounded-lg border transition-colors ${
+                            isToggling
+                              ? 'opacity-50 cursor-not-allowed border-slate-700 text-slate-500'
+                              : isPlanActive
+                              ? 'border-slate-700 text-slate-400 hover:text-rose-400 hover:border-rose-500/30 cursor-pointer'
+                              : 'border-slate-700 text-slate-400 hover:text-emerald-400 hover:border-emerald-500/30 cursor-pointer'
+                          }`}
+                        >
+                          <Power className={`w-4 h-4 ${isToggling ? 'animate-pulse' : ''}`} />
+                        </button>
+                      );
+                    })()}
                   </div>
 
                   {/* Plan Name & Description */}
@@ -703,14 +749,25 @@ export const MasterAdminPlansBuilder: React.FC = () => {
                   </button>
 
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleDuplicate(plan.id)}
-                      title="Duplicar Plano"
-                      className="p-2 text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-800 border border-slate-700/80 rounded-lg text-xs transition-colors flex items-center gap-1 cursor-pointer"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Duplicar</span>
-                    </button>
+                    {(() => {
+                      const isDuplicating = Boolean(duplicatingPlanIds[plan.id]);
+                      return (
+                        <button
+                          id={`btn-duplicate-plan-${plan.id}`}
+                          disabled={isDuplicating}
+                          onClick={() => handleDuplicate(plan.id)}
+                          title={isDuplicating ? 'Duplicando plano...' : 'Duplicar Plano'}
+                          className={`p-2 border border-slate-700/80 rounded-lg text-xs transition-colors flex items-center gap-1 ${
+                            isDuplicating
+                              ? 'opacity-50 cursor-not-allowed bg-slate-800/40 text-slate-500'
+                              : 'text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-800 cursor-pointer'
+                          }`}
+                        >
+                          <Copy className={`w-3.5 h-3.5 ${isDuplicating ? 'animate-spin' : ''}`} />
+                          <span className="hidden sm:inline">{isDuplicating ? 'Duplicando...' : 'Duplicar'}</span>
+                        </button>
+                      );
+                    })()}
 
                     <button
                       onClick={() => handleOpenEditModal(plan)}
@@ -1160,6 +1217,7 @@ export const MasterAdminPlansBuilder: React.FC = () => {
           setShowUnsavedModal(false);
           setIsModalOpen(false);
           setInitialFormData(null);
+          setCreateIdempotencyKey(null);
         }}
         onSave={async () => {
           setShowUnsavedModal(false);

@@ -32,7 +32,8 @@ export const HeaderBar: React.FC = () => {
     tenantUsers,
     isImpersonating,
     stopImpersonation,
-    logout
+    logout,
+    authClaims
   } = useApp();
 
   // If on login view, completely hide header
@@ -45,7 +46,7 @@ export const HeaderBar: React.FC = () => {
     return null;
   }
 
-  const isSuperAdmin = currentUser.role === 'SUPER_ADMIN' || isImpersonating;
+  const isSuperAdmin = Boolean(authClaims?.isSuperAdmin || authClaims?.role === 'super_admin' || isImpersonating);
   const isOwnerOrManager = currentUser.role === 'PROPRIETARIO' || currentUser.role === 'GERENTE';
   const isProfessional = currentUser.role === 'PROFISSIONAL';
 

@@ -207,6 +207,7 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
 
   const [showEditManagerPassword, setShowEditManagerPassword] = useState(false);
   const [showEditAdditionalPassword, setShowEditAdditionalPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form State for new Barbershop registration
   const [formState, setFormState] = useState<RegisterBarbershopInput>({
@@ -256,8 +257,10 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
     }));
   };
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
     if (!formState.name.trim()) {
       setErrorToast('Por favor, informe o nome da barbearia.');
       return;
@@ -290,42 +293,49 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
       }
     }
 
-    const res = registerBarbershop(formState);
-    if (res.success) {
-      setSuccessToast(`Barbearia "${formState.name}" cadastrada com sucesso!`);
-      setShowRegisterModal(false);
-      setFormState({
-        name: '',
-        slug: '',
-        customDomain: '',
-        logoUrl: LOGO_PRESETS[0].url,
-        bannerUrl: BANNER_PRESETS[0].url,
-        about: '',
-        phone: '(11) 3333-4444',
-        whatsapp: '(11) 98888-7777',
-        street: 'Rua das Flores',
-        number: '123',
-        complement: '',
-        neighborhood: 'Centro',
-        city: 'São Paulo',
-        state: 'SP',
-        zipCode: '01001-000',
-        planId: availablePlans[0]?.id || 'plano-essencial',
-        commercialMode: 'PAGO',
-        managerName: '',
-        managerWhatsApp: '(11) 98888-7777',
-        managerEmail: '',
-        managerRole: 'PROPRIETARIO',
-        managerPassword: '',
-        managerAvatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
-        hasAdditionalManager: false,
-        additionalManagerName: '',
-        additionalManagerWhatsApp: '',
-        additionalManagerPassword: ''
-      });
-      setTimeout(() => setSuccessToast(null), 5000);
-    } else {
-      setErrorToast(res.error || 'Erro ao cadastrar barbearia.');
+    setIsSubmitting(true);
+    try {
+      const res = await registerBarbershop(formState);
+      if (res.success) {
+        setSuccessToast(`Barbearia "${formState.name}" cadastrada com sucesso!`);
+        setShowRegisterModal(false);
+        setFormState({
+          name: '',
+          slug: '',
+          customDomain: '',
+          logoUrl: LOGO_PRESETS[0].url,
+          bannerUrl: BANNER_PRESETS[0].url,
+          about: '',
+          phone: '(11) 3333-4444',
+          whatsapp: '(11) 98888-7777',
+          street: 'Rua das Flores',
+          number: '123',
+          complement: '',
+          neighborhood: 'Centro',
+          city: 'São Paulo',
+          state: 'SP',
+          zipCode: '01001-000',
+          planId: availablePlans[0]?.id || 'plano-essencial',
+          commercialMode: 'PAGO',
+          managerName: '',
+          managerWhatsApp: '(11) 98888-7777',
+          managerEmail: '',
+          managerRole: 'PROPRIETARIO',
+          managerPassword: '',
+          managerAvatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+          hasAdditionalManager: false,
+          additionalManagerName: '',
+          additionalManagerWhatsApp: '',
+          additionalManagerPassword: ''
+        });
+        setTimeout(() => setSuccessToast(null), 5000);
+      } else {
+        setErrorToast(res.error || 'Erro ao cadastrar barbearia.');
+      }
+    } catch (err: any) {
+      setErrorToast(err.message || 'Erro inesperado ao cadastrar barbearia.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -549,8 +559,8 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredShops.map(shop => {
           const customPlan = customPlans?.find(p => p.id === shop.planId);
-          const planName = customPlan ? customPlan.name : (MY_BARBER_PLANS[shop.planId]?.name || 'Plano Único & Fixo');
-          const planPrice = customPlan ? customPlan.priceMonthly : (MY_BARBER_PLANS[shop.planId]?.priceMonthly || 49.90);
+          const planName = customPlan ? customPlan.name : (MY_BARBER_PLANS[shop.planId]?.name || 'Plano Essencial');
+          const planPrice = customPlan ? customPlan.priceMonthly : (MY_BARBER_PLANS[shop.planId]?.priceMonthly || 39.90);
           const shopUsers = users.filter(u => u.tenantId === shop.id);
           const manager = shopUsers.find(u => u.role === 'PROPRIETARIO' || u.role === 'GERENTE') || shopUsers[0];
           const profsCount = shopUsers.filter(u => u.role === 'PROFISSIONAL').length;
@@ -1641,7 +1651,9 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                           ) : (
                             <div className="text-lg font-black text-neutral-100 font-mono">
                               R$ {plan.priceMonthly.toFixed(2).replace('.', ',')}
-                              <span className="text-xs font-normal text-neutral-400">/mês</span>
+                              <span className="text-xs font-normal text-neutral-400">
+                                {plan.id === 'plano-vitalicio' ? ' (único)' : '/mês'}
+                              </span>
                             </div>
                           )}
 
@@ -1870,9 +1882,17 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-orange-500 hover:bg-orange-400 text-neutral-950 font-black rounded-xl text-xs shadow-lg shadow-orange-500/20"
+                  disabled={isSubmitting}
+                  className="px-6 py-2.5 bg-orange-500 hover:bg-orange-400 disabled:opacity-50 disabled:cursor-not-allowed text-neutral-950 font-black rounded-xl text-xs shadow-lg shadow-orange-500/20 flex items-center gap-2"
                 >
-                  Confirmar Cadastro
+                  {isSubmitting ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-neutral-950 border-t-transparent rounded-full animate-spin" />
+                      <span>Cadastrando...</span>
+                    </>
+                  ) : (
+                    'Confirmar Cadastro'
+                  )}
                 </button>
               </div>
             </form>

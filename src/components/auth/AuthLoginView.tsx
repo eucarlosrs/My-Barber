@@ -49,24 +49,6 @@ export const AuthLoginView: React.FC = () => {
     }
   };
 
-  // Fallback rápido de demonstração do Google
-  const handleQuickGoogleClient = (name: string, email: string) => {
-    setIsLoading(true);
-    setErrorMsg(null);
-    setTimeout(() => {
-      loginWithGoogle({
-        googleId: `google-${Date.now()}`,
-        email,
-        name,
-        whatsapp: '(11) 98765-4321',
-        birthDate: '1996-05-20',
-        avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=ea580c&color=fff`
-      });
-      setIsLoading(false);
-      setViewMode('CLIENT_APP');
-    }, 300);
-  };
-
   return (
     <div className="min-h-screen w-full bg-[#0a0a0a] text-neutral-100 flex flex-col justify-between selection:bg-orange-500 selection:text-neutral-950 font-sans relative">
       {/* Subtle background ambient lights */}
@@ -142,17 +124,6 @@ export const AuthLoginView: React.FC = () => {
                 </svg>
               )}
               <span>{isLoading ? 'Conectando ao Google...' : 'Continuar com o Google'}</span>
-            </button>
-          </div>
-
-          {/* Teste Rápido de Demonstração */}
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={() => handleQuickGoogleClient('Lucas Oliveira (Cliente)', 'lucas.cliente@gmail.com')}
-              className="text-xs text-neutral-500 hover:text-orange-400 transition-colors underline cursor-pointer"
-            >
-              Entrar com conta Google de demonstração
             </button>
           </div>
         </div>

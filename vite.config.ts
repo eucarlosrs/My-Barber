@@ -1,11 +1,25 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
+import {defineConfig, Plugin} from 'vite';
+import { resolveClientFirebaseConfig } from './src/lib/environmentConfig.js';
+
+function sandboxBuildValidationPlugin(): Plugin {
+  return {
+    name: 'sandbox-build-validation',
+    buildStart() {
+      const appEnv = process.env.VITE_APP_ENV || process.env.APP_ENV;
+      if (appEnv === 'sandbox') {
+        // Validação estrita Fail-Closed no build: aborta imediatamente antes de produzir artefato
+        resolveClientFirebaseConfig({ appEnv: 'sandbox' });
+      }
+    }
+  };
+}
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), sandboxBuildValidationPlugin()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

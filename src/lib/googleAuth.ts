@@ -8,6 +8,7 @@ export interface GoogleAuthResult {
     email: string;
     displayName: string;
     photoURL?: string;
+    emailVerified: boolean;
   };
   error?: string;
 }
@@ -27,7 +28,8 @@ export async function triggerGooglePopupLogin(): Promise<GoogleAuthResult> {
         uid: u.uid,
         email: u.email || '',
         displayName: u.displayName || (u.email ? u.email.split('@')[0] : 'Cliente'),
-        photoURL: u.photoURL || undefined
+        photoURL: u.photoURL || undefined,
+        emailVerified: u.emailVerified === true
       }
     };
   } catch (error: any) {

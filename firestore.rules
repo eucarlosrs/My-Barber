@@ -3,49 +3,95 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ----------------------------------------------------
-    // HELPER FUNCTIONS & AUTHENTICATION
+    // HELPER FUNCTIONS & AUTHENTICATION (IAM / RBAC / MULTI-TENANT)
     // ----------------------------------------------------
+
     function isAuthenticated() {
       return request.auth != null;
     }
 
+    // Role extraída dos Custom Claims soberanos no Firebase Auth ID Token
+    function getAuthRole() {
+      return isAuthenticated() && request.auth.token.role != null 
+        ? request.auth.token.role 
+        : '';
+    }
+
+    // TenantId extraído dos Custom Claims soberanos no Firebase Auth ID Token
+    function getAuthTenant() {
+      return isAuthenticated() && request.auth.token.tenantId != null 
+        ? request.auth.token.tenantId 
+        : (isAuthenticated() && request.auth.token.barbershopId != null ? request.auth.token.barbershopId : '');
+    }
+
+    // Super Admin da plataforma (soberano baseado exclusivamente em Custom Claims)
     function isSuperAdmin() {
       return isAuthenticated() && (
-        request.auth.token.email == 'carlosrs.email@gmail.com' ||
+        request.auth.token.role == 'super_admin' ||
         request.auth.token.role == 'SUPER_ADMIN' ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'SUPER_ADMIN'
+        request.auth.token.isSuperAdmin == true
       );
     }
 
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
+    // Proprietário do tenant (barbearia) — soberano baseado exclusivamente em Custom Claims no ID Token
     function isOwnerOfTenant(tenantId) {
       return isAuthenticated() && (
-        isSuperAdmin() ||
-        (getUserData().tenantId == tenantId && getUserData().role == 'PROPRIETARIO')
+        isSuperAdmin() || (
+          getAuthTenant() == tenantId && (
+            getAuthRole() == 'barbershop_owner' ||
+            getAuthRole() == 'PROPRIETARIO' ||
+            getAuthRole() == 'owner'
+          )
+        )
       );
     }
 
+    // Gerente ou Proprietário do tenant — soberano baseado exclusivamente em Custom Claims no ID Token
     function isManagerOrOwnerOfTenant(tenantId) {
       return isAuthenticated() && (
-        isSuperAdmin() ||
-        (getUserData().tenantId == tenantId && (getUserData().role == 'PROPRIETARIO' || getUserData().role == 'GERENTE'))
+        isSuperAdmin() || (
+          getAuthTenant() == tenantId && (
+            getAuthRole() in ['barbershop_owner', 'PROPRIETARIO', 'owner', 'manager', 'GERENTE']
+          )
+        )
       );
     }
 
-    function isProfessionalOfTenant(tenantId) {
-      return isAuthenticated() && (
-        isSuperAdmin() ||
-        (getUserData().tenantId == tenantId && getUserData().role == 'PROFISSIONAL')
-      );
-    }
-
+    // Membro da equipe do tenant (proprietário, gerente ou profissional) — soberano baseado exclusivamente em Custom Claims no ID Token
     function isMemberOfTenant(tenantId) {
       return isAuthenticated() && (
+        isSuperAdmin() || (
+          getAuthTenant() == tenantId && (
+            getAuthRole() in ['barbershop_owner', 'PROPRIETARIO', 'owner', 'manager', 'GERENTE', 'barber', 'PROFISSIONAL']
+          )
+        )
+      );
+    }
+
+    // Profissional / Barbeiro do tenant — soberano baseado exclusivamente em Custom Claims no ID Token
+    function isProfessionalOfTenant(tenantId) {
+      return isAuthenticated() && (
+        getAuthTenant() == tenantId && (
+          getAuthRole() in ['barber', 'PROFISSIONAL']
+        )
+      );
+    }
+
+    // Checagem de auto-identificação (compatibilidade entre ID do documento e UID do Firebase)
+    function isSelf(userId) {
+      return isAuthenticated() && (
+        request.auth.uid == userId ||
+        (resource != null && 'uid' in resource.data && resource.data.uid == request.auth.uid)
+      );
+    }
+
+    // FASE 2.4C: Garante que o usuário autenticado que está atuando não seja um cliente desativado (status == 'inactive')
+    function isCallerActive() {
+      return isAuthenticated() && (
         isSuperAdmin() ||
-        getUserData().tenantId == tenantId
+        isMemberOfTenant(getAuthTenant()) ||
+        !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status != 'inactive'
       );
     }
 
@@ -53,124 +99,514 @@ service cloud.firestore {
     // 1. BARBERSHOPS (TENANTS)
     // ----------------------------------------------------
     match /barbershops/{barbershopId} {
-      // Leitura e atualização de dados da barbearia (fotos, logo, banner, configurações)
+      // Leitura restrita à gestão da própria barbearia ou Super Admin (protege planId, configurações internas, chaves e templates)
+      allow read: if isSuperAdmin() || isManagerOrOwnerOfTenant(barbershopId);
+
+      // Criação permitida para Super Admin (pode provisionar e definir ownerUid para o gestor) ou usuário autenticado (que só pode vincular seu próprio UID como ownerUid)
+      allow create: if isSuperAdmin() || (
+        isAuthenticated() && (
+          !('ownerUid' in request.resource.data) ||
+          request.resource.data.ownerUid == request.auth.uid
+        )
+      );
+
+      // Atualização permitida para Super Admin ou Proprietário legítimo (imutabilidade de ownerUid para clientes comuns)
+      allow update: if isSuperAdmin() || (
+        isOwnerOfTenant(barbershopId) && (
+          // Bloqueia transferência arbitrária de propriedade por clientes comuns
+          !('ownerUid' in request.resource.data) ||
+          (('ownerUid' in resource.data) && request.resource.data.ownerUid == resource.data.ownerUid) ||
+          (!('ownerUid' in resource.data) && request.resource.data.ownerUid == request.auth.uid)
+        )
+      );
+
+      // Exclusão estritamente restrita ao Super Admin
+      allow delete: if isSuperAdmin();
+
+      // Subcoleção de Locks Diários de Concorrência (day_locks)
+      // Fechamento total para Client SDK (exclusivo do Firebase Admin SDK no backend)
+      match /day_locks/{lockId} {
+        allow read, write: if false;
+      }
+
+      // Subcoleção de Chaves de Idempotência (idempotency_keys)
+      // Totalmente fechada no client-side (exclusiva do Firebase Admin SDK no backend)
+      match /idempotency_keys/{keyId} {
+        allow read, write: if false;
+      }
+    }
+
+    // Capacidade e Vagas de Equipe por Tenant (FASE 4.10B)
+    // Fechamento total para Client SDK (exclusivo do Firebase Admin SDK no backend)
+    match /tenant_capacity/{tenantId} {
+      allow read, write: if false;
+    }
+
+    // Projeção Pública da Barbearia (vitrine comercial, endereço, horários, logo e sobre)
+    match /publicBarbershops/{barbershopId} {
       allow read: if true;
-      allow create, update: if true;
-      allow delete: if isSuperAdmin() || isAuthenticated();
+      allow write: if (isSuperAdmin() || isOwnerOfTenant(barbershopId)) &&
+        (request.resource == null || (
+          request.resource.data.keys().hasOnly([
+            'id', 'name', 'slug', 'customDomain', 'logoUrl', 'bannerUrl', 'salonImages', 
+            'about', 'phone', 'whatsapp', 'address', 'coordinates', 'socialMedia', 
+            'businessHours', 'primaryColor', 'theme', 'status'
+          ]) &&
+          request.resource.data.id == barbershopId
+        ));
     }
 
     // ----------------------------------------------------
-    // 2. USERS (USUÁRIOS, FOTOS DE PERFIL E EQUIPE)
+    // 2. USERS (USUÁRIOS E PERFIS)
     // ----------------------------------------------------
     match /users/{userId} {
+      // Leitura estritamente autenticada e privada:
+      // - Super Admin pode ler todos os usuários
+      // - Usuário autenticado ativo pode ler seu próprio perfil (FASE 2.4C: bloqueado para clientes inativos)
+      // - Gestor da barbearia pode ler membros da sua própria equipe/clientes do seu tenant
+      // - DADOS PESSOAIS E CREDENCIAIS DE PROFISSIONAIS NÃO SÃO MAIS PÚBLICOS
+      allow read: if isSuperAdmin() || (
+        isAuthenticated() && (
+          (isSelf(userId) && resource.data.status != 'inactive') ||
+          isManagerOrOwnerOfTenant(resource.data.tenantId)
+        )
+      );
+
+      // Criação:
+      // - Super Admin (incluindo onboarding de nova barbearia)
+      // - Usuário autenticado criando seu próprio perfil de cliente
+      // (FASE 4.10B: Cadastro de profissionais é exclusivo via endpoint autoritativo /api/team/create-professional)
+      allow create: if isSuperAdmin() || (
+        isAuthenticated() && (
+          (request.auth.uid == userId || ('uid' in request.resource.data && request.resource.data.uid == request.auth.uid)) &&
+          (!('role' in request.resource.data) || request.resource.data.role in ['CLIENTE', 'customer']) &&
+          (!('status' in request.resource.data) || request.resource.data.status == 'active')
+        )
+      );
+
+      // Atualização:
+      // - Super Admin
+      // - Gestor da barbearia atualizando membros de sua equipe (FASE 4.10B: imutabilidade de role, canonicalRole, tenantId, isSuperAdmin e bloqueio de reativação direta)
+      // - Próprio usuário ativo atualizando seus dados de contato, NUNCA podendo escalar role ou tenant (FASE 2.4C: cliente inativo não pode mutar perfil)
+      allow update: if isSuperAdmin() || (
+        isManagerOrOwnerOfTenant(resource.data.tenantId) &&
+        (!('role' in request.resource.data) || request.resource.data.role == resource.data.role) &&
+        (!('canonicalRole' in request.resource.data) || request.resource.data.canonicalRole == resource.data.canonicalRole) &&
+        (!('tenantId' in request.resource.data) || request.resource.data.tenantId == resource.data.tenantId) &&
+        (!('isSuperAdmin' in request.resource.data) || request.resource.data.isSuperAdmin == resource.data.isSuperAdmin) &&
+        !(resource.data.status == 'inactive' && request.resource.data.status == 'active')
+      ) || (
+        isSelf(userId) &&
+        resource.data.status != 'inactive' &&
+        (!('role' in request.resource.data) || request.resource.data.role == resource.data.role) &&
+        (!('tenantId' in request.resource.data) || request.resource.data.tenantId == resource.data.tenantId) &&
+        (!('status' in request.resource.data) || request.resource.data.status == resource.data.status) &&
+        (!('canViewAllProfessionals' in request.resource.data) || request.resource.data.canViewAllProfessionals == resource.data.canViewAllProfessionals)
+      );
+
+      // Exclusão: Super Admin ou Proprietário da barbearia (FASE 2.4B: Clientes gerenciados exclusivamente via endpoint autoritativo)
+      allow delete: if isSuperAdmin() || (
+        isOwnerOfTenant(resource.data.tenantId) &&
+        resource.data.role in ['PROFISSIONAL', 'barber', 'GERENTE', 'manager']
+      );
+    }
+
+    // Projeção Pública dos Profissionais (Apenas nome, avatar e especialidades; zero PII e zero comissões)
+    match /publicProfessionalProfiles/{profId} {
       allow read: if true;
-      allow create, update: if true;
-      allow delete: if true;
+      allow write: if (isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId)) &&
+        (request.resource == null || (
+          request.resource.data.keys().hasOnly(['id', 'tenantId', 'name', 'avatarUrl', 'specialties', 'role']) &&
+          request.resource.data.role == 'PROFISSIONAL' &&
+          request.resource.data.tenantId is string &&
+          request.resource.data.name is string
+        ));
     }
 
     // ----------------------------------------------------
-    // 3. SERVICES (SERVIÇOS E FOTOS DOS CORTES)
+    // 3. SERVICES (SERVIÇOS)
     // ----------------------------------------------------
     match /services/{serviceId} {
+      // Leitura completa com comissões restrita aos membros da barbearia e Super Admin
+      allow read: if isSuperAdmin() || isMemberOfTenant(resource.data.tenantId);
+      // Escrita restrita à gestão da barbearia ou Super Admin
+      allow create, update: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId);
+      allow delete: if isSuperAdmin() || isManagerOrOwnerOfTenant(resource.data.tenantId);
+    }
+
+    // Catálogo Público de Serviços (Apenas nome, descrição, duração, preço e categoria)
+    match /publicServices/{serviceId} {
       allow read: if true;
-      allow create, update, delete: if true;
+      allow write: if (isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId)) &&
+        (request.resource == null || (
+          request.resource.data.keys().hasOnly(['id', 'tenantId', 'name', 'description', 'durationMinutes', 'price', 'category', 'imageUrl', 'active']) &&
+          request.resource.data.tenantId is string &&
+          request.resource.data.name is string &&
+          request.resource.data.durationMinutes is number &&
+          request.resource.data.price is number
+        ));
     }
 
     // ----------------------------------------------------
     // 4. SCHEDULES (HORÁRIOS DOS PROFISSIONAIS)
     // ----------------------------------------------------
     match /schedules/{scheduleId} {
-      allow read: if true; // Leitura pública dos horários disponíveis
-      allow create, update: if isSuperAdmin() || (
-        isAuthenticated() && (
-          isManagerOrOwnerOfTenant(request.resource.data.tenantId || resource.data.tenantId) ||
+      // Leitura completa com justificativas pessoais de ausência restrita à equipe
+      allow read: if isSuperAdmin() || isMemberOfTenant(resource.data.tenantId);
+      allow create, update: if isSuperAdmin() ||
+        isManagerOrOwnerOfTenant(request.resource.data.tenantId) ||
+        (isAuthenticated() && (
           request.auth.uid == request.resource.data.professionalId ||
-          request.auth.uid == resource.data.professionalId
-        )
-      );
+          (resource != null && resource.data.professionalId == request.auth.uid)
+        ));
       allow delete: if isSuperAdmin() || isManagerOrOwnerOfTenant(resource.data.tenantId);
+    }
+
+    // Grade Pública de Horários (Expurga motivos pessoais de ausência)
+    match /publicSchedules/{scheduleId} {
+      allow read: if true;
+      allow write: if (isSuperAdmin() || isMemberOfTenant(request.resource.data.tenantId)) &&
+        (request.resource == null || (
+          request.resource.data.keys().hasOnly(['id', 'professionalId', 'tenantId', 'weeklySchedule', 'periodOverrides']) &&
+          request.resource.data.professionalId is string
+        ));
     }
 
     // ----------------------------------------------------
     // 5. APPOINTMENTS (AGENDAMENTOS)
     // ----------------------------------------------------
     match /appointments/{appointmentId} {
-      // Leitura pública necessária para checagem de slots e exibição de horários ocupados/histórico
+      // Leitura Privada: Estritamente restrita à equipe do tenant ou ao próprio cliente ativo do agendamento (FASE 2.4B: vínculo canônico é request.auth.uid; FASE 2.4C: bloqueio para cliente inativo)
+      allow read: if isSuperAdmin() ||
+        isMemberOfTenant(resource.data.tenantId) ||
+        (isAuthenticated() && isCallerActive() && (
+          request.auth.uid == resource.data.clientId ||
+          ('uid' in resource.data && resource.data.uid == request.auth.uid)
+        ));
+
+      // Criação de agendamento:
+      // FECHAMENTO DEFINITIVO DE BYPASS (ETAPA 2.1D):
+      // - O agendamento online público possui como ÚNICA autoridade o endpoint seguro no backend:
+      //   Cliente -> App Check -> POST /api/appointments/book -> Backend -> Transaction -> day_lock -> appointment -> publicAvailability.
+      // - Usuários anônimos e clientes (customers) NÃO têm permissão de criar documentos diretamente no Firestore.
+      // - Criação direta via Client SDK é permitida EXCLUSIVAMENTE para operações administrativas legítimas
+      //   (Super Admin ou equipe autenticada do tenant: proprietário, gerente ou profissional para encaixes e lançamentos internos).
+      allow create: if (isSuperAdmin() || isMemberOfTenant(request.resource.data.tenantId)) &&
+        request.resource.data.keys().hasOnly([
+          'id', 'tenantId', 'serviceId', 'serviceName', 'servicePrice', 'serviceDuration',
+          'professionalId', 'professionalName', 'clientId', 'clientName', 'clientWhatsApp',
+          'date', 'startTime', 'endTime', 'isEncaixe', 'status', 'notes', 'reminderSent',
+          'reminderSentAt', 'createdAt'
+        ]) &&
+        request.resource.data.tenantId is string &&
+        request.resource.data.tenantId.size() > 0 &&
+        request.resource.data.tenantId.size() <= 64 &&
+        request.resource.data.date is string &&
+        request.resource.data.startTime is string &&
+        request.resource.data.endTime is string &&
+        request.resource.data.professionalId is string &&
+        request.resource.data.serviceId is string &&
+        request.resource.data.status == 'AGENDADO' &&
+        // Integridade Multi-Tenant: Tenant/Barbearia deve existir no Firestore
+        exists(/databases/$(database)/documents/barbershops/$(request.resource.data.tenantId)) &&
+        // Integridade Multi-Tenant: Profissional deve existir e pertencer ao mesmo tenant
+        exists(/databases/$(database)/documents/users/$(request.resource.data.professionalId)) &&
+        get(/databases/$(database)/documents/users/$(request.resource.data.professionalId)).data.tenantId == request.resource.data.tenantId &&
+        get(/databases/$(database)/documents/users/$(request.resource.data.professionalId)).data.role in ['PROFISSIONAL', 'barber'] &&
+        // Integridade Multi-Tenant: Serviço deve existir e pertencer ao mesmo tenant
+        exists(/databases/$(database)/documents/services/$(request.resource.data.serviceId)) &&
+        get(/databases/$(database)/documents/services/$(request.resource.data.serviceId)).data.tenantId == request.resource.data.tenantId;
+
+      // Atualização de agendamento:
+      // HARDENING DE INTEGRIDADE E FECHAMENTO DE BYPASS (ETAPAS 2.1E e 2.1I):
+      // - Super Admin: alteração global administrativa legítima (com bloqueio de bypass de remarcação/cancelamento direto via Client SDK)
+      // - Owner / Manager do tenant: operações operacionais legítimas no balcão (preço/desconto, notas, contato, status CONCLUIDO/NAO_COMPARECEU).
+      //   Campos estruturais/críticos de agenda (date, startTime, endTime, professionalId, serviceId, serviceDuration, clientId)
+      //   são ESTRITAMENTE IMUTÁVEIS via Client SDK -> remarcação exige obrigatoriamente POST /api/appointments/reschedule.
+      //   Cancelamento altera disponibilidade e day_locks -> cancelamento direto via Client SDK é BLOQUEADO -> exige POST /api/appointments/cancel.
+      // - Professional / Barber do tenant: restrito a campos operacionais legítimos (notas, status CONCLUIDO/NAO_COMPARECEU),
+      //   com imutabilidade OBRIGATÓRIA de todos os campos estruturais e temporais, e bloqueio de status CANCELADO direto via Client SDK.
+      // - Customer / Anônimo: bloqueio absoluto (DENY)
+      allow update: if (
+        (
+          isSuperAdmin() &&
+          request.resource.data.date == resource.data.date &&
+          request.resource.data.startTime == resource.data.startTime &&
+          request.resource.data.endTime == resource.data.endTime &&
+          request.resource.data.professionalId == resource.data.professionalId &&
+          request.resource.data.serviceId == resource.data.serviceId &&
+          request.resource.data.serviceDuration == resource.data.serviceDuration &&
+          request.resource.data.status != 'CANCELADO' &&
+          resource.data.status != 'CANCELADO'
+        ) ||
+        (
+          isManagerOrOwnerOfTenant(resource.data.tenantId) &&
+          request.resource.data.tenantId == resource.data.tenantId &&
+          // FECHAMENTO DE BYPASS DA REMARCAÇÃO (ETAPA 2.1I):
+          // Remarcação (date, startTime, endTime, professionalId, serviceId) e serviceDuration exigem lock autoritativo no backend
+          request.resource.data.date == resource.data.date &&
+          request.resource.data.startTime == resource.data.startTime &&
+          request.resource.data.endTime == resource.data.endTime &&
+          request.resource.data.professionalId == resource.data.professionalId &&
+          request.resource.data.serviceId == resource.data.serviceId &&
+          request.resource.data.serviceDuration == resource.data.serviceDuration &&
+          request.resource.data.clientId == resource.data.clientId &&
+          request.resource.data.createdAt == resource.data.createdAt &&
+          (!('isEncaixe' in resource.data) || request.resource.data.isEncaixe == resource.data.isEncaixe) &&
+          // Integridade relacional: professionalId e serviceId não podem referenciar outro tenant
+          (
+            request.resource.data.professionalId == resource.data.professionalId ||
+            (
+              exists(/databases/$(database)/documents/users/$(request.resource.data.professionalId)) &&
+              get(/databases/$(database)/documents/users/$(request.resource.data.professionalId)).data.tenantId == resource.data.tenantId
+            )
+          ) &&
+          (
+            request.resource.data.serviceId == resource.data.serviceId ||
+            (
+              exists(/databases/$(database)/documents/services/$(request.resource.data.serviceId)) &&
+              get(/databases/$(database)/documents/services/$(request.resource.data.serviceId)).data.tenantId == resource.data.tenantId
+            )
+          ) &&
+          // Preservar desconto/preço negociado legítimo no balcão (numérico não-negativo)
+          request.resource.data.servicePrice is number &&
+          request.resource.data.servicePrice >= 0 &&
+          // FECHAMENTO DE BYPASS DO CANCELAMENTO (ETAPA 2.1I):
+          // Cancelamento altera disponibilidade e DEVE passar pelo endpoint autoritativo POST /api/appointments/cancel
+          request.resource.data.status in ['AGENDADO', 'CONCLUIDO', 'CANCELADO', 'NAO_COMPARECEU'] &&
+          request.resource.data.status != 'CANCELADO' &&
+          resource.data.status != 'CANCELADO'
+        ) ||
+        (
+          isProfessionalOfTenant(resource.data.tenantId) &&
+          request.resource.data.tenantId == resource.data.tenantId &&
+          request.resource.data.professionalId == resource.data.professionalId &&
+          request.resource.data.serviceId == resource.data.serviceId &&
+          request.resource.data.date == resource.data.date &&
+          request.resource.data.startTime == resource.data.startTime &&
+          request.resource.data.endTime == resource.data.endTime &&
+          request.resource.data.servicePrice == resource.data.servicePrice &&
+          request.resource.data.serviceDuration == resource.data.serviceDuration &&
+          request.resource.data.clientId == resource.data.clientId &&
+          request.resource.data.clientName == resource.data.clientName &&
+          request.resource.data.clientWhatsApp == resource.data.clientWhatsApp &&
+          request.resource.data.createdAt == resource.data.createdAt &&
+          (!('isEncaixe' in resource.data) || request.resource.data.isEncaixe == resource.data.isEncaixe) &&
+          (!('serviceName' in resource.data) || request.resource.data.serviceName == resource.data.serviceName) &&
+          (!('professionalName' in resource.data) || request.resource.data.professionalName == resource.data.professionalName) &&
+          // Bloqueio de cancelamento via Client SDK: profissional só pode alterar status operacionais que não afetam disponibilidade
+          request.resource.data.status in ['AGENDADO', 'CONCLUIDO', 'CANCELADO', 'NAO_COMPARECEU'] &&
+          request.resource.data.status != 'CANCELADO' &&
+          resource.data.status != 'CANCELADO'
+        )
+      );
+
+      // FECHAMENTO DE BYPASS DE EXCLUSÃO (ETAPA 2.1I):
+      // Exclusão física de agendamentos restrita estritamente ao Super Admin (governança de teardown global).
+      // Manager, Owner, Barbeiros e Clientes NÃO podem excluir agendamentos diretamente via Client SDK
+      // para impedir corrupção de day_locks e publicAvailability. Cancelamento deve ser lógico via backend.
+      allow delete: if isSuperAdmin();
+    }
+
+    // Locks Diários de Concorrência Raiz (day_locks) - Fechamento total para Client SDK (exclusivo Backend / Admin SDK)
+    match /day_locks/{lockId} {
+      allow read, write: if false;
+    }
+
+    // Chaves de Idempotência Raiz (idempotency_keys) - Totalmente fechadas no client-side
+    match /idempotency_keys/{keyId} {
+      allow read, write: if false;
+    }
+
+    // Projeção Pública de Disponibilidade (Apenas slots ocupados AGENDADO; Zero PII)
+    // PROJEÇÃO DERIVADA:
+    // - READ: permitido para todos (anônimos, clientes, profissionais, gerentes, super admin).
+    // - CREATE, UPDATE, DELETE: estritamente negados no client-side para todos os papéis
+    //   (anônimos, clientes autenticados, profissionais, gerentes/proprietários e super admin client-side).
+    // - Toda manutenção de publicAvailability é de autoridade exclusiva do fluxo confiável no backend / Admin SDK.
+    match /publicAvailability/{slotId} {
       allow read: if true;
-
-      // Criação e atualização de agendamentos por clientes e profissionais
-      allow create, update: if true;
-
-      // Exclusão restrita à gestão da barbearia ou Super Admin
-      allow delete: if isSuperAdmin() || isManagerOrOwnerOfTenant(resource.data.tenantId) || isAuthenticated();
+      allow write: if false;
     }
 
     // ----------------------------------------------------
     // 6. PACKAGES & CUSTOMER PACKAGES
     // ----------------------------------------------------
     match /packages/{packageId} {
-      allow read: if true;
-      allow write: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId || resource.data.tenantId);
+      allow read: if isSuperAdmin() || (
+        isMemberOfTenant(resource.data.tenantId) &&
+        (resource.data.tenantId is string && resource.data.tenantId.size() > 0)
+      );
+      allow create, update: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId);
+      allow delete: if isSuperAdmin() || isManagerOrOwnerOfTenant(resource.data.tenantId);
     }
 
     match /customerPackages/{cpId} {
-      allow read: if true;
-      allow write: if true;
+      allow read: if isSuperAdmin() ||
+        isMemberOfTenant(resource.data.tenantId) ||
+        (isAuthenticated() && isCallerActive() && (
+          request.auth.uid == resource.data.clientId ||
+          ('uid' in resource.data && resource.data.uid == request.auth.uid)
+        ));
+      allow create, update: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId);
+      allow delete: if isSuperAdmin() || isManagerOrOwnerOfTenant(resource.data.tenantId);
     }
 
     // ----------------------------------------------------
-    // 7. WAITLIST (FILA DE ESPERA)
+    // 7. WAITLIST (FILA DE ESPERA BLINDADA)
     // ----------------------------------------------------
     match /waitlist/{entryId} {
-      allow read, write: if true;
+      allow read: if isSuperAdmin() ||
+        isMemberOfTenant(resource.data.tenantId) ||
+        (isAuthenticated() && isCallerActive() && (
+          request.auth.uid == resource.data.clientId ||
+          ('uid' in resource.data && resource.data.uid == request.auth.uid)
+        ));
+
+      // Criação protegida contra flood, injeção de status indevido e injeção de campos administrativos (FASE 2.4C: bloqueada para clientes inativos)
+      allow create: if isCallerActive() &&
+        request.resource.data.tenantId is string &&
+        request.resource.data.tenantId.size() > 0 &&
+        request.resource.data.tenantId.size() <= 64 &&
+        request.resource.data.clientWhatsApp is string &&
+        request.resource.data.clientWhatsApp.size() >= 8 &&
+        request.resource.data.clientWhatsApp.size() <= 20 &&
+        request.resource.data.status == 'AGUARDANDO' &&
+        (!('handledBy' in request.resource.data)) &&
+        (!('notesInternal' in request.resource.data)) &&
+        (!('isVip' in request.resource.data));
+
+      allow update, delete: if isSuperAdmin() || isManagerOrOwnerOfTenant(resource.data.tenantId);
     }
 
     // ----------------------------------------------------
     // 8. RAFFLES, PROMOTIONS & COMMUNICATIONS
     // ----------------------------------------------------
     match /raffles/{raffleId} {
+      // Sorteios completos contendo dados pessoais de participantes restritos à gestão da barbearia
+      allow read: if isSuperAdmin() || isManagerOrOwnerOfTenant(resource.data.tenantId);
+      allow create, update: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId);
+      allow delete: if isSuperAdmin() || isManagerOrOwnerOfTenant(resource.data.tenantId);
+    }
+
+    // Projeção Pública de Sorteios (Contador agregado de participantes e ganhador público; zero PII de clientes)
+    match /publicRaffles/{raffleId} {
       allow read: if true;
-      allow write: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId || resource.data.tenantId);
+      allow write: if (isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId)) &&
+        (request.resource == null || (
+          request.resource.data.keys().hasOnly([
+            'id', 'tenantId', 'title', 'description', 'prize', 'drawDate', 'imageUrl', 
+            'status', 'showInHighlights', 'highlightTag', 'participantsCount', 'winnerName', 
+            'winnerClientName', 'createdAt'
+          ]) &&
+          request.resource.data.tenantId is string &&
+          request.resource.data.title is string
+        ));
     }
 
     match /promotions/{promoId} {
-      allow read: if true;
-      allow write: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId || resource.data.tenantId);
+      allow read: if isSuperAdmin() || (
+        isMemberOfTenant(resource.data.tenantId) &&
+        (resource.data.tenantId is string && resource.data.tenantId.size() > 0)
+      );
+      allow create, update: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId);
+      allow delete: if isSuperAdmin() || isManagerOrOwnerOfTenant(resource.data.tenantId);
     }
 
     match /communications/{commId} {
-      allow read, write: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId || resource.data.tenantId);
+      // Comunicações internas com logs de entrega e destinatários restritas à gestão
+      allow read: if isSuperAdmin() || isManagerOrOwnerOfTenant(resource.data.tenantId);
+      allow create, update: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId);
+      allow delete: if isSuperAdmin() || isManagerOrOwnerOfTenant(resource.data.tenantId);
+    }
+
+    // Projeção Pública de Novidades/Comunicações (Apenas título, conteúdo, canal e data; zero logs)
+    match /publicCommunications/{commId} {
+      allow read: if true;
+      allow write: if (isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId)) &&
+        (request.resource == null || (
+          request.resource.data.keys().hasOnly(['id', 'tenantId', 'title', 'content', 'type', 'channel', 'sentAt']) &&
+          request.resource.data.tenantId is string &&
+          request.resource.data.title is string
+        ));
     }
 
     match /returnMessages/{msgId} {
-      allow read, write: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId || resource.data.tenantId);
+      allow read: if isSuperAdmin() || isManagerOrOwnerOfTenant(resource.data.tenantId);
+      allow create, update: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId);
+      allow delete: if isSuperAdmin() || isManagerOrOwnerOfTenant(resource.data.tenantId);
     }
 
     match /stock/{stockId} {
-      allow read, write: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId || resource.data.tenantId);
+      allow read: if isSuperAdmin() || isMemberOfTenant(resource.data.tenantId);
+      allow create: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId);
+      // FASE 4.4D: Proibição estrita de mutação de 'quantity' via Client SDK.
+      // O quantity só pode ser modificado através do backend autoritativo Admin SDK (/api/stock/:id/adjust).
+      allow update: if isSuperAdmin() || (
+        isManagerOrOwnerOfTenant(resource.data.tenantId) &&
+        (!('quantity' in request.resource.data) || request.resource.data.quantity == resource.data.quantity)
+      );
+      allow delete: if isSuperAdmin() || isManagerOrOwnerOfTenant(resource.data.tenantId);
+    }
+
+    // Movimentações e ajustes de estoque: exclusivos do Backend Admin SDK
+    match /stock_movements/{movementId} {
+      allow read: if isSuperAdmin() || isManagerOrOwnerOfTenant(resource.data.tenantId);
+      allow write: if false;
+    }
+
+    match /stock_adjustments/{adjustmentId} {
+      allow read: if isSuperAdmin() || isManagerOrOwnerOfTenant(resource.data.tenantId);
+      allow write: if false;
     }
 
     // ----------------------------------------------------
     // 9. GALLERY & STORIES
     // ----------------------------------------------------
     match /gallery/{workId} {
+      allow read: if isSuperAdmin() || (
+        isMemberOfTenant(resource.data.tenantId) &&
+        (resource.data.tenantId is string && resource.data.tenantId.size() > 0)
+      );
+      allow create, update: if isSuperAdmin() || isMemberOfTenant(request.resource.data.tenantId);
+      allow delete: if isSuperAdmin() || isManagerOrOwnerOfTenant(resource.data.tenantId);
+    }
+
+    // ----------------------------------------------------
+    // PROJEÇÕES PÚBLICAS TENANT-SCOPED (PATH-BASED ISOLATION)
+    // ----------------------------------------------------
+    // Projeção Pública de Pacotes (Vitrine pública isolada por subcoleção do tenant)
+    match /publicPackages/{tenantId}/items/{packageId} {
       allow read: if true;
-      allow write: if isSuperAdmin() || isMemberOfTenant(request.resource.data.tenantId || resource.data.tenantId);
+      allow write: if false;
+    }
+
+    // Projeção Pública de Promoções (Vitrine pública isolada por subcoleção do tenant)
+    match /publicPromotions/{tenantId}/items/{promotionId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Projeção Pública da Galeria (Portfólio público isolado por subcoleção do tenant)
+    match /publicGallery/{tenantId}/items/{workId} {
+      allow read: if true;
+      allow write: if false;
     }
 
     match /stories/{storyId} {
       allow read: if true;
-      allow write: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId || resource.data.tenantId);
+      allow create, update: if isSuperAdmin() || isManagerOrOwnerOfTenant(request.resource.data.tenantId);
+      allow delete: if isSuperAdmin() || isManagerOrOwnerOfTenant(resource.data.tenantId);
     }
 
     // ----------------------------------------------------
     // 10. AUDIT LOGS (EXCLUSIVO MASTER / SUPER ADMIN)
     // ----------------------------------------------------
     match /audit_logs/{logId} {
-      // Leitura e gerenciamento estritamente restritos ao Master Admin da plataforma
+      // Leitura estritamente restrita ao Super Admin
       allow read: if isSuperAdmin();
-      allow create: if isSuperAdmin();
-      allow update, delete: if false; // Logs de auditoria são imutáveis
+      // Escrita client-side completamente bloqueada; criação autoritativa exclusiva via Backend / Admin SDK
+      allow create, update, delete: if false;
     }
 
     // ----------------------------------------------------
@@ -179,12 +615,10 @@ service cloud.firestore {
     match /subscriptions/{subscriptionId} {
       // Leitura: Super Admin ou Proprietário da respectiva barbearia
       allow read: if isSuperAdmin() || (
-        isAuthenticated() && (
-          resource.data.barbershopId == getUserData().tenantId
-        )
+        isAuthenticated() && isOwnerOfTenant(resource.data.barbershopId)
       );
-      // Escrita financeira direta pelo cliente é bloqueada (gerenciado pelo Backend / Admin SDK)
-      allow write: if isSuperAdmin();
+      // Escrita financeira direta pelo cliente bloqueada (gerenciado exclusivamente pelo Backend / Admin SDK)
+      allow create, update, delete: if false;
     }
 
     // ----------------------------------------------------
@@ -193,28 +627,37 @@ service cloud.firestore {
     match /subscription_payments/{paymentId} {
       // Leitura: Super Admin ou Proprietário da respectiva barbearia
       allow read: if isSuperAdmin() || (
-        isAuthenticated() && (
-          resource.data.barbershopId == getUserData().tenantId
-        )
+        isAuthenticated() && isOwnerOfTenant(resource.data.barbershopId)
       );
-      // Escrita estritamente via Backend / Admin SDK / Super Admin
-      allow write: if isSuperAdmin();
+      // Escrita financeira direta pelo cliente bloqueada (gerenciado exclusivamente pelo Backend / Admin SDK)
+      allow create, update, delete: if false;
     }
 
     // ----------------------------------------------------
     // 13. WEBHOOK EVENTS LOGS
     // ----------------------------------------------------
     match /webhook_events/{eventId} {
+      // Leitura estritamente restrita ao Super Admin
       allow read: if isSuperAdmin();
-      allow write: if isSuperAdmin();
+      // Registro interno gerado exclusivamente pelo Backend / Admin SDK
+      allow create, update, delete: if false;
     }
 
     // ----------------------------------------------------
     // 14. CATÁLOGO DE PLANOS DO SAAS (PLANS)
     // ----------------------------------------------------
     match /plans/{planId} {
-      // Leitura e sincronização do catálogo de planos do SaaS
-      allow read, write: if true;
+      // Leitura pública do catálogo de planos do SaaS
+      allow read: if true;
+      // Gerenciamento e escrita de planos exclusivo do Super Admin
+      allow write: if isSuperAdmin();
+    }
+
+    // ----------------------------------------------------
+    // 15. DENY BY DEFAULT (FECHAMENTO DE QUALQUER CAMINHO NÃO DECLARADO)
+    // ----------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

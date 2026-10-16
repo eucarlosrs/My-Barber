@@ -74,6 +74,41 @@
       "title": "Catálogo de Planos do SaaS",
       "description": "Planos disponíveis para contratação pelas barbearias parceiras com limites, preços promocionais e degustação",
       "type": "object"
+    },
+    "publicAvailability": {
+      "title": "Disponibilidade Pública",
+      "description": "Slots e ocupações públicas para agendamento sem dados pessoais de clientes",
+      "type": "object"
+    },
+    "publicProfessionalProfiles": {
+      "title": "Perfis Públicos de Profissionais",
+      "description": "Identificação e especialidades dos profissionais para catálogo público sem PII ou comissões",
+      "type": "object"
+    },
+    "publicServices": {
+      "title": "Catálogo Público de Serviços",
+      "description": "Serviços, duração e preços disponíveis para clientes sem dados de comissão interna",
+      "type": "object"
+    },
+    "publicSchedules": {
+      "title": "Grades Públicas de Horários",
+      "description": "Turnos e jornadas públicas sem justificativas médicas ou pessoais de ausência",
+      "type": "object"
+    },
+    "publicCommunications": {
+      "title": "Novidades e Comunicados Públicos",
+      "description": "Mensagens e novidades públicas sem logs de entrega ou lista de telefones",
+      "type": "object"
+    },
+    "publicRaffles": {
+      "title": "Sorteios Públicos",
+      "description": "Sorteios da barbearia com contador agregado e ganhador sem expor dados de participantes",
+      "type": "object"
+    },
+    "publicBarbershops": {
+      "title": "Vitrine Pública de Barbearias",
+      "description": "Dados comerciais, fotos, endereço e redes sociais da barbearia para visualização de clientes",
+      "type": "object"
     }
   }
 }

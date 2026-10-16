@@ -6,9 +6,9 @@
 // ==========================================
 // 1. PLANOS E ASSINATURAS RECORRENTES SAAS (Módulo de Planos & Mercado Pago)
 // ==========================================
-export type PlanId = 'PLANO_UNICO' | string;
+export type PlanId = 'plano-essencial' | 'plano-profissional' | 'plano-premium' | 'plano-vitalicio' | 'PLANO_UNICO' | string;
 
-export type PlanBillingCycle = 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL';
+export type PlanBillingCycle = 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL' | 'ONE_TIME';
 
 export interface PlanBillingScheduleStage {
   id: string;
@@ -85,13 +85,46 @@ export interface PlanConfig {
 }
 
 export const MY_BARBER_PLANS: Record<string, PlanConfig> = {
-  PLANO_UNICO: {
-    id: 'PLANO_UNICO',
-    name: 'Plano Único & Fixo',
+  'plano-essencial': {
+    id: 'plano-essencial',
+    name: 'Plano Essencial',
+    minProfessionals: 1,
+    maxProfessionals: 1,
+    priceMonthly: 39.90,
+    description: 'Para barbeiros autônomos e barbearias pequenas — até 1 profissional'
+  },
+  'plano-profissional': {
+    id: 'plano-profissional',
+    name: 'Plano Profissional',
+    minProfessionals: 1,
+    maxProfessionals: 5,
+    priceMonthly: 69.90,
+    description: 'Gestão robusta para barbearias em expansão — até 5 profissionais'
+  },
+  'plano-premium': {
+    id: 'plano-premium',
+    name: 'Plano Premium',
     minProfessionals: 1,
     maxProfessionals: 10,
-    priceMonthly: 49.90,
-    description: 'Até 10 profissionais (incluindo proprietário, gerente e barbeiros) — R$ 49,90 por mês'
+    priceMonthly: 99.90,
+    description: 'Potência máxima para redes e barbearias consolidadas — até 10 profissionais'
+  },
+  'plano-vitalicio': {
+    id: 'plano-vitalicio',
+    name: 'Compra Definitiva',
+    minProfessionals: 1,
+    maxProfessionals: 5,
+    priceMonthly: 799.00,
+    description: 'Licença permanente de uso do SaaS para 1 barbearia — até 5 profissionais e 1 unidade'
+  },
+  // Retrocompatibilidade caso algum registro legado contenha o id PLANO_UNICO
+  PLANO_UNICO: {
+    id: 'plano-essencial',
+    name: 'Plano Essencial',
+    minProfessionals: 1,
+    maxProfessionals: 1,
+    priceMonthly: 39.90,
+    description: 'Para barbeiros autônomos e barbearias pequenas — até 1 profissional'
   }
 };
 
@@ -102,17 +135,20 @@ export type UserRole = 'SUPER_ADMIN' | 'PROPRIETARIO' | 'GERENTE' | 'PROFISSIONA
 
 export interface User {
   id: string;
+  uid?: string; // Firebase Authentication UID (identidade canônica)
   tenantId: string;
   role: UserRole;
+  canonicalRole?: string; // Papel IAM canônico ('barber', 'barbershop_owner', 'manager', etc.)
   name: string;
-  username?: string; // Nome de usuário para login
-  password?: string; // Senha para acesso
+  username?: string; // Nome de usuário para login (legado em transição)
+  password?: string; // [LEGADO]: Em migração para Firebase Auth. NUNCA gravado no Firestore.
   email?: string;
-  whatsapp: string; // Identificador principal
+  whatsapp: string; // Identificador telefônico
+  phone?: string; // Sinônimo canônico para perfil do usuário
   avatarUrl?: string;
   birthDate?: string; // Formato YYYY-MM-DD para aniversariantes
   googleId?: string; // ID Google para login de clientes
-  authProvider?: 'GOOGLE' | 'SYSTEM';
+  authProvider?: 'GOOGLE' | 'SYSTEM' | 'FIREBASE_AUTH';
   createdByUserId?: string; // ID de quem criou este acesso (Dono do App -> Proprietário/Gerente -> Profissional)
   status?: 'active' | 'inactive'; // Status de acesso do usuário/profissional
   // Regra Seção 7: Profissional com visualização de todos
@@ -121,6 +157,7 @@ export interface User {
   specialties?: string[];
   specialty?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 // ==========================================
@@ -181,6 +218,7 @@ export type WeeklyBusinessHours = DayBusinessHours[];
 
 export interface Barbershop {
   id: string;
+  ownerUid?: string; // UID soberano do gestor/proprietário no Firebase Authentication
   name: string; // Ex: "Barbearia do João"
   slug: string; // Ex: "barbearia-do-joao"
   customDomain: string; // Ex: "www.barbeariadojoao.com.br"
@@ -285,6 +323,7 @@ export interface SchedulePeriodOverride {
 
 export interface ProfessionalScheduleConfig {
   professionalId: string;
+  tenantId?: string;
   weeklySchedule: WeeklyDaySchedule[];
   periodOverrides: SchedulePeriodOverride[];
 }
@@ -315,6 +354,9 @@ export interface Appointment {
   reminderSent: boolean;
   reminderSentAt?: string;
   createdAt: string;
+  updatedAt?: string;
+  cancelledAt?: string;
+  cancellationReason?: string;
 }
 
 // ==========================================
@@ -577,7 +619,8 @@ export type SubscriptionStatus =
   | 'ACTIVE'           // Ativa (cobranças em dia)
   | 'PAST_DUE'         // Pagamento pendente (em tolerância de 7 dias)
   | 'SUSPENDED'        // Inadimplente (tolerância expirada, acesso bloqueado)
-  | 'CANCELED';        // Assinatura cancelada
+  | 'CANCELED'         // Assinatura cancelada
+  | 'LIFETIME_LICENSE';// Compra Definitiva Vitalícia ativa
 
 export interface Subscription {
   id: string;
@@ -594,6 +637,9 @@ export interface Subscription {
   customPlan?: CustomPlan;
   currentPrice: number; // 0.00 (Trial 14 dias), 49.90 (meses 1 a 3 pagos), 69.90 (do 4º mês pago em diante)
   billingCycle: PlanBillingCycle | 'MONTHLY';
+  isLifetime?: boolean;
+  lifetimePurchasedAt?: string;
+  previousSubscriptionId?: string;
   
   // Controle detalhado dos 14 dias grátis
   isInTrial: boolean; // true durante os 14 dias
@@ -647,6 +693,158 @@ export interface WebhookEventLog {
   payload?: any;
   status: 'SUCCESS' | 'IGNORED' | 'ERROR';
   error?: string;
+}
+
+// ==========================================
+// 15. PROJEÇÕES PÚBLICAS DE DADOS (ARQUITETURA DE PRIVACIDADE E MULTI-TENANT)
+// ==========================================
+
+export interface PublicAvailabilitySlot {
+  id: string;
+  tenantId: string;
+  professionalId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: 'AGENDADO';
+}
+
+export interface PublicProfessionalProfile {
+  id: string;
+  tenantId: string;
+  name: string;
+  avatarUrl?: string;
+  specialties?: string[];
+  role: 'PROFISSIONAL';
+}
+
+export interface PublicCommunication {
+  id: string;
+  tenantId: string;
+  title: string;
+  content: string;
+  type: CommunicationType;
+  channel?: CommunicationChannel;
+  sentAt: string;
+}
+
+export interface PublicRaffle {
+  id: string;
+  tenantId: string;
+  title: string;
+  description: string;
+  prize: string;
+  drawDate: string;
+  imageUrl?: string;
+  status: RaffleStatus;
+  showInHighlights?: boolean;
+  highlightTag?: string;
+  participantsCount: number;
+  winnerName?: string;
+  winnerClientName?: string;
+  createdAt: string;
+}
+
+export interface PublicService {
+  id: string;
+  tenantId: string;
+  name: string;
+  description: string;
+  durationMinutes: number;
+  price: number;
+  category: string;
+  imageUrl?: string;
+  active: boolean;
+}
+
+export interface PublicScheduleOverride {
+  id: string;
+  professionalId: string;
+  startDate: string;
+  endDate: string;
+  shifts: { start: string; end: string }[];
+}
+
+export interface PublicProfessionalScheduleConfig {
+  id: string;
+  professionalId: string;
+  tenantId?: string;
+  weeklySchedule: WeeklyDaySchedule[];
+  periodOverrides: PublicScheduleOverride[];
+}
+
+export interface PublicBarbershop {
+  id: string;
+  name: string;
+  slug: string;
+  customDomain?: string;
+  logoUrl: string;
+  bannerUrl?: string;
+  salonImages: string[];
+  about: string;
+  phone: string;
+  whatsapp: string;
+  address: BarbershopAddress;
+  coordinates?: { latitude: number; longitude: number };
+  socialMedia: BarbershopSocialMedia;
+  businessHours?: WeeklyBusinessHours;
+  primaryColor?: string;
+  theme?: BarbershopThemeId;
+  status?: BarbershopStatus | 'ACTIVE' | 'INACTIVE';
+}
+
+export interface PublicPackageItem {
+  id: string;
+  type: PackageItemType;
+  itemId: string;
+  name: string;
+  totalQuantity: number;
+}
+
+export interface PublicPackage {
+  id: string;
+  tenantId: string;
+  title: string;
+  description: string;
+  price: number;
+  items: PublicPackageItem[];
+  active: boolean;
+}
+
+export interface PublicPromotion {
+  id: string;
+  tenantId: string;
+  title: string;
+  description: string;
+  discountPercentage?: number;
+  discountPercent?: number;
+  promotionalPrice?: number;
+  serviceId?: string;
+  serviceName?: string;
+  serviceCategory?: string;
+  code?: string;
+  validUntil: string;
+  active: boolean;
+  imageUrl?: string;
+  bannerUrl?: string;
+  showInHighlights?: boolean;
+  highlightTag?: string;
+}
+
+export interface PublicGalleryWork {
+  id: string;
+  tenantId: string;
+  title: string;
+  category: GalleryCategory;
+  imageUrl: string;
+  professionalId: string;
+  professionalName: string;
+  serviceId?: string;
+  serviceName?: string;
+  servicePrice?: number;
+  likesCount: number;
+  description?: string;
+  createdAt: string;
 }
 
 

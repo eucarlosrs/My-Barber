@@ -146,6 +146,13 @@ export const MySubscriptionView: React.FC = () => {
             Cancelada
           </span>
         );
+      case 'LIFETIME_LICENSE':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+            Compra Definitiva Vitalícia (Acesso Permanente)
+          </span>
+        );
       case 'PENDING':
       default:
         return (
@@ -410,124 +417,157 @@ export const MySubscriptionView: React.FC = () => {
           </div>
         </div>
 
-        {/* Right 1 Col: Sandbox Tester Simulator */}
-        <div className="bg-gradient-to-b from-zinc-900 to-zinc-950 text-white rounded-2xl p-6 shadow-md border border-zinc-800 space-y-4">
-          <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-            <div className="flex items-center gap-2">
-              <Zap className="w-5 h-5 text-amber-400" />
-              <h3 className="font-bold text-sm text-zinc-100">Simulador de Ciclos (Sandbox)</h3>
+        {/* Right 1 Col: Sandbox Tester Simulator (Apenas Ambiente de Desenvolvimento / Testes) */}
+        {!import.meta.env.PROD && (
+          <div className="bg-gradient-to-b from-zinc-900 to-zinc-950 text-white rounded-2xl p-6 shadow-md border border-zinc-800 space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-amber-400" />
+                <h3 className="font-bold text-sm text-zinc-100">Simulador de Ciclos (Sandbox)</h3>
+              </div>
+              <span className="text-[10px] bg-amber-500/20 text-amber-300 font-semibold px-2 py-0.5 rounded">
+                Ambiente de Testes
+              </span>
             </div>
-            <span className="text-[10px] bg-amber-500/20 text-amber-300 font-semibold px-2 py-0.5 rounded">
-              Ambiente de Testes
-            </span>
-          </div>
 
-          <p className="text-xs text-zinc-400 leading-relaxed">
-            Teste instantaneamente todos os comportamentos e regras de transição de preço e cobrança do Mercado Pago:
-          </p>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Teste instantaneamente todos os comportamentos e regras de transição de preço e cobrança do Mercado Pago:
+            </p>
 
-          <div className="space-y-2">
-            {currentSubscription?.status === 'PENDING' && (
+            <div className="space-y-2">
+              {currentSubscription?.status === 'PENDING' && (
+                <button
+                  onClick={() => handleSimulate('VALIDATE_CARD_AND_START_TRIAL' as any)}
+                  disabled={isLoading}
+                  className="w-full text-left px-3.5 py-2.5 bg-sky-950/80 hover:bg-sky-900/90 hover:border-sky-400/70 border border-sky-600/50 rounded-xl transition-all text-xs flex items-center justify-between group"
+                  id="btn-sim-validate-card-trial"
+                >
+                  <div>
+                    <div className="font-semibold text-sky-300 group-hover:text-sky-200 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                      Validar Cartão & Iniciar 14 Dias Grátis
+                    </div>
+                    <div className="text-[11px] text-sky-200/80 mt-0.5">Libera acesso total imediato</div>
+                  </div>
+                  <span className="text-sky-400 font-mono text-[10px] font-bold">
+                    GRÁTIS
+                  </span>
+                </button>
+              )}
+
               <button
-                onClick={() => handleSimulate('VALIDATE_CARD_AND_START_TRIAL' as any)}
+                onClick={() => handleSimulate('CONFIRM_PAYMENT')}
                 disabled={isLoading}
-                className="w-full text-left px-3.5 py-2.5 bg-sky-950/80 hover:bg-sky-900/90 hover:border-sky-400/70 border border-sky-600/50 rounded-xl transition-all text-xs flex items-center justify-between group"
-                id="btn-sim-validate-card-trial"
+                className="w-full text-left px-3.5 py-2.5 bg-zinc-800/90 hover:bg-zinc-800 hover:border-emerald-500/50 border border-zinc-700 rounded-xl transition-all text-xs flex items-center justify-between group"
+                id="btn-sim-confirm-payment"
               >
                 <div>
-                  <div className="font-semibold text-sky-300 group-hover:text-sky-200 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-sky-400" />
-                    Validar Cartão & Iniciar 14 Dias Grátis
+                  <div className="font-semibold text-emerald-400 group-hover:text-emerald-300 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Simular Cobrança Aprovada
                   </div>
-                  <div className="text-[11px] text-sky-200/80 mt-0.5">Libera acesso total imediato</div>
+                  <div className="text-[11px] text-zinc-400 mt-0.5">
+                    {isInTrial ? 'Encerra degustação e inicia 1º Mês (R$ 49,90)' : `Avança para cobrança #${paidCount + 1}`}
+                  </div>
                 </div>
-                <span className="text-sky-400 font-mono text-[10px] font-bold">
-                  GRÁTIS
+                <span className="text-zinc-500 font-mono text-[10px]">
+                  {paidCount < 3 ? 'R$ 49,90' : 'R$ 69,90'}
                 </span>
               </button>
-            )}
 
-            <button
-              onClick={() => handleSimulate('CONFIRM_PAYMENT')}
-              disabled={isLoading}
-              className="w-full text-left px-3.5 py-2.5 bg-zinc-800/90 hover:bg-zinc-800 hover:border-emerald-500/50 border border-zinc-700 rounded-xl transition-all text-xs flex items-center justify-between group"
-              id="btn-sim-confirm-payment"
-            >
-              <div>
-                <div className="font-semibold text-emerald-400 group-hover:text-emerald-300 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Simular Cobrança Aprovada
+              <button
+                onClick={() => handleSimulate('TRIGGER_PAST_DUE')}
+                disabled={isLoading}
+                className="w-full text-left px-3.5 py-2.5 bg-zinc-800/90 hover:bg-zinc-800 hover:border-amber-500/50 border border-zinc-700 rounded-xl transition-all text-xs flex items-center justify-between group"
+                id="btn-sim-past-due"
+              >
+                <div>
+                  <div className="font-semibold text-amber-400 group-hover:text-amber-300 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    Simular Falha de Cartão
+                  </div>
+                  <div className="text-[11px] text-zinc-400 mt-0.5">Ativa tolerância de 7 dias</div>
                 </div>
-                <div className="text-[11px] text-zinc-400 mt-0.5">
-                  {isInTrial ? 'Encerra degustação e inicia 1º Mês (R$ 49,90)' : `Avança para cobrança #${paidCount + 1}`}
-                </div>
-              </div>
-              <span className="text-zinc-500 font-mono text-[10px]">
-                {paidCount < 3 ? 'R$ 49,90' : 'R$ 69,90'}
-              </span>
-            </button>
+              </button>
 
-            <button
-              onClick={() => handleSimulate('TRIGGER_PAST_DUE')}
-              disabled={isLoading}
-              className="w-full text-left px-3.5 py-2.5 bg-zinc-800/90 hover:bg-zinc-800 hover:border-amber-500/50 border border-zinc-700 rounded-xl transition-all text-xs flex items-center justify-between group"
-              id="btn-sim-past-due"
-            >
-              <div>
-                <div className="font-semibold text-amber-400 group-hover:text-amber-300 flex items-center gap-1.5">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  Simular Falha de Cartão
+              <button
+                onClick={() => handleSimulate('TRIGGER_SUSPEND')}
+                disabled={isLoading}
+                className="w-full text-left px-3.5 py-2.5 bg-zinc-800/90 hover:bg-zinc-800 hover:border-red-500/50 border border-zinc-700 rounded-xl transition-all text-xs flex items-center justify-between group"
+                id="btn-sim-suspend"
+              >
+                <div>
+                  <div className="font-semibold text-red-400 group-hover:text-red-300 flex items-center gap-1.5">
+                    <XCircle className="w-3.5 h-3.5" />
+                    Simular Tolerância Esgotada
+                  </div>
+                  <div className="text-[11px] text-zinc-400 mt-0.5">Bloqueia acesso à barbearia</div>
                 </div>
-                <div className="text-[11px] text-zinc-400 mt-0.5">Ativa tolerância de 7 dias</div>
-              </div>
-            </button>
+              </button>
 
-            <button
-              onClick={() => handleSimulate('TRIGGER_SUSPEND')}
-              disabled={isLoading}
-              className="w-full text-left px-3.5 py-2.5 bg-zinc-800/90 hover:bg-zinc-800 hover:border-red-500/50 border border-zinc-700 rounded-xl transition-all text-xs flex items-center justify-between group"
-              id="btn-sim-suspend"
-            >
-              <div>
-                <div className="font-semibold text-red-400 group-hover:text-red-300 flex items-center gap-1.5">
-                  <XCircle className="w-3.5 h-3.5" />
-                  Simular Tolerância Esgotada
+              <button
+                onClick={() => handleSimulate('REGULARIZE')}
+                disabled={isLoading}
+                className="w-full text-left px-3.5 py-2.5 bg-zinc-800/90 hover:bg-zinc-800 hover:border-emerald-500/50 border border-zinc-700 rounded-xl transition-all text-xs flex items-center justify-between group"
+                id="btn-sim-regularize"
+              >
+                <div>
+                  <div className="font-semibold text-teal-400 group-hover:text-teal-300 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Regularizar & Restaurar Acesso
+                  </div>
+                  <div className="text-[11px] text-zinc-400 mt-0.5">Status ACTIVE imediato</div>
                 </div>
-                <div className="text-[11px] text-zinc-400 mt-0.5">Bloqueia acesso à barbearia</div>
-              </div>
-            </button>
+              </button>
 
-            <button
-              onClick={() => handleSimulate('REGULARIZE')}
-              disabled={isLoading}
-              className="w-full text-left px-3.5 py-2.5 bg-zinc-800/90 hover:bg-zinc-800 hover:border-emerald-500/50 border border-zinc-700 rounded-xl transition-all text-xs flex items-center justify-between group"
-              id="btn-sim-regularize"
-            >
-              <div>
-                <div className="font-semibold text-teal-400 group-hover:text-teal-300 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Regularizar & Restaurar Acesso
+              <button
+                onClick={() => handleSimulate('CANCEL')}
+                disabled={isLoading}
+                className="w-full text-left px-3.5 py-2.5 bg-zinc-800/90 hover:bg-zinc-800 hover:border-zinc-500 border border-zinc-700 rounded-xl transition-all text-xs flex items-center justify-between group opacity-80"
+                id="btn-sim-cancel"
+              >
+                <div>
+                  <div className="font-semibold text-zinc-400 group-hover:text-zinc-300 flex items-center gap-1.5">
+                    <XCircle className="w-3.5 h-3.5" />
+                    Simular Cancelamento
+                  </div>
+                  <div className="text-[11px] text-zinc-500 mt-0.5">Interrompe próximas cobranças</div>
                 </div>
-                <div className="text-[11px] text-zinc-400 mt-0.5">Status ACTIVE imediato</div>
-              </div>
-            </button>
+              </button>
 
-            <button
-              onClick={() => handleSimulate('CANCEL')}
-              disabled={isLoading}
-              className="w-full text-left px-3.5 py-2.5 bg-zinc-800/90 hover:bg-zinc-800 hover:border-zinc-500 border border-zinc-700 rounded-xl transition-all text-xs flex items-center justify-between group opacity-80"
-              id="btn-sim-cancel"
-            >
-              <div>
-                <div className="font-semibold text-zinc-400 group-hover:text-zinc-300 flex items-center gap-1.5">
-                  <XCircle className="w-3.5 h-3.5" />
-                  Simular Cancelamento
+              <button
+                onClick={() => handleSimulate('MIGRATE_TO_LIFETIME' as any)}
+                disabled={isLoading}
+                className="w-full text-left px-3.5 py-2.5 bg-amber-950/70 hover:bg-amber-900/80 hover:border-amber-400 border border-amber-600/50 rounded-xl transition-all text-xs flex items-center justify-between group"
+                id="btn-sim-migrate-lifetime"
+              >
+                <div>
+                  <div className="font-semibold text-amber-300 group-hover:text-amber-200 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                    Migrar para Compra Definitiva
+                  </div>
+                  <div className="text-[11px] text-amber-200/80 mt-0.5">Pagamento único R$ 799,00 (Cancela recorrência)</div>
                 </div>
-                <div className="text-[11px] text-zinc-500 mt-0.5">Interrompe próximas cobranças</div>
-              </div>
-            </button>
+                <span className="text-amber-400 font-mono text-[10px] font-bold">R$ 799</span>
+              </button>
+
+              <button
+                onClick={() => handleSimulate('REFUND_LIFETIME' as any)}
+                disabled={isLoading}
+                className="w-full text-left px-3.5 py-2.5 bg-red-950/70 hover:bg-red-900/80 hover:border-red-400 border border-red-600/50 rounded-xl transition-all text-xs flex items-center justify-between group"
+                id="btn-sim-refund-lifetime"
+              >
+                <div>
+                  <div className="font-semibold text-red-300 group-hover:text-red-200 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
+                    Simular Estorno / Chargeback
+                  </div>
+                  <div className="text-[11px] text-red-200/80 mt-0.5">Revogação imediata (SUSPENDED)</div>
+                </div>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Payment History Table */}

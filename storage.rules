@@ -1,0 +1,123 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ====================================================
+    // FUNÇÕES AUXILIARES DE AUTORIZAÇÃO (SOBERANIA CUSTOM CLAIMS)
+    // ====================================================
+
+    // Verifica se a requisição possui um usuário devidamente autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Extrai a role soberana dos Custom Claims no Firebase Auth ID Token
+    function getAuthRole() {
+      return isAuthenticated() && request.auth.token.role != null 
+        ? request.auth.token.role 
+        : '';
+    }
+
+    // Extrai o tenantId/barbershopId soberano dos Custom Claims no Firebase Auth ID Token
+    function getAuthTenant() {
+      return isAuthenticated() && request.auth.token.tenantId != null 
+        ? request.auth.token.tenantId 
+        : (isAuthenticated() && request.auth.token.barbershopId != null ? request.auth.token.barbershopId : '');
+    }
+
+    // Super Admin global do SaaS MY BARBER (soberano exclusivamente via Custom Claims)
+    function isSuperAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.role == 'super_admin' ||
+        request.auth.token.role == 'SUPER_ADMIN' ||
+        request.auth.token.isSuperAdmin == true
+      );
+    }
+
+    // Proprietário legítimo do tenant
+    function isOwnerOfTenant(tenantId) {
+      return isAuthenticated() && (
+        isSuperAdmin() || (
+          getAuthTenant() == tenantId && (
+            getAuthRole() == 'barbershop_owner' ||
+            getAuthRole() == 'PROPRIETARIO' ||
+            getAuthRole() == 'owner'
+          )
+        )
+      );
+    }
+
+    // Gerente ou Proprietário legítimo do tenant
+    function isManagerOrOwnerOfTenant(tenantId) {
+      return isAuthenticated() && (
+        isSuperAdmin() || (
+          getAuthTenant() == tenantId && (
+            getAuthRole() in ['barbershop_owner', 'PROPRIETARIO', 'owner', 'manager', 'GERENTE']
+          )
+        )
+      );
+    }
+
+    // Validação estrita de integridade e tamanho de arquivo (máximo 5MB e formatos de imagem aceitos)
+    function isValidImageFile() {
+      return request.resource != null &&
+        request.resource.size > 0 &&
+        request.resource.size <= 5 * 1024 * 1024 &&
+        request.resource.contentType in ['image/jpeg', 'image/png', 'image/webp'];
+    }
+
+    // Pastas de exibição pública de mídia da barbearia (catálogo, vitrine e agendamento)
+    function isPublicMediaFolder(folder) {
+      return folder in [
+        'barbershop_media',
+        'professionals',
+        'services',
+        'logo',
+        'banner',
+        'gallery',
+        'stories',
+        'salon'
+      ];
+    }
+
+    // ====================================================
+    // REGRA PADRÃO — NEGATIVA TOTAL (DEFAULT DENY)
+    // ====================================================
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // ====================================================
+    // MÍDIA MULTI-TENANT DA BARBEARIA
+    // Caminho: tenants/{tenantId}/{folder}/{fileName=**}
+    // ====================================================
+    match /tenants/{tenantId}/{folder}/{fileName=**} {
+      // Leitura pública permitida apenas para pastas de vitrine comercial.
+      // Qualquer outra pasta requer autenticação e autorização de gestor do tenant ou Super Admin.
+      allow read: if isPublicMediaFolder(folder) || isSuperAdmin() || isManagerOrOwnerOfTenant(tenantId);
+
+      // Upload e substituição (create/update): restritos aos gestores do tenant ou Super Admin,
+      // com validação server-side de payload (imagem até 5MB).
+      allow create, update: if (isSuperAdmin() || isManagerOrOwnerOfTenant(tenantId)) && isValidImageFile();
+
+      // Exclusão: restrita exclusivamente aos gestores legítimos do tenant ou Super Admin.
+      allow delete: if isSuperAdmin() || isManagerOrOwnerOfTenant(tenantId);
+    }
+
+    // ====================================================
+    // MÍDIA DE SORTEIOS (RAFFLES)
+    // Caminho: raffles/{barbershopId}/{fileName=**}
+    // ====================================================
+    match /raffles/{barbershopId}/{fileName=**} {
+      // Leitura pública da foto do prêmio do sorteio para visualização dos participantes
+      allow read: if true;
+
+      // Upload e substituição: apenas gestores legítimos da barbearia ou Super Admin,
+      // com validação server-side de payload (imagem até 5MB).
+      allow create, update: if (isSuperAdmin() || isManagerOrOwnerOfTenant(barbershopId)) && isValidImageFile();
+
+      // Exclusão: restrita exclusivamente aos gestores legítimos da barbearia ou Super Admin.
+      allow delete: if isSuperAdmin() || isManagerOrOwnerOfTenant(barbershopId);
+    }
+  }
+}

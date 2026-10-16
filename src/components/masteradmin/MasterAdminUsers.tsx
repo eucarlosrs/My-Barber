@@ -64,7 +64,7 @@ export const MasterAdminUsers: React.FC = () => {
     setShowCreateModal(true);
   };
 
-  const handleCreateProfessionalSubmit = (e: React.FormEvent) => {
+  const handleCreateProfessionalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreateError(null);
     setCreateSuccess(null);
@@ -88,29 +88,33 @@ export const MasterAdminUsers: React.FC = () => {
       .map(s => s.trim())
       .filter(Boolean);
 
-    const result = createProfessionalAccess({
-      tenantId: targetShopId,
-      name: profName.trim(),
-      whatsapp: profWhatsapp.trim() || '(11) 99999-0000',
-      email: profLogin.trim(),
-      password: profPassword.trim() || undefined,
-      commissionPercentage: profCommission,
-      canViewAllProfessionals: profCanViewAll,
-      specialties: specialtiesList.length > 0 ? specialtiesList : ['Cortes em Geral'],
-      role: 'PROFISSIONAL',
-      status: 'active'
-    });
+    try {
+      const result = await createProfessionalAccess({
+        tenantId: targetShopId,
+        name: profName.trim(),
+        whatsapp: profWhatsapp.trim() || '(11) 99999-0000',
+        email: profLogin.trim(),
+        password: profPassword.trim() || undefined,
+        commissionPercentage: profCommission,
+        canViewAllProfessionals: profCanViewAll,
+        specialties: specialtiesList.length > 0 ? specialtiesList : ['Cortes em Geral'],
+        role: 'PROFISSIONAL',
+        status: 'active'
+      });
 
-    setIsCreating(false);
-
-    if (result.success) {
-      setCreateSuccess(`Profissional ${profName} cadastrado com sucesso e credencial de acesso vinculada!`);
-      setTimeout(() => {
-        setShowCreateModal(false);
-        setCreateSuccess(null);
-      }, 1500);
-    } else {
-      setCreateError(result.error || 'Erro ao cadastrar profissional. Verifique os dados e tente novamente.');
+      if (result.success) {
+        setCreateSuccess(`Profissional ${profName} cadastrado com sucesso e credencial de acesso vinculada!`);
+        setTimeout(() => {
+          setShowCreateModal(false);
+          setCreateSuccess(null);
+        }, 1500);
+      } else {
+        setCreateError(result.error || 'Erro ao cadastrar profissional. Verifique os dados e tente novamente.');
+      }
+    } catch (err: any) {
+      setCreateError(err?.message || 'Erro ao cadastrar profissional.');
+    } finally {
+      setIsCreating(false);
     }
   };
 

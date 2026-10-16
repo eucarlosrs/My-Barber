@@ -77,7 +77,7 @@ export const MasterAdminSubscriptions: React.FC = () => {
   });
 
   const totalMRR = subscriptions
-    .filter(s => s.status === 'ACTIVE' || s.status === 'PAST_DUE')
+    .filter(s => (s.status === 'ACTIVE' || s.status === 'PAST_DUE') && !(s as any).isLifetime)
     .reduce((sum, s) => sum + s.currentPrice, 0);
 
   const trialCount = subscriptions.filter(s => s.status === 'TRIAL_14_DAYS').length;
@@ -152,6 +152,13 @@ export const MasterAdminSubscriptions: React.FC = () => {
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-zinc-500/10 text-zinc-400 border border-zinc-500/20">
             <XCircle className="w-3 h-3" />
             Cancelada
+          </span>
+        );
+      case 'LIFETIME_LICENSE':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+            <ShieldCheck className="w-3 h-3 text-emerald-400" />
+            Compra Definitiva
           </span>
         );
       case 'PENDING':

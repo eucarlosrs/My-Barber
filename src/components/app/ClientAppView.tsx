@@ -33,6 +33,7 @@ import {
   Ticket,
   Flame,
   Check,
+  Loader2,
   Zap,
   Info,
   Tag,
@@ -77,7 +78,9 @@ export const ClientAppView: React.FC = () => {
     schedules,
     appointments,
     allAppointments,
+    publicAvailability,
     addAppointment,
+    bookOnlineAppointment,
     currentUser,
     authenticatedUser,
     loginWithWhatsApp,
@@ -112,86 +115,39 @@ export const ClientAppView: React.FC = () => {
   // Google Login Modal & State
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginTab, setLoginTab] = useState<'CLIENT' | 'STAFF'>('CLIENT');
-  const [staffIdentifier, setStaffIdentifier] = useState('carlosrs.email@gmail.com');
-  const [staffPassword, setStaffPassword] = useState('Ca.753268');
+  const [staffIdentifier, setStaffIdentifier] = useState('');
+  const [staffPassword, setStaffPassword] = useState('');
   const [showStaffPassword, setShowStaffPassword] = useState(false);
   const [isStaffLoading, setIsStaffLoading] = useState(false);
-  const [googleStep, setGoogleStep] = useState<'SELECT_ACCOUNT' | 'MASTER_PASSWORD' | 'COMPLETE_DATA'>('SELECT_ACCOUNT');
+  const [isBookingSubmitting, setIsBookingSubmitting] = useState(false);
+  const [googleStep, setGoogleStep] = useState<'SELECT_ACCOUNT' | 'COMPLETE_DATA'>('SELECT_ACCOUNT');
   const [pendingBookingAfterLogin, setPendingBookingAfterLogin] = useState(false);
   const [googleAccount, setGoogleAccount] = useState<{
     googleId: string;
     name: string;
     email: string;
     avatarUrl: string;
+    emailVerified?: boolean;
   }>({
     googleId: '',
     name: '',
     email: '',
-    avatarUrl: ''
+    avatarUrl: '',
+    emailVerified: false
   });
 
-  // Local storage for real remembered accounts on this specific device/browser
-  const [savedAccounts, setSavedAccounts] = useState<Array<{
-    googleId: string;
-    name: string;
-    email: string;
-    avatarUrl: string;
-    phone?: string;
-    birthDate?: string;
-    lastLoginAt: string;
-  }>>(() => {
+  // FASE 2.4B: Purge previously stored PII list from browser localStorage to protect shared devices
+  useEffect(() => {
     try {
-      const raw = localStorage.getItem('mybarber_saved_google_accounts');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
-      }
+      localStorage.removeItem('mybarber_saved_google_accounts');
     } catch {
       // ignore
     }
-    return [];
-  });
-
-  const persistSavedAccount = (acc: {
-    googleId: string;
-    name: string;
-    email: string;
-    avatarUrl: string;
-    phone?: string;
-    birthDate?: string;
-  }) => {
-    try {
-      setSavedAccounts(prev => {
-        const filtered = prev.filter(a => a.email.toLowerCase() !== acc.email.toLowerCase());
-        const updated = [{ ...acc, lastLoginAt: new Date().toISOString() }, ...filtered].slice(0, 5);
-        localStorage.setItem('mybarber_saved_google_accounts', JSON.stringify(updated));
-        return updated;
-      });
-    } catch {
-      // ignore
-    }
-  };
-
-  const removeSavedAccount = (emailToRemove: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      setSavedAccounts(prev => {
-        const updated = prev.filter(a => a.email.toLowerCase() !== emailToRemove.toLowerCase());
-        localStorage.setItem('mybarber_saved_google_accounts', JSON.stringify(updated));
-        return updated;
-      });
-    } catch {
-      // ignore
-    }
-  };
+  }, []);
 
   const [clientPreferredName, setClientPreferredName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [clientBirthDate, setClientBirthDate] = useState('');
-  const [masterPassword, setMasterPassword] = useState('');
-  const [customGoogleEmail, setCustomGoogleEmail] = useState('');
-  const [customGoogleName, setCustomGoogleName] = useState('');
-  const [useCustomGoogle, setUseCustomGoogle] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
@@ -396,18 +352,16 @@ export const ClientAppView: React.FC = () => {
   // Is current logged in user a client?
   const isClient = Boolean(authenticatedUser && authenticatedUser.role === 'CLIENTE');
 
-  // Client's appointments
+  // Client's appointments - strictly bound to client's authentic IDs (UID / verified clientId)
   const clientAppointments = useMemo(() => {
     const validIds = new Set<string>();
     if (currentUser?.id) validIds.add(currentUser.id);
     if (authenticatedUser?.id) validIds.add(authenticatedUser.id);
-    const clientPhone = (currentUser?.whatsapp || authenticatedUser?.whatsapp || '').replace(/\D/g, '');
+    if (authenticatedUser?.uid) validIds.add(authenticatedUser.uid);
 
     return appointments.filter(a => {
       if (validIds.has(a.clientId)) return true;
-      if (clientPhone.length >= 8 && a.clientWhatsApp && a.clientWhatsApp.replace(/\D/g, '') === clientPhone) {
-        return true;
-      }
+      if ((a as any).uid && validIds.has((a as any).uid)) return true;
       return false;
     });
   }, [appointments, currentUser, authenticatedUser]);
@@ -416,14 +370,12 @@ export const ClientAppView: React.FC = () => {
     const validIds = new Set<string>();
     if (currentUser?.id) validIds.add(currentUser.id);
     if (authenticatedUser?.id) validIds.add(authenticatedUser.id);
-    const clientPhone = (currentUser?.whatsapp || authenticatedUser?.whatsapp || '').replace(/\D/g, '');
+    if (authenticatedUser?.uid) validIds.add(authenticatedUser.uid);
 
     return allAppointments.filter(a => {
       if (a.tenantId === currentBarbershop.id) return false;
       if (validIds.has(a.clientId)) return true;
-      if (clientPhone.length >= 8 && a.clientWhatsApp && a.clientWhatsApp.replace(/\D/g, '') === clientPhone) {
-        return true;
-      }
+      if ((a as any).uid && validIds.has((a as any).uid)) return true;
       return false;
     });
   }, [allAppointments, currentUser, authenticatedUser, currentBarbershop.id]);
@@ -448,16 +400,17 @@ export const ClientAppView: React.FC = () => {
     if (!selectedProfessional) {
       return { morningSlots: [], afternoonSlots: [], eveningSlots: [], allSlots: [] };
     }
+    const availabilitySource = publicAvailability.length > 0 ? publicAvailability : appointments;
     return generateAvailableSlots({
       date: selectedDate,
       durationMinutes: serviceDuration,
       professionalId: selectedProfessional.id,
       scheduleConfig: selectedScheduleConfig,
       businessHours: currentBarbershop.businessHours,
-      existingAppointments: appointments,
+      existingAppointments: availabilitySource,
       stepMinutes: 30
     });
-  }, [selectedDate, serviceDuration, selectedProfessional, selectedScheduleConfig, currentBarbershop.businessHours, appointments]);
+  }, [selectedDate, serviceDuration, selectedProfessional, selectedScheduleConfig, currentBarbershop.businessHours, appointments, publicAvailability]);
 
   // Sincroniza automaticamente a seleção de horário com o primeiro horário disponível
   useEffect(() => {
@@ -616,51 +569,44 @@ export const ClientAppView: React.FC = () => {
     }
   };
 
-  const executeBookingWithClient = (clientUser: UserType) => {
+  const executeBookingWithClient = async (clientUser: UserType) => {
     if (!selectedService || !selectedProfessional) {
       setBookingErrorMsg('Por favor selecione o serviço e o profissional.');
       return;
     }
 
     setBookingErrorMsg(null);
+    setIsBookingSubmitting(true);
 
-    // Calculate end time
-    const [h, m] = selectedTime.split(':').map(Number);
-    const totalMin = h * 60 + m + selectedService.durationMinutes;
-    const endH = Math.floor(totalMin / 60).toString().padStart(2, '0');
-    const endM = (totalMin % 60).toString().padStart(2, '0');
-    const endTime = `${endH}:${endM}`;
-
-    const res = addAppointment({
-      tenantId: currentBarbershop.id,
-      serviceId: selectedService.id,
-      serviceName: selectedService.name,
-      servicePrice: selectedService.price,
-      serviceDuration: selectedService.durationMinutes,
-      professionalId: selectedProfessional.id,
-      professionalName: selectedProfessional.name,
-      clientId: clientUser.id,
-      clientName: clientUser.name,
-      clientWhatsApp: clientUser.whatsapp,
-      date: selectedDate,
-      startTime: selectedTime,
-      endTime,
-      isEncaixe: false,
-      status: 'AGENDADO'
-    });
-
-    if (res.success) {
-      setCelebrationDetails({
-        serviceName: selectedService.name,
-        professionalName: selectedProfessional.name,
+    try {
+      const res = await bookOnlineAppointment({
+        tenantId: currentBarbershop.id,
+        professionalId: selectedProfessional.id,
+        serviceId: selectedService.id,
         date: selectedDate,
-        time: selectedTime,
-        price: selectedService.price
+        startTime: selectedTime,
+        clientName: clientUser.name,
+        clientWhatsApp: clientUser.whatsapp,
+        notes: ''
       });
-      setShowCelebrationModal(true);
-      setBookingSuccessMsg(`Agendamento confirmado para ${selectedDate.split('-').reverse().join('/')} às ${selectedTime}! Lembrete via WhatsApp ativado.`);
-    } else {
-      setBookingErrorMsg(res.error || 'Erro ao agendar.');
+
+      if (res.success && res.appointment) {
+        setCelebrationDetails({
+          serviceName: res.appointment.serviceName,
+          professionalName: res.appointment.professionalName,
+          date: res.appointment.date,
+          time: res.appointment.startTime,
+          price: res.appointment.servicePrice
+        });
+        setShowCelebrationModal(true);
+        setBookingSuccessMsg(`Agendamento confirmado para ${res.appointment.date.split('-').reverse().join('/')} às ${res.appointment.startTime}! Lembrete via WhatsApp ativado.`);
+      } else {
+        setBookingErrorMsg(res.error || 'Esse horário acabou de ser reservado. Escolha outro horário disponível.');
+      }
+    } catch (err: any) {
+      setBookingErrorMsg('Erro ao processar agendamento. Tente novamente.');
+    } finally {
+      setIsBookingSubmitting(false);
     }
   };
 
@@ -682,6 +628,7 @@ export const ClientAppView: React.FC = () => {
         googleId: result.user.uid,
         name: result.user.displayName,
         email: result.user.email,
+        emailVerified: result.user.emailVerified,
         avatarUrl:
           result.user.photoURL ||
           `https://ui-avatars.com/api/?name=${encodeURIComponent(result.user.displayName)}&background=f97316&color=fff`
@@ -694,24 +641,23 @@ export const ClientAppView: React.FC = () => {
     }
   };
 
-  const handleSelectGoogleAccount = (acc: { googleId: string; name: string; email: string; avatarUrl: string }) => {
+  const handleSelectGoogleAccount = (acc: { googleId: string; name: string; email: string; avatarUrl: string; emailVerified?: boolean }) => {
     setGoogleAccount(acc);
     setLoginError(null);
 
     const cleanEmail = acc.email.trim().toLowerCase();
+    const isVerifiedEmail = acc.emailVerified === true;
 
     // Check if the user is Super Admin (Carlos Silva) or Team Staff (Proprietario, Gerente, Profissional)
     const matchingAdminOrStaff = users.find(
-      u => (cleanEmail && u.email?.toLowerCase() === cleanEmail) || (acc.googleId && u.googleId === acc.googleId)
+      u => (cleanEmail && isVerifiedEmail && u.email?.toLowerCase() === cleanEmail && (!u.googleId || u.googleId === acc.googleId)) || (acc.googleId && (u.uid === acc.googleId || u.googleId === acc.googleId))
     );
 
     if (matchingAdminOrStaff && matchingAdminOrStaff.role !== 'CLIENTE') {
-      persistSavedAccount({
-        googleId: acc.googleId,
-        email: acc.email,
-        name: matchingAdminOrStaff.name || acc.name,
-        avatarUrl: matchingAdminOrStaff.avatarUrl || acc.avatarUrl
-      });
+      if (matchingAdminOrStaff.status === 'inactive') {
+        setLoginError('Esta conta de usuário encontra-se inativa.');
+        return;
+      }
 
       setShowLoginModal(false);
       setGoogleStep('SELECT_ACCOUNT');
@@ -724,18 +670,25 @@ export const ClientAppView: React.FC = () => {
         name: matchingAdminOrStaff.name || acc.name,
         avatarUrl: matchingAdminOrStaff.avatarUrl || acc.avatarUrl,
         whatsapp: matchingAdminOrStaff.whatsapp || '',
-        birthDate: matchingAdminOrStaff.birthDate || ''
+        birthDate: matchingAdminOrStaff.birthDate || '',
+        emailVerified: isVerifiedEmail
       });
       return;
     }
 
-    // Check if client already exists globally and has complete data
+    // Check if client already exists globally and has complete data (Canonical: match by UID or verified Google email, never by unverified phone)
     const existingClient = users.find(
       u =>
         u.role === 'CLIENTE' &&
-        ((acc.googleId && u.googleId === acc.googleId) ||
-         (acc.email && u.email?.toLowerCase() === acc.email.toLowerCase()))
+        ((acc.googleId && (u.uid === acc.googleId || u.id === acc.googleId || u.googleId === acc.googleId)) ||
+         (isVerifiedEmail && cleanEmail && u.email?.toLowerCase() === cleanEmail && (!u.googleId || u.googleId === acc.googleId)))
     );
+
+    // FASE 2.4C: Bloqueio estrito de reativação ou login de cliente desativado
+    if (existingClient && existingClient.status === 'inactive') {
+      setLoginError('Esta conta de cliente foi desativada. Para assistência, entre em contato com a administração da barbearia.');
+      return;
+    }
 
     const hasCompleteData =
       existingClient &&
@@ -746,31 +699,27 @@ export const ClientAppView: React.FC = () => {
 
     if (hasCompleteData && existingClient) {
       // User has existing complete profile -> log in directly without asking again!
-      persistSavedAccount({
-        googleId: acc.googleId,
-        email: acc.email,
-        name: existingClient.name || acc.name,
-        avatarUrl: acc.avatarUrl,
-        phone: existingClient.whatsapp,
-        birthDate: existingClient.birthDate
-      });
+      try {
+        const loggedUser = loginWithGoogle({
+          googleId: acc.googleId,
+          email: acc.email,
+          name: existingClient.name || acc.name,
+          avatarUrl: acc.avatarUrl,
+          whatsapp: existingClient.whatsapp,
+          birthDate: existingClient.birthDate,
+          emailVerified: isVerifiedEmail
+        });
 
-      const loggedUser = loginWithGoogle({
-        googleId: acc.googleId,
-        email: acc.email,
-        name: existingClient.name || acc.name,
-        avatarUrl: acc.avatarUrl,
-        whatsapp: existingClient.whatsapp,
-        birthDate: existingClient.birthDate
-      });
+        setShowLoginModal(false);
+        setGoogleStep('SELECT_ACCOUNT');
+        setLoginError(null);
 
-      setShowLoginModal(false);
-      setGoogleStep('SELECT_ACCOUNT');
-      setLoginError(null);
-
-      if (pendingBookingAfterLogin) {
-        setPendingBookingAfterLogin(false);
-        executeBookingWithClient(loggedUser);
+        if (pendingBookingAfterLogin) {
+          setPendingBookingAfterLogin(false);
+          executeBookingWithClient(loggedUser);
+        }
+      } catch (e: any) {
+        setLoginError(e.message || 'Erro ao realizar login.');
       }
     } else {
       // First access / incomplete data -> Prompt "Complete seu cadastro"
@@ -802,38 +751,6 @@ export const ClientAppView: React.FC = () => {
     }, 400);
   };
 
-  const handleMasterPasswordSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!masterPassword) {
-      setLoginError('Digite a senha de acesso mestre.');
-      return;
-    }
-    const res = loginWithCredentials('carlosrs.email@gmail.com', masterPassword);
-    if (!res.success) {
-      setLoginError(res.error || 'Senha incorreta.');
-      return;
-    }
-    setShowLoginModal(false);
-    setGoogleStep('SELECT_ACCOUNT');
-    setMasterPassword('');
-    setLoginError(null);
-  };
-
-  const handleCustomGoogleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!customGoogleEmail.trim() || !customGoogleName.trim()) {
-      setLoginError('Por favor informe seu nome e e-mail Google.');
-      return;
-    }
-    const acc = {
-      googleId: `g-custom-${Date.now()}`,
-      name: customGoogleName.trim(),
-      email: customGoogleEmail.trim(),
-      avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(customGoogleName.trim())}&background=f97316&color=fff`
-    };
-    handleSelectGoogleAccount(acc);
-  };
-
   const handleCompleteGoogleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanPhoneDigits = clientPhone.replace(/\D/g, '');
@@ -846,33 +763,45 @@ export const ClientAppView: React.FC = () => {
       return;
     }
 
+    const isVerifiedEmail = googleAccount.emailVerified === true;
+    const cleanEmail = googleAccount.email?.trim().toLowerCase();
+
+    // Check if client is deactivated before attempting creation or update
+    const existingClient = users.find(
+      u =>
+        u.role === 'CLIENTE' &&
+        ((googleAccount.googleId && (u.uid === googleAccount.googleId || u.id === googleAccount.googleId || u.googleId === googleAccount.googleId)) ||
+         (isVerifiedEmail && cleanEmail && u.email?.toLowerCase() === cleanEmail && (!u.googleId || u.googleId === googleAccount.googleId)))
+    );
+
+    if (existingClient && existingClient.status === 'inactive') {
+      setLoginError('Esta conta de cliente foi desativada. Para assistência, entre em contato com a administração da barbearia.');
+      return;
+    }
+
     const finalName = clientPreferredName.trim() || googleAccount.name;
 
-    persistSavedAccount({
-      googleId: googleAccount.googleId,
-      email: googleAccount.email,
-      name: finalName,
-      avatarUrl: googleAccount.avatarUrl,
-      phone: clientPhone.trim(),
-      birthDate: clientBirthDate.trim()
-    });
+    try {
+      const loggedUser = loginWithGoogle({
+        googleId: googleAccount.googleId,
+        email: googleAccount.email,
+        name: finalName,
+        avatarUrl: googleAccount.avatarUrl,
+        whatsapp: clientPhone.trim(),
+        birthDate: clientBirthDate.trim(),
+        emailVerified: isVerifiedEmail
+      });
 
-    const loggedUser = loginWithGoogle({
-      googleId: googleAccount.googleId,
-      email: googleAccount.email,
-      name: finalName,
-      avatarUrl: googleAccount.avatarUrl,
-      whatsapp: clientPhone.trim(),
-      birthDate: clientBirthDate.trim()
-    });
+      setShowLoginModal(false);
+      setGoogleStep('SELECT_ACCOUNT');
+      setLoginError(null);
 
-    setShowLoginModal(false);
-    setGoogleStep('SELECT_ACCOUNT');
-    setLoginError(null);
-
-    if (pendingBookingAfterLogin) {
-      setPendingBookingAfterLogin(false);
-      executeBookingWithClient(loggedUser);
+      if (pendingBookingAfterLogin) {
+        setPendingBookingAfterLogin(false);
+        executeBookingWithClient(loggedUser);
+      }
+    } catch (e: any) {
+      setLoginError(e.message || 'Erro ao concluir cadastro.');
     }
   };
 
@@ -1840,14 +1769,15 @@ export const ClientAppView: React.FC = () => {
 
                 <button
                   onClick={handleConfirmBooking}
+                  disabled={isBookingSubmitting || !selectedService || !selectedProfessional}
                   type="button"
                   className={`w-full py-3.5 rounded-xl text-xs sm:text-sm font-semibold tracking-wide flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all cursor-pointer ${
-                    selectedService && selectedProfessional
+                    selectedService && selectedProfessional && !isBookingSubmitting
                       ? ''
-                      : 'bg-neutral-800/90 text-neutral-400 border border-neutral-700/80 hover:border-neutral-600 hover:text-neutral-200'
+                      : 'bg-neutral-800/90 text-neutral-400 border border-neutral-700/80 hover:border-neutral-600 hover:text-neutral-200 cursor-not-allowed opacity-80'
                   }`}
                   style={
-                    selectedService && selectedProfessional
+                    selectedService && selectedProfessional && !isBookingSubmitting
                       ? {
                           backgroundColor: 'var(--theme-primary, #FF6B00)',
                           color: 'var(--theme-contrast, #0D0D0D)',
@@ -1856,9 +1786,15 @@ export const ClientAppView: React.FC = () => {
                       : undefined
                   }
                 >
-                  <CheckCircle2 className="w-4 h-4" />
+                  {isBookingSubmitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4" />
+                  )}
                   <span>
-                    {!selectedService
+                    {isBookingSubmitting
+                      ? 'CONFIRMANDO NO SERVIDOR...'
+                      : !selectedService
                       ? 'SELECIONE UM SERVIÇO PARA CONTINUAR'
                       : !selectedProfessional
                       ? 'SELECIONE UM BARBEIRO PARA CONTINUAR'
@@ -3844,189 +3780,10 @@ export const ClientAppView: React.FC = () => {
                         )}
                         <span>{isGoogleLoading ? 'Autenticando com Google...' : 'Cliente: acesse com conta Google'}</span>
                       </button>
-
-                      {/* Exibição apenas de contas salvas reais deste dispositivo */}
-                      {savedAccounts.length > 0 && (
-                        <div className="mb-3">
-                          <div className="relative flex py-1 items-center mb-2.5">
-                            <div className="flex-grow border-t border-neutral-800"></div>
-                            <span className="flex-shrink mx-2 text-[9px] uppercase font-bold text-neutral-400 tracking-wider">
-                              Contas salvas neste dispositivo
-                            </span>
-                            <div className="flex-grow border-t border-neutral-800"></div>
-                          </div>
-
-                          <div className="space-y-2">
-                            {savedAccounts.map(acc => (
-                              <div
-                                key={acc.email}
-                                onClick={() => handleSelectGoogleAccount(acc)}
-                                className="w-full bg-neutral-950 hover:bg-neutral-850 border border-neutral-800 p-2.5 rounded-2xl flex items-center justify-between text-left transition-all group cursor-pointer"
-                              >
-                                <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                                  <AppImage
-                                    src={acc.avatarUrl}
-                                    alt={acc.name}
-                                    fallbackType="avatar"
-                                    className="w-8 h-8 rounded-full object-cover border border-neutral-700 shrink-0"
-                                  />
-                                  <div className="min-w-0">
-                                    <div className="text-xs font-bold text-neutral-100 transition-colors truncate">
-                                      {acc.name}
-                                    </div>
-                                    <div className="text-[10px] text-neutral-400 font-mono truncate">{acc.email}</div>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-1 shrink-0">
-                                  <button
-                                    type="button"
-                                    title="Remover deste dispositivo"
-                                    onClick={(e) => removeSavedAccount(acc.email, e)}
-                                    className="p-1.5 text-neutral-500 hover:text-red-400 rounded-lg hover:bg-neutral-800/80 transition-colors"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                  <ChevronRight className="w-4 h-4 text-neutral-500" />
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Opção para informar conta Google diretamente */}
-                      {savedAccounts.length > 0 && !useCustomGoogle ? (
-                        <button
-                          type="button"
-                          onClick={() => setUseCustomGoogle(true)}
-                          className="w-full py-2 bg-neutral-950 hover:bg-neutral-850 text-neutral-300 rounded-xl text-xs font-semibold border border-neutral-800 transition-all text-center cursor-pointer"
-                        >
-                          + Usar outra conta Google
-                        </button>
-                      ) : (
-                        <form onSubmit={handleCustomGoogleSubmit} className="bg-neutral-950 p-3.5 rounded-2xl border border-neutral-800 space-y-2.5">
-                          <div className="flex items-center justify-between">
-                            <span
-                              className="text-[11px] font-bold"
-                              style={{ color: 'var(--theme-primary, #FF6B00)' }}
-                            >
-                              Entrar com Nome e E-mail Google:
-                            </span>
-                            {savedAccounts.length > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => setUseCustomGoogle(false)}
-                                className="text-[10px] text-neutral-400 hover:text-neutral-200"
-                              >
-                                Fechar
-                              </button>
-                            )}
-                          </div>
-                          <input
-                            type="text"
-                            required
-                            placeholder="Seu Nome Completo"
-                            value={customGoogleName}
-                            onChange={e => setCustomGoogleName(e.target.value)}
-                            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none"
-                          />
-                          <input
-                            type="email"
-                            required
-                            placeholder="seu.email@gmail.com"
-                            value={customGoogleEmail}
-                            onChange={e => setCustomGoogleEmail(e.target.value)}
-                            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none"
-                          />
-                          <div className="flex justify-end gap-2 pt-1">
-                            {savedAccounts.length > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => setUseCustomGoogle(false)}
-                                className="px-2.5 py-1.5 text-xs text-neutral-400 hover:text-neutral-200"
-                              >
-                                Cancelar
-                              </button>
-                            )}
-                            <button
-                              type="submit"
-                              className="w-full sm:w-auto px-4 py-2 font-bold rounded-xl text-xs transition-all shadow-md cursor-pointer"
-                              style={{
-                                backgroundColor: 'var(--theme-primary, #FF6B00)',
-                                color: 'var(--theme-contrast, #0D0D0D)'
-                              }}
-                            >
-                              Continuar com esta conta
-                            </button>
-                          </div>
-                        </form>
-                      )}
+                      <p className="text-[11px] text-neutral-400 text-center">
+                        Acesso seguro oficial via Firebase Authentication.
+                      </p>
                     </div>
-                  ) : googleStep === 'MASTER_PASSWORD' ? (
-                    /* Master Admin Carlos Silva Access Screen */
-                    <form onSubmit={handleMasterPasswordSubmit} className="space-y-3.5">
-                      <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-8 h-8 rounded-xl flex items-center justify-center font-bold"
-                            style={{
-                              backgroundColor: 'var(--theme-light-bg, rgba(255, 107, 0, 0.2))',
-                              color: 'var(--theme-primary, #FF6B00)'
-                            }}
-                          >
-                            <Lock className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <h3 className="text-sm font-black font-heading text-neutral-100">Acesso Master Plataforma</h3>
-                            <p className="text-[10px] text-neutral-400 font-mono">carlosrs.email@gmail.com</p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setGoogleStep('SELECT_ACCOUNT')}
-                          className="text-[10px] hover:underline"
-                          style={{ color: 'var(--theme-primary, #FF6B00)' }}
-                        >
-                          Trocar
-                        </button>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-neutral-200 mb-1">
-                          Senha Mestre de Acesso
-                        </label>
-                        <input
-                          type="password"
-                          required
-                          autoFocus
-                          value={masterPassword}
-                          onChange={e => setMasterPassword(e.target.value)}
-                          placeholder="Digite sua senha mestre"
-                          className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none font-mono"
-                        />
-                      </div>
-
-                      <div className="flex justify-end gap-2 pt-2">
-                        <button
-                          type="button"
-                          onClick={() => setGoogleStep('SELECT_ACCOUNT')}
-                          className="px-3 py-2 bg-neutral-800 text-neutral-300 rounded-xl text-xs font-semibold"
-                        >
-                          Voltar
-                        </button>
-                        <button
-                          type="submit"
-                          className="px-4 py-2 font-black rounded-xl text-xs shadow-md flex items-center gap-1.5 transition-all"
-                          style={{
-                            backgroundColor: 'var(--theme-primary, #FF6B00)',
-                            color: 'var(--theme-contrast, #0D0D0D)'
-                          }}
-                        >
-                          <Check className="w-4 h-4" />
-                          <span>Acessar Painel Master</span>
-                        </button>
-                      </div>
-                    </form>
                   ) : (
                     /* Step: Mandatory First Access "Bem-vindo! Complete seu cadastro" */
                     <form onSubmit={handleCompleteGoogleLogin} className="space-y-3.5">

@@ -424,4 +424,41 @@ describe('MY BARBER - Regras Críticas de Autenticação e Criação de Profissi
     assert.strictEqual(Boolean(profComum.canViewAllProfessionals), false);
     assert.strictEqual(Boolean(profLider.canViewAllProfessionals), true);
   });
+
+  // Teste 27: Limite de Profissionais por Plano (Ex: Plano Essencial = 1 profissional)
+  it('27. Deve BLOQUEAR cadastro de novo profissional se o limite do plano (ex: 1 profissional) for atingido', () => {
+    const valResult = validateProfessionalCreation({
+      name: 'Novo Barbeiro',
+      tenantId: 'tenant-barbearia-a',
+      login: 'novobarbeiro',
+      password: 'password123',
+      creatorRole: 'PROPRIETARIO',
+      creatorTenantId: 'tenant-barbearia-a',
+      existingUsers: dummyExistingUsers,
+      barbershops: dummyBarbershops,
+      maxStaff: 1,
+      currentStaffCount: 1
+    });
+
+    assert.strictEqual(valResult.valid, false);
+    assert.ok(valResult.error?.includes('Limite de profissionais') || valResult.error?.includes('atingido'));
+  });
+
+  // Teste 28: Permitir quando estiver dentro do limite do plano
+  it('28. Deve PERMITIR cadastro de profissional quando estiver dentro do limite do plano', () => {
+    const valResult = validateProfessionalCreation({
+      name: 'Novo Barbeiro Permitido',
+      tenantId: 'tenant-barbearia-a',
+      login: 'barbeiro2',
+      password: 'password123',
+      creatorRole: 'PROPRIETARIO',
+      creatorTenantId: 'tenant-barbearia-a',
+      existingUsers: dummyExistingUsers,
+      barbershops: dummyBarbershops,
+      maxStaff: 5,
+      currentStaffCount: 1
+    });
+
+    assert.strictEqual(valResult.valid, true);
+  });
 });

@@ -16,15 +16,17 @@ import {
   Sparkles,
   ArrowLeft
 } from 'lucide-react';
+import { RegisterBarbershopModal } from '../RegisterBarbershopModal';
 
 export const StaffLoginView: React.FC = () => {
   const { loginWithCredentials, currentBarbershop, setViewMode } = useApp();
 
-  const [identifier, setIdentifier] = useState('carlosrs.email@gmail.com');
-  const [password, setPassword] = useState('Ca.753268');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,7 +133,7 @@ export const StaffLoginView: React.FC = () => {
                     required
                     value={identifier}
                     onChange={e => setIdentifier(e.target.value)}
-                    placeholder="carlosrs.email@gmail.com ou usuario"
+                    placeholder="seu.email@exemplo.com ou usuario"
                     className="w-full bg-neutral-950 border border-neutral-800 rounded-2xl pl-10 pr-3.5 py-3 text-xs text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-mono"
                   />
                 </div>
@@ -181,6 +183,19 @@ export const StaffLoginView: React.FC = () => {
               </button>
             </form>
 
+            {/* Call to Action: Nova Barbearia */}
+            <div className="mt-4 pt-4 border-t border-neutral-800 text-center">
+              <p className="text-xs text-neutral-400 mb-2">Quer usar o My Barber no seu negócio?</p>
+              <button
+                type="button"
+                onClick={() => setIsRegisterModalOpen(true)}
+                className="w-full py-2.5 px-4 bg-neutral-950 hover:bg-neutral-800 border border-orange-500/40 hover:border-orange-500 text-orange-400 font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                <Crown className="w-4 h-4 text-orange-400" />
+                <span>Cadastrar Minha Barbearia (14 Dias Grátis ou Definitivo)</span>
+              </button>
+            </div>
+
             {/* Quick test credentials box */}
             <div className="mt-6 pt-5 border-t border-neutral-800">
               <div className="flex items-center justify-between mb-2.5">
@@ -193,25 +208,6 @@ export const StaffLoginView: React.FC = () => {
               </div>
 
               <div className="space-y-1.5">
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('carlosrs.email@gmail.com', 'Ca.753268')}
-                  className="w-full bg-neutral-950 hover:bg-neutral-850 border border-amber-500/30 hover:border-amber-500/60 p-2.5 rounded-xl flex items-center justify-between text-left transition-all group cursor-pointer"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
-                      <Crown className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold text-amber-300 group-hover:text-amber-200 truncate">
-                        Carlos Silva (Super Admin Master)
-                      </div>
-                      <div className="text-[10px] text-neutral-400 font-mono">carlosrs.email@gmail.com</div>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-neutral-500 group-hover:text-amber-400 shrink-0" />
-                </button>
-
                 <button
                   type="button"
                   onClick={() => handleQuickLogin('joao.silva@navalhaouro.com.br', 'senha123')}
@@ -263,6 +259,11 @@ export const StaffLoginView: React.FC = () => {
         </p>
         <p>© 2026 MY BARBER. Todos os direitos reservados.</p>
       </div>
+
+      <RegisterBarbershopModal
+        isOpen={isRegisterModalOpen}
+        onClose={() => setIsRegisterModalOpen(false)}
+      />
     </div>
   );
 };

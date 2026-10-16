@@ -1,5 +1,10 @@
 import React, { ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
+import {
+  isChunkLoadError,
+  attemptChunkRecovery,
+  resetChunkRecovery,
+} from '../../utils/chunkLoadRecovery';
 
 interface Props {
   children: ReactNode;
@@ -26,13 +31,23 @@ export class ErrorBoundary extends React.Component<Props, State> {
   override componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     console.error('[MY BARBER ErrorBoundary Captured]:', error, errorInfo);
     this.setState({ errorInfo });
+
+    // FASE 4.7C: Se for falha de download de chunk e ainda não tentamos recuperar, dispara reload único
+    if (isChunkLoadError(error)) {
+      const recovered = attemptChunkRecovery(error);
+      if (recovered) {
+        return;
+      }
+    }
   }
 
   private handleReload = (): void => {
+    resetChunkRecovery();
     window.location.reload();
   };
 
   private handleReset = (): void => {
+    resetChunkRecovery();
     this.setState({ hasError: false, error: null, errorInfo: null });
   };
 
@@ -41,6 +56,8 @@ export class ErrorBoundary extends React.Component<Props, State> {
       if (this.props.fallback) {
         return this.props.fallback;
       }
+
+      const isChunkError = Boolean(this.state.error && isChunkLoadError(this.state.error));
 
       return (
         <div className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center p-6 select-none font-sans">
@@ -51,10 +68,12 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
             <div className="space-y-2">
               <h2 className="text-xl font-bold tracking-tight text-neutral-50">
-                Ops, algo inesperado aconteceu
+                {isChunkError ? 'Atualização do Sistema Disponível' : 'Ops, algo inesperado aconteceu'}
               </h2>
               <p className="text-sm text-neutral-400 leading-relaxed">
-                O sistema de monitoramento capturou uma instabilidade momentânea. Seus dados estão seguros no Firestore.
+                {isChunkError
+                  ? 'Uma nova versão do MY BARBER foi disponibilizada. Seus dados estão seguros. Recarregue a página para obter os componentes mais recentes.'
+                  : 'O sistema de monitoramento capturou uma instabilidade momentânea. Seus dados estão seguros no Firestore.'}
               </p>
             </div>
 
@@ -66,13 +85,15 @@ export class ErrorBoundary extends React.Component<Props, State> {
             )}
 
             <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
-              <button
-                onClick={this.handleReset}
-                className="w-full py-3 px-4 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-semibold rounded-xl text-sm transition-all flex items-center justify-center gap-2"
-              >
-                <Home className="w-4 h-4" />
-                Tentar Novamente
-              </button>
+              {!isChunkError && (
+                <button
+                  onClick={this.handleReset}
+                  className="w-full py-3 px-4 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-semibold rounded-xl text-sm transition-all flex items-center justify-center gap-2"
+                >
+                  <Home className="w-4 h-4" />
+                  Tentar Novamente
+                </button>
+              )}
               <button
                 onClick={this.handleReload}
                 className="w-full py-3 px-4 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20"
@@ -89,3 +110,4 @@ export class ErrorBoundary extends React.Component<Props, State> {
     return this.props.children;
   }
 }
+

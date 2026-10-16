@@ -50,13 +50,38 @@ export const ProfessionalsTab: React.FC = () => {
     deleteProfessional,
     currentUser,
     createProfessionalAccess,
-    uploadMedia
+    uploadMedia,
+    customPlans
   } = useApp();
 
-  const plan = MY_BARBER_PLANS[currentBarbershop.planId] || Object.values(MY_BARBER_PLANS)[0];
-  const staffMembers = tenantUsers.filter(
-    u => u.role === 'PROFISSIONAL' || u.role === 'PROPRIETARIO' || u.role === 'GERENTE'
+  const dynamicPlan = useMemo(() => {
+    const custom = customPlans.find(p => p.id === currentBarbershop.planId) ||
+      (currentBarbershop.planId === 'PLANO_UNICO' ? customPlans.find(p => p.id === 'plano-essencial') : undefined) ||
+      customPlans.find(p => p.id === 'plano-essencial') ||
+      customPlans[0];
+
+    const maxProfs = custom && custom.limits?.maxProfessionals !== undefined
+      ? (custom.limits.maxProfessionals === 'UNLIMITED' ? 9999 : Number(custom.limits.maxProfessionals))
+      : (MY_BARBER_PLANS[currentBarbershop.planId]?.maxProfessionals || 1);
+
+    const price = custom
+      ? (custom.hasPromotion && custom.promotionalPrice !== undefined ? custom.promotionalPrice : custom.priceMonthly)
+      : (MY_BARBER_PLANS[currentBarbershop.planId]?.priceMonthly || 39.90);
+
+    return {
+      id: custom?.id || currentBarbershop.planId || 'plano-essencial',
+      name: custom?.name || MY_BARBER_PLANS[currentBarbershop.planId]?.name || 'Plano Essencial',
+      priceMonthly: price,
+      maxProfessionals: maxProfs
+    };
+  }, [customPlans, currentBarbershop.planId]);
+
+  const plan = dynamicPlan;
+  const activeProfessionals = tenantUsers.filter(
+    u => (u.role === 'PROFISSIONAL' || (u as any).canonicalRole === 'barber') && u.status !== 'inactive'
   );
+  const staffMembers = activeProfessionals;
+  const isLimitReached = activeProfessionals.length >= plan.maxProfessionals;
 
   const [showModal, setShowModal] = useState(false);
   const [editingProfId, setEditingProfId] = useState<string | null>(null);
@@ -224,7 +249,7 @@ export const ProfessionalsTab: React.FC = () => {
           setIsSaved(false);
         }, 600);
       } else {
-        const result = createProfessionalAccess({
+        const result = await createProfessionalAccess({
           tenantId: currentBarbershop.id,
           role: 'PROFISSIONAL',
           status: 'active',
@@ -255,9 +280,9 @@ export const ProfessionalsTab: React.FC = () => {
     }
   };
 
-  const handleDelete = (id: string, name: string) => {
+  const handleDelete = async (id: string, name: string) => {
     if (window.confirm(`Deseja realmente remover o profissional ${name}?`)) {
-      const res = deleteProfessional(id);
+      const res = await deleteProfessional(id);
       if (!res.success) {
         alert(res.error);
       }
@@ -280,37 +305,48 @@ export const ProfessionalsTab: React.FC = () => {
 
         <button
           onClick={openAddModal}
-          disabled={staffMembers.length >= plan.maxProfessionals}
+          disabled={isLimitReached}
           className={`px-4 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition-all ${
-            staffMembers.length >= plan.maxProfessionals
-              ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
+            isLimitReached
+              ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed border border-neutral-700'
               : 'bg-orange-500 hover:bg-orange-400 text-neutral-950 shadow-md active:scale-95'
           }`}
+          title={
+            isLimitReached
+              ? `Limite de ${plan.maxProfessionals} ${plan.maxProfessionals === 1 ? 'profissional' : 'profissionais'} atingido no ${plan.name}. Faça upgrade de plano para cadastrar mais profissionais.`
+              : 'Cadastrar novo profissional'
+          }
         >
           <Plus className="w-4 h-4" />
-          <span>Cadastrar Profissional</span>
+          <span>{isLimitReached ? 'Limite do Plano Atingido' : 'Cadastrar Profissional'}</span>
         </button>
       </div>
 
       {/* Plan Capacity Bar */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-400 font-bold">
-            {staffMembers.length}/{plan.maxProfessionals}
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
+            isLimitReached
+              ? 'bg-amber-500/10 border border-amber-500/30 text-amber-400'
+              : 'bg-orange-500/10 border border-orange-500/30 text-orange-400'
+          }`}>
+            {activeProfessionals.length}/{plan.maxProfessionals}
           </div>
           <div>
             <div className="text-xs font-bold text-neutral-200">
-              Vagas da Equipe no {plan.name} (R$ {plan.priceMonthly.toFixed(2).replace('.', ',')}/mês)
+              Vagas de Profissionais no {plan.name} (R$ {plan.priceMonthly.toFixed(2).replace('.', ',')}/mês)
             </div>
             <div className="text-[11px] text-neutral-400">
-              Inclui proprietário, gerente e barbeiros contratados.
+              {isLimitReached
+                ? `Capacidade máxima atingida (${activeProfessionals.length}/${plan.maxProfessionals} ${plan.maxProfessionals === 1 ? 'profissional' : 'profissionais'}). Faça upgrade para expandir a equipe.`
+                : `${plan.maxProfessionals - activeProfessionals.length} ${plan.maxProfessionals - activeProfessionals.length === 1 ? 'vaga restante' : 'vagas restantes'} para barbeiros/profissionais.`}
             </div>
           </div>
         </div>
         <div className="w-full md:w-64 bg-neutral-950 h-2.5 rounded-full overflow-hidden border border-neutral-800">
           <div
-            className="bg-orange-500 h-full rounded-full transition-all"
-            style={{ width: `${Math.min(100, (staffMembers.length / plan.maxProfessionals) * 100)}%` }}
+            className={`h-full rounded-full transition-all ${isLimitReached ? 'bg-amber-500' : 'bg-orange-500'}`}
+            style={{ width: `${Math.min(100, (activeProfessionals.length / plan.maxProfessionals) * 100)}%` }}
           />
         </div>
       </div>
