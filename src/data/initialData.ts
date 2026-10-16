@@ -1343,7 +1343,9 @@ export const INITIAL_CUSTOM_PLANS: CustomPlan[] = [
     description: 'Licença permanente de uso do SaaS vinculada à barbearia. Pagamento único de R$ 799,00 sem mensalidades. Recursos e limites do Plano Profissional (até 5 profissionais e 1 unidade).',
     status: 'ACTIVE',
     priceMonthly: 799.00,
-    billingCycle: 'MONTHLY',
+    billingCycle: 'ONE_TIME',
+    isLifetime: true,
+    oneTimePrice: 799.00,
     hasTrial: false,
     trialDuration: 0,
     trialUnit: 'DAYS',
@@ -1356,7 +1358,7 @@ export const INITIAL_CUSTOM_PLANS: CustomPlan[] = [
       {
         id: 'stage-lifetime-unique',
         order: 1,
-        name: 'Pagamento Único Vitalício',
+        name: 'Pagamento Único da Licença Definitiva',
         duration: 0,
         unit: 'INDEFINITE',
         price: 799.00

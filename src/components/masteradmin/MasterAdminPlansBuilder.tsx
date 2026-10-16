@@ -387,11 +387,16 @@ export const MasterAdminPlansBuilder: React.FC = () => {
     const activePlans = customPlans.filter(p => p.status === 'ACTIVE').length;
     const totalSubscribers = subscriptions.filter(s => s.status !== 'CANCELED').length;
     
-    // Estimate MRR (Monthly Recurring Revenue)
+    // Estimate MRR (Monthly Recurring Revenue) — Exclui expressamente compras definitivas/vitalícias
     let estimatedMrr = 0;
     subscriptions.forEach(sub => {
-      if (sub.status !== 'CANCELED') {
-        const subPrice = sub.currentPrice || (sub.planId === 'PLANO_UNICO' ? 49.90 : 49.90);
+      if (
+        sub.status !== 'CANCELED' &&
+        sub.status !== 'LIFETIME_LICENSE' &&
+        !sub.isLifetime &&
+        sub.planId !== 'plano-vitalicio'
+      ) {
+        const subPrice = sub.currentPrice || (sub.planId === 'PLANO_UNICO' ? 39.90 : 39.90);
         estimatedMrr += subPrice;
       }
     });
@@ -414,6 +419,7 @@ export const MasterAdminPlansBuilder: React.FC = () => {
   // Translate cycle
   const getCycleLabel = (cycle: PlanBillingCycle) => {
     switch (cycle) {
+      case 'ONE_TIME': return 'Pagamento Único';
       case 'MONTHLY': return 'Mensal';
       case 'QUARTERLY': return 'Trimestral';
       case 'SEMIANNUAL': return 'Semestral';
@@ -492,16 +498,16 @@ export const MasterAdminPlansBuilder: React.FC = () => {
 
         <div className="bg-[#1e293b]/40 border border-slate-800 p-4 rounded-xl">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400 font-medium">Integração MP</span>
-            <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center">
-              <Zap className="w-4 h-4" />
+            <span className="text-xs text-slate-400 font-medium">Gateway Mercado Pago</span>
+            <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center">
+              <ShieldCheck className="w-4 h-4" />
             </div>
           </div>
           <div className="flex items-center gap-1.5 mt-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <p className="text-sm font-semibold text-white">Preapproval Ativo</p>
+            <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+            <p className="text-sm font-semibold text-white">Ambiente Pré-Homologação</p>
           </div>
-          <p className="text-xs text-slate-500 mt-1">Cobrança e agendamento automático</p>
+          <p className="text-xs text-slate-500 mt-1">Recorrência e checkout único preparados</p>
         </div>
       </div>
 
@@ -554,6 +560,7 @@ export const MasterAdminPlansBuilder: React.FC = () => {
             <option value="QUARTERLY">Trimestral</option>
             <option value="SEMIANNUAL">Semestral</option>
             <option value="ANNUAL">Anual</option>
+            <option value="ONE_TIME">Pagamento Único</option>
           </select>
         </div>
       </div>
@@ -669,15 +676,19 @@ export const MasterAdminPlansBuilder: React.FC = () => {
                   <div className="mt-5 p-4 rounded-xl bg-slate-900/60 border border-slate-800/80">
                     <div className="flex items-baseline gap-2">
                       <span className="text-3xl font-extrabold text-white">
-                        {plan.hasPromotion && plan.promotionalPrice !== undefined
+                        {plan.billingCycle === 'ONE_TIME' || plan.isLifetime
+                          ? formatMoney(plan.oneTimePrice || plan.priceMonthly)
+                          : plan.hasPromotion && plan.promotionalPrice !== undefined
                           ? formatMoney(plan.promotionalPrice)
                           : formatMoney(plan.priceMonthly)}
                       </span>
                       <span className="text-xs text-slate-400">
-                        /{plan.billingCycle === 'MONTHLY' ? 'mês' : getCycleLabel(plan.billingCycle).toLowerCase()}
+                        {plan.billingCycle === 'ONE_TIME' || plan.isLifetime
+                          ? <span className="text-amber-400 font-semibold">(Pagamento Único)</span>
+                          : `/${plan.billingCycle === 'MONTHLY' ? 'mês' : getCycleLabel(plan.billingCycle).toLowerCase()}`}
                       </span>
 
-                      {plan.hasPromotion && (
+                      {plan.hasPromotion && !plan.isLifetime && plan.billingCycle !== 'ONE_TIME' && (
                         <span className="text-xs text-slate-500 line-through ml-2">
                           {formatMoney(plan.priceAfterPromotion || plan.priceMonthly)}
                         </span>
@@ -905,12 +916,13 @@ export const MasterAdminPlansBuilder: React.FC = () => {
                       <option value="QUARTERLY">Trimestral (A cada 3 meses)</option>
                       <option value="SEMIANNUAL">Semestral (A cada 6 meses)</option>
                       <option value="ANNUAL">Anual (A cada 12 meses)</option>
+                      <option value="ONE_TIME">Pagamento Único (Compra Definitiva / Sem Recorrência)</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                      Preço Regular Base (R$) <span className="text-rose-400">*</span>
+                      {formData.billingCycle === 'ONE_TIME' ? 'Valor da Licença Definitiva (R$)' : 'Preço Regular Base (R$)'} <span className="text-rose-400">*</span>
                     </label>
                     <div className="relative">
                       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-sm">R$</span>

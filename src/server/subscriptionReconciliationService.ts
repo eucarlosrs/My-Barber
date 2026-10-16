@@ -29,7 +29,7 @@ export interface LocalCreationContext {
   planName?: string;
   expectedAmount: number;
   currencyId?: string;
-  billingCycle?: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL';
+  billingCycle?: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL' | 'ONE_TIME';
   frequency?: number;
   frequencyType?: 'months' | 'days';
   attemptTimestampMs?: number;

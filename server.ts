@@ -152,7 +152,9 @@ interface StoredPlan {
   description: string;
   status: 'ACTIVE' | 'INACTIVE';
   priceMonthly: number;
-  billingCycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL';
+  billingCycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL' | 'ONE_TIME';
+  isLifetime?: boolean;
+  oneTimePrice?: number;
   hasTrial: boolean;
   trialDuration: number;
   trialUnit: 'DAYS' | 'MONTHS';
@@ -380,19 +382,19 @@ const plansDB: Map<string, StoredPlan> = new Map([
     'plano-premium',
     {
       id: 'plano-premium',
-      name: 'Plano Premium',
-      description: 'Para barbearias maiores e redes que precisam de recursos avançados, com vários profissionais e mais unidades.',
+      name: 'Plano Premium Multiunidades',
+      description: 'Para redes de barbearias e operações de grande porte com até 10 profissionais e 2 unidades.',
       status: 'ACTIVE',
-      priceMonthly: 89.90,
+      priceMonthly: 99.90,
       billingCycle: 'MONTHLY',
       hasTrial: true,
       trialDuration: 14,
       trialUnit: 'DAYS',
       hasPromotion: true,
-      promotionalPrice: 69.90,
+      promotionalPrice: 79.90,
       promotionDuration: 3,
       promotionUnit: 'MONTHS',
-      priceAfterPromotion: 89.90,
+      priceAfterPromotion: 99.90,
       scheduleStages: [
         {
           id: 'stage-premium-trial',
@@ -408,7 +410,7 @@ const plansDB: Map<string, StoredPlan> = new Map([
           name: 'Promoção de Entrada / Lançamento',
           duration: 3,
           unit: 'MONTHS',
-          price: 69.90
+          price: 79.90
         },
         {
           id: 'stage-premium-regular',
@@ -416,7 +418,7 @@ const plansDB: Map<string, StoredPlan> = new Map([
           name: 'Preço Normal Recorrente',
           duration: 0,
           unit: 'INDEFINITE',
-          price: 89.90
+          price: 99.90
         }
       ],
       features: {
@@ -441,6 +443,59 @@ const plansDB: Map<string, StoredPlan> = new Map([
       subscribersCount: 0,
       createdAt: '2026-02-15T00:00:00Z',
       updatedAt: '2026-02-15T00:00:00Z'
+    }
+  ],
+  [
+    'plano-vitalicio',
+    {
+      id: 'plano-vitalicio',
+      name: 'My Barber Compra Definitiva',
+      description: 'Licença permanente de uso do SaaS vinculada à barbearia. Pagamento único de R$ 799,00 sem mensalidades. Recursos e limites do Plano Profissional (até 5 profissionais e 1 unidade).',
+      status: 'ACTIVE',
+      priceMonthly: 799.00,
+      billingCycle: 'ONE_TIME',
+      isLifetime: true,
+      oneTimePrice: 799.00,
+      hasTrial: false,
+      trialDuration: 0,
+      trialUnit: 'DAYS',
+      hasPromotion: false,
+      promotionalPrice: 799.00,
+      promotionDuration: 0,
+      promotionUnit: 'MONTHS',
+      priceAfterPromotion: 799.00,
+      scheduleStages: [
+        {
+          id: 'stage-lifetime-unique',
+          order: 1,
+          name: 'Pagamento Único da Licença Definitiva',
+          duration: 0,
+          unit: 'INDEFINITE',
+          price: 799.00
+        }
+      ],
+      features: {
+        agenda: true,
+        clientes: true,
+        profissionais: true,
+        servicos: true,
+        pacotes: true,
+        comunicacoes: true,
+        promocoes: true,
+        sorteios: true,
+        galeria: true,
+        estoque: true,
+        relatorios_financeiros: true
+      },
+      limits: {
+        maxProfessionals: 5,
+        maxUnits: 1,
+        maxClients: 'UNLIMITED'
+      },
+      mercadopagoPlanId: 'mp-payment-lifetime-799',
+      subscribersCount: 0,
+      createdAt: '2026-03-01T00:00:00Z',
+      updatedAt: '2026-03-01T00:00:00Z'
     }
   ]
 ]);

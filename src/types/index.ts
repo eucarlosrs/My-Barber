@@ -45,7 +45,9 @@ export interface CustomPlan {
   description: string;
   status: 'ACTIVE' | 'INACTIVE';
   priceMonthly: number; // Preço regular base
-  billingCycle: PlanBillingCycle; // 'MONTHLY', 'QUARTERLY', 'SEMIANNUAL', 'ANNUAL'
+  billingCycle: PlanBillingCycle; // 'MONTHLY', 'QUARTERLY', 'SEMIANNUAL', 'ANNUAL', 'ONE_TIME'
+  isLifetime?: boolean;
+  oneTimePrice?: number;
   
   // Período Gratuito
   hasTrial: boolean;
@@ -80,7 +82,9 @@ export interface PlanConfig {
   name: string;
   minProfessionals: number;
   maxProfessionals: number;
-  priceMonthly: number; // R$ 49,90 fixo
+  priceMonthly: number;
+  isLifetime?: boolean;
+  oneTimePrice?: number;
   description: string;
 }
 
@@ -115,6 +119,8 @@ export const MY_BARBER_PLANS: Record<string, PlanConfig> = {
     minProfessionals: 1,
     maxProfessionals: 5,
     priceMonthly: 799.00,
+    isLifetime: true,
+    oneTimePrice: 799.00,
     description: 'Licença permanente de uso do SaaS para 1 barbearia — até 5 profissionais e 1 unidade'
   },
   // Retrocompatibilidade caso algum registro legado contenha o id PLANO_UNICO
