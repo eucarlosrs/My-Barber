@@ -18,19 +18,40 @@ import { DEFAULT_PLANS } from '../src/server/planService.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
+export const EXPECTED_PROJECT_ID = 'gen-lang-client-0472481079';
+export const EXPECTED_DATABASE_ID = 'ai-studio-mybarber-1b7bcf67-417c-4eba-b227-1479fd547c81';
+
 export interface ReconcileArgs {
   dryRun: boolean;
   apply: boolean;
   confirm: boolean;
   operator?: string;
+  projectId?: string;
 }
 
 export function parseReconcileArgs(argv: string[]): ReconcileArgs {
+  let operator: string | undefined;
+  let projectId: string | undefined;
+
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--operator' && argv[i + 1]) {
+      operator = argv[++i]?.trim();
+    } else if (a.startsWith('--operator=')) {
+      operator = a.split('=')[1]?.trim();
+    } else if (a === '--project' && argv[i + 1]) {
+      projectId = argv[++i]?.trim();
+    } else if (a.startsWith('--project=')) {
+      projectId = a.split('=')[1]?.trim();
+    }
+  }
+
   return {
     dryRun: argv.includes('--dry-run') || !argv.includes('--apply'),
     apply: argv.includes('--apply'),
     confirm: argv.includes('--confirm-reconciliation'),
-    operator: argv.find((a, i) => (a === '--operator' && argv[i + 1])) ? argv[argv.indexOf('--operator') + 1] : undefined
+    operator,
+    projectId
   };
 }
 
@@ -47,11 +68,24 @@ export async function runPlansReconciliation(args: ReconcileArgs) {
   console.log(`[CONFIG] Banco Firestore:        ${connectedDb}`);
   console.log(`[CONFIG] Modo de Execução:       ${args.dryRun ? '🔍 SIMULAÇÃO (DRY-RUN / LEITURA PURA)' : '⚡ APLICAÇÃO REAL'}`);
   console.log(`[CONFIG] Operador:               ${args.operator || 'Não especificado'}`);
+  if (args.projectId) {
+    console.log(`[CONFIG] Projeto Informado CLI:  ${args.projectId}`);
+  }
   console.log('-'.repeat(65));
 
-  // 1. Verificação de Integridade de Conexão com Banco Nomeado
-  if (connectedDb !== 'ai-studio-mybarber-1b7bcf67-417c-4eba-b227-1479fd547c81') {
-    throw new Error(`[Segurança] Abortado: banco de dados Firestore incorreto (${connectedDb}). Esperado banco nomeado ai-studio-mybarber-1b7bcf67-417c-4eba-b227-1479fd547c81`);
+  // 1. Verificação de Integridade de Conexão com Projeto Firebase (Fail-Closed)
+  // Interrompe imediatamente antes de qualquer leitura, backup ou escrita.
+  if (args.projectId && args.projectId !== EXPECTED_PROJECT_ID) {
+    throw new Error(`[Segurança] Abortado: argumento --project informado ('${args.projectId}') diverge do projeto Firebase oficial ('${EXPECTED_PROJECT_ID}').`);
+  }
+
+  if (!connectedProject || connectedProject !== EXPECTED_PROJECT_ID) {
+    throw new Error(`[Segurança] Abortado: projeto Firebase conectado incorreto ('${connectedProject || 'nenhum'}'). Esperado exatamente o projeto oficial '${EXPECTED_PROJECT_ID}'. Não confie apenas no projeto ativo do Cloud Shell.`);
+  }
+
+  // 2. Verificação de Integridade de Conexão com Banco Nomeado (Fail-Closed)
+  if (!connectedDb || connectedDb !== EXPECTED_DATABASE_ID) {
+    throw new Error(`[Segurança] Abortado: banco de dados Firestore incorreto ('${connectedDb || 'nenhum'}'). Esperado banco nomeado '${EXPECTED_DATABASE_ID}'.`);
   }
 
   // 2. Leitura e Backup dos Planos Atuais no Firestore
@@ -181,7 +215,8 @@ export async function runPlansReconciliation(args: ReconcileArgs) {
   return { success: true, dryRun: false, actions, backupPath: backupFilePath };
 }
 
-if (process.argv[1]?.includes('reconcile-firestore-plans')) {
+// Executa apenas se chamado diretamente via CLI (e não importado em testes)
+if ((process.argv[1]?.endsWith('reconcile-firestore-plans.ts') || process.argv[1]?.endsWith('reconcile-firestore-plans.js') || process.argv[1]?.includes('reconcile-firestore-plans')) && !process.argv[1]?.includes('.test.')) {
   const args = parseReconcileArgs(process.argv.slice(2));
   runPlansReconciliation(args).catch(err => {
     console.error('❌ Erro na reconciliação:', err);
