@@ -250,7 +250,9 @@ export const MasterAdminSubscriptions: React.FC = () => {
           </div>
           <div className="text-2xl font-black text-neutral-100">{activeCount}</div>
           <span className="text-[10px] text-emerald-400 font-bold mt-1 block">
-            {launchOfferCount} no Lançamento (R$ 49,90) • {regularOfferCount} Regular (R$ 69,90)
+            {activeCount > 0
+              ? `${launchOfferCount} no Lançamento • ${regularOfferCount} Regular`
+              : 'Nenhuma assinatura ativa no momento'}
           </span>
         </div>
 
@@ -371,15 +373,29 @@ export const MasterAdminSubscriptions: React.FC = () => {
                       </td>
 
                       <td className="px-6 py-4">
-                        <div className="font-bold text-neutral-100 font-mono text-sm">
-                          R$ {sub.currentPrice.toFixed(2).replace('.', ',')}
-                          <span className="text-[10px] text-neutral-500 font-sans">/mês</span>
-                        </div>
-                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-                          isLaunch ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'
-                        }`}>
-                          {isLaunch ? 'Lançamento' : 'Regular'}
-                        </span>
+                        {sub.isLifetime || sub.status === 'LIFETIME_LICENSE' || sub.planId === 'plano-vitalicio' ? (
+                          <div className="space-y-0.5">
+                            <div className="font-bold text-amber-400 font-mono text-sm">
+                              R$ 799,00
+                              <span className="text-[10px] text-amber-500/80 font-sans ml-1">(Pagamento Único)</span>
+                            </div>
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                              Licença Definitiva
+                            </span>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="font-bold text-neutral-100 font-mono text-sm">
+                              R$ {sub.currentPrice.toFixed(2).replace('.', ',')}
+                              <span className="text-[10px] text-neutral-500 font-sans">/mês</span>
+                            </div>
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                              isLaunch ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'
+                            }`}>
+                              {isLaunch ? 'Lançamento' : 'Regular'}
+                            </span>
+                          </>
+                        )}
                       </td>
 
                       <td className="px-6 py-4">

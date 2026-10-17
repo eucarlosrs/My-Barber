@@ -278,12 +278,21 @@ export const MySubscriptionView: React.FC = () => {
             </div>
 
             <div className="text-right">
-              <div className="text-2xl font-extrabold text-zinc-900">
-                R$ {currentPrice.toFixed(2).replace('.', ',')}
-                <span className="text-xs font-normal text-zinc-500">/mês</span>
-              </div>
+              {currentSubscription?.isLifetime || currentSubscription?.status === 'LIFETIME_LICENSE' || activePlan?.isLifetime || activePlan?.billingCycle === 'ONE_TIME' ? (
+                <div className="text-2xl font-extrabold text-amber-600">
+                  R$ 799,00
+                  <span className="text-xs font-normal text-amber-700/80 ml-1">(Pagamento Único)</span>
+                </div>
+              ) : (
+                <div className="text-2xl font-extrabold text-zinc-900">
+                  R$ {currentPrice.toFixed(2).replace('.', ',')}
+                  <span className="text-xs font-normal text-zinc-500">/mês</span>
+                </div>
+              )}
               <span className="text-[11px] font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded">
-                {isLaunchOffer ? 'Tarifa Especial de Lançamento' : 'Tarifa Regular'}
+                {currentSubscription?.isLifetime || currentSubscription?.status === 'LIFETIME_LICENSE' || activePlan?.isLifetime || activePlan?.billingCycle === 'ONE_TIME'
+                  ? 'Licença Vitalícia'
+                  : isLaunchOffer ? 'Tarifa Especial de Lançamento' : 'Tarifa Regular'}
               </span>
             </div>
           </div>
@@ -330,7 +339,9 @@ export const MySubscriptionView: React.FC = () => {
                       </div>
                       <div className="text-xs font-semibold mt-0.5">
                         {stage.price === 0 ? 'Grátis' : `R$ ${stage.price.toFixed(2).replace('.', ',')}`}
-                        {stage.duration > 0 ? ` (${stage.duration} ${stage.unit === 'DAYS' ? 'dias' : 'meses'})` : ' /mês'}
+                        {stage.duration > 0
+                          ? ` (${stage.duration} ${stage.unit === 'DAYS' ? 'dias' : 'meses'})`
+                          : (activePlan?.billingCycle === 'ONE_TIME' || activePlan?.isLifetime ? ' (Único)' : ' /mês')}
                       </div>
                       <div className="text-[10px] text-zinc-500 mt-1">
                         {isCompleted ? '✓ Concluído' : isCurrent ? (isTrialStage ? 'Em Uso' : 'Atual') : 'Programado'}

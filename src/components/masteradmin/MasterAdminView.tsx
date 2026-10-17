@@ -39,6 +39,7 @@ export type MasterAdminTab = 'overview' | 'plans' | 'subscriptions' | 'barbersho
 export const MasterAdminView: React.FC = () => {
   const {
     barbershops,
+    subscriptions,
     users,
     allServices,
     allAppointments,
@@ -94,13 +95,13 @@ export const MasterAdminView: React.FC = () => {
     ? customPlans.filter(p => p.status === 'ACTIVE')
     : [];
 
-  // Total MRR calculation using dynamic plans (exclui Compra Definitiva que é pagamento único)
-  const totalMRR = barbershops.reduce((sum, b) => {
-    if (b.planId === 'plano-vitalicio') return sum;
-    const customPlan = customPlans?.find(p => p.id === b.planId);
-    const planPrice = customPlan ? customPlan.priceMonthly : (MY_BARBER_PLANS[b.planId]?.priceMonthly || 49.90);
-    return sum + planPrice;
-  }, 0);
+  // MRR real: baseado exclusivamente em assinaturas contratadas e ativas na coleção canônica 'subscriptions'
+  // (exclui Compra Definitiva que é pagamento único e barbearias sem assinatura ativa contratada)
+  const totalMRR = (subscriptions || [])
+    .filter(s => (s.status === 'ACTIVE' || s.status === 'PAST_DUE') && !s.isLifetime && s.planId !== 'plano-vitalicio')
+    .reduce((sum, s) => sum + (Number(s.currentPrice) || 0), 0);
+
+  const activeSubscriptionsCount = (subscriptions || []).filter(s => s.status === 'ACTIVE' || s.status === 'TRIAL_14_DAYS').length;
 
   const totalProfessionalsCount = users.filter(u => u.role === 'PROFISSIONAL' || u.role === 'PROPRIETARIO').length;
   const totalClientsCount = users.filter(u => u.role === 'CLIENTE').length;
@@ -183,14 +184,16 @@ export const MasterAdminView: React.FC = () => {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-6 pt-6 border-t border-neutral-800/80">
           <div className="bg-neutral-950/80 border border-neutral-800 rounded-2xl p-4">
             <div className="flex items-center justify-between text-neutral-400 text-xs mb-1">
-              <span>Barbearias Parceiras</span>
+              <span>Barbearias Cadastradas</span>
               <Building2 className="w-4 h-4 text-orange-400" />
             </div>
             <div className="text-2xl font-black text-neutral-100">
               {barbershops.length}
               <span className="text-xs text-neutral-500 font-normal ml-1">({activeShopsCount} ativas)</span>
             </div>
-            <span className="text-[10px] text-emerald-400 font-bold mt-1 block">Todas integradas em nuvem</span>
+            <span className="text-[10px] text-neutral-400 mt-1 block">
+              {activeSubscriptionsCount} com assinatura contratada
+            </span>
           </div>
 
           <div className="bg-neutral-950/80 border border-neutral-800 rounded-2xl p-4">
@@ -201,7 +204,7 @@ export const MasterAdminView: React.FC = () => {
             <div className="text-2xl font-black text-emerald-400 font-mono">
               R$ {totalMRR.toFixed(2).replace('.', ',')}
             </div>
-            <span className="text-[10px] text-neutral-400 mt-1 block">Assinaturas mensais</span>
+            <span className="text-[10px] text-neutral-400 mt-1 block">Assinaturas mensais reais</span>
           </div>
 
           <div className="bg-neutral-950/80 border border-neutral-800 rounded-2xl p-4">

@@ -204,25 +204,20 @@ export function subscribeCollection<T>(
           }
           onUpdate(items);
         } else {
-          // If remote snapshot is empty, try recovering from local cache
-          try {
-            if (collectionName === 'barbershops') {
-              const cached = localStorage.getItem('mybarber_cached_barbershops');
-              if (cached) {
-                const parsed = JSON.parse(cached);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                  onUpdate(parsed as unknown as T[]);
-                }
-              }
-            }
-          } catch {
-            // ignore
-          }
+          // Coleção canonicamente vazia no Firestore é representada por array vazio []
+          onUpdate([]);
         }
         markLoaded();
       },
       error => {
         console.warn(`Firestore sync warning on ${collectionName}:`, error);
+        if (collectionName === 'subscriptions') {
+          // Para assinaturas canônicas: NUNCA substituir silenciosamente erro por dados fictícios
+          console.error(`[FirestoreSync] Erro na sincronização canônica de subscriptions:`, error?.message || error);
+          onUpdate([]);
+          markLoaded();
+          return;
+        }
         let dataToUse = fallbackData;
         try {
           if (collectionName === 'barbershops') {

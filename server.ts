@@ -504,21 +504,24 @@ const plansDB: Map<string, StoredPlan> = new Map([
 const legacyPlanEssencial = plansDB.get('plano-essencial')!;
 plansDB.set('PLANO_UNICO', { ...legacyPlanEssencial, id: 'PLANO_UNICO', name: 'Plano Essencial' });
 
-// In-Memory Database with persistent initial seed
-const subscriptionsDB: Map<string, StoredSubscription> = new Map([
+// In-Memory Database / Cache canônico (inicia vazio; o Firestore é a autoridade soberana)
+const subscriptionsDB: Map<string, StoredSubscription> = new Map();
+
+// Dados demonstrativos isolados para testes e prototipação
+export const DEMO_SUBSCRIPTIONS_MAP: Map<string, StoredSubscription> = new Map([
   [
     'tenant-barbearia-do-joao',
     {
       id: 'sub-barbearia-rodrigues',
       barbershopId: 'tenant-barbearia-do-joao',
-      barbershopName: 'Barbearia Rodrigues',
+      barbershopName: 'Barbearia Rodrigues (Demo)',
       payerEmail: 'carlos.rodrigues@barbeariarodrigues.com.br',
       payerName: 'Carlos Rodrigues',
       payerPhone: '(11) 98765-4321',
-      mercadopagoSubscriptionId: 'mp-sub-2c9380848a90b1',
-      mercadopagoCustomerId: 'mp-cust-99881122',
+      mercadopagoSubscriptionId: 'mp-sub-demo-01',
+      mercadopagoCustomerId: 'mp-cust-demo-01',
       status: 'ACTIVE',
-      plan: 'Plano MY BARBER',
+      plan: 'Plano Profissional',
       currentPrice: 49.90,
       billingCycle: 'MONTHLY',
       isInTrial: false,
@@ -528,7 +531,7 @@ const subscriptionsDB: Map<string, StoredSubscription> = new Map([
       trialOrLaunchPeriod: true,
       billingCount: 2,
       nextBillingDate: '2026-09-15',
-      initPointUrl: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_id=2c9380848a90b1',
+      initPointUrl: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_id=demo-01',
       cardValidated: true,
       cardBrand: 'Mastercard',
       cardLastFourDigits: '4242',
@@ -542,14 +545,14 @@ const subscriptionsDB: Map<string, StoredSubscription> = new Map([
     {
       id: 'sub-barbearia-vintage',
       barbershopId: 'tenant-barbearia-vintage-club',
-      barbershopName: 'Barbearia Vintage Club',
+      barbershopName: 'Barbearia Vintage Club (Demo)',
       payerEmail: 'marcos.vintage@vintageclub.com.br',
       payerName: 'Marcos Vinicius',
       payerPhone: '(21) 99887-7665',
-      mercadopagoSubscriptionId: 'mp-sub-2c9380848a90b2',
-      mercadopagoCustomerId: 'mp-cust-44556677',
+      mercadopagoSubscriptionId: 'mp-sub-demo-02',
+      mercadopagoCustomerId: 'mp-cust-demo-02',
       status: 'ACTIVE',
-      plan: 'Plano MY BARBER',
+      plan: 'Plano Premium Multiunidades',
       currentPrice: 69.90,
       billingCycle: 'MONTHLY',
       isInTrial: false,
@@ -559,7 +562,7 @@ const subscriptionsDB: Map<string, StoredSubscription> = new Map([
       trialOrLaunchPeriod: false,
       billingCount: 4,
       nextBillingDate: '2026-09-20',
-      initPointUrl: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_id=2c9380848a90b2',
+      initPointUrl: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_id=demo-02',
       cardValidated: true,
       cardBrand: 'Visa',
       cardLastFourDigits: '8899',
@@ -570,12 +573,16 @@ const subscriptionsDB: Map<string, StoredSubscription> = new Map([
   ]
 ]);
 
-const paymentsDB: StoredPayment[] = [
+// Pagamentos canônicos em memória iniciam vazios
+const paymentsDB: StoredPayment[] = [];
+
+// Histórico de pagamentos demonstrativos isolado
+export const DEMO_PAYMENTS_DB: StoredPayment[] = [
   {
     id: 'pay-rod-1',
     subscriptionId: 'sub-barbearia-rodrigues',
     barbershopId: 'tenant-barbearia-do-joao',
-    barbershopName: 'Barbearia Rodrigues',
+    barbershopName: 'Barbearia Rodrigues (Demo)',
     mercadopagoPaymentId: 'mp-pay-1001',
     amount: 49.90,
     status: 'APPROVED',
@@ -589,7 +596,7 @@ const paymentsDB: StoredPayment[] = [
     id: 'pay-rod-2',
     subscriptionId: 'sub-barbearia-rodrigues',
     barbershopId: 'tenant-barbearia-do-joao',
-    barbershopName: 'Barbearia Rodrigues',
+    barbershopName: 'Barbearia Rodrigues (Demo)',
     mercadopagoPaymentId: 'mp-pay-1002',
     amount: 49.90,
     status: 'APPROVED',
@@ -603,7 +610,7 @@ const paymentsDB: StoredPayment[] = [
     id: 'pay-vint-1',
     subscriptionId: 'sub-barbearia-vintage',
     barbershopId: 'tenant-barbearia-vintage-club',
-    barbershopName: 'Barbearia Vintage Club',
+    barbershopName: 'Barbearia Vintage Club (Demo)',
     mercadopagoPaymentId: 'mp-pay-2001',
     amount: 49.90,
     status: 'APPROVED',
@@ -617,7 +624,7 @@ const paymentsDB: StoredPayment[] = [
     id: 'pay-vint-2',
     subscriptionId: 'sub-barbearia-vintage',
     barbershopId: 'tenant-barbearia-vintage-club',
-    barbershopName: 'Barbearia Vintage Club',
+    barbershopName: 'Barbearia Vintage Club (Demo)',
     mercadopagoPaymentId: 'mp-pay-2002',
     amount: 49.90,
     status: 'APPROVED',
@@ -631,7 +638,7 @@ const paymentsDB: StoredPayment[] = [
     id: 'pay-vint-3',
     subscriptionId: 'sub-barbearia-vintage',
     barbershopId: 'tenant-barbearia-vintage-club',
-    barbershopName: 'Barbearia Vintage Club',
+    barbershopName: 'Barbearia Vintage Club (Demo)',
     mercadopagoPaymentId: 'mp-pay-2003',
     amount: 49.90,
     status: 'APPROVED',
@@ -645,7 +652,7 @@ const paymentsDB: StoredPayment[] = [
     id: 'pay-vint-4',
     subscriptionId: 'sub-barbearia-vintage',
     barbershopId: 'tenant-barbearia-vintage-club',
-    barbershopName: 'Barbearia Vintage Club',
+    barbershopName: 'Barbearia Vintage Club (Demo)',
     mercadopagoPaymentId: 'mp-pay-2004',
     amount: 69.90,
     status: 'APPROVED',
@@ -2330,48 +2337,68 @@ app.get(
   }
 );
 
-// 4. Get All Subscriptions (Master Admin Telemetry - NOT authoritative for financial enforcement)
-// NOTA DE ARQUITETURA: Telemetria agregada em memória; Firestore é a fonte única de verdade para auditoria e status individuais.
-app.get('/api/subscriptions/all', requireSuperAdmin, (_req: Request, res: Response) => {
-  const allSubs = Array.from(subscriptionsDB.values());
+// 4. Get All Subscriptions (Master Admin Telemetry - Baseada soberanamente no Firestore)
+// NOTA DE ARQUITETURA: Consulta a coleção canônica 'subscriptions' do Firestore; nunca mascara erros com dados fictícios.
+app.get('/api/subscriptions/all', requireSuperAdmin, async (_req: Request, res: Response) => {
+  try {
+    const { firestore } = getFirebaseAdmin();
+    const subsSnap = await firestore.collection('subscriptions').get();
+    
+    // Atualiza cache em memória
+    subscriptionsDB.clear();
+    const allSubs: StoredSubscription[] = [];
+    subsSnap.docs.forEach(doc => {
+      const sub = { ...doc.data(), id: doc.id } as StoredSubscription;
+      allSubs.push(sub);
+      if (sub.barbershopId) {
+        subscriptionsDB.set(sub.barbershopId, sub);
+      }
+    });
 
-  // REGRA FASE 5.2E: Compra Definitiva é receita avulsa única e NÃO deve compor o MRR recorrente mensal
-  const totalMRR = allSubs
-    .filter(s => (s.status === 'ACTIVE' || s.status === 'PAST_DUE') && !s.isLifetime)
-    .reduce((sum, s) => sum + s.currentPrice, 0);
+    // REGRA FASE 5.2E: Compra Definitiva é receita avulsa única e NÃO deve compor o MRR recorrente mensal
+    const totalMRR = allSubs
+      .filter(s => (s.status === 'ACTIVE' || s.status === 'PAST_DUE') && !s.isLifetime && s.planId !== 'plano-vitalicio')
+      .reduce((sum, s) => sum + (Number(s.currentPrice) || 0), 0);
 
-  const lifetimeCount = allSubs.filter(s => s.status === 'LIFETIME_LICENSE' || s.isLifetime).length;
-  const lifetimeRevenue = paymentsDB
-    .filter(p => p.status === 'APPROVED' && (p.amount === 799 || p.paymentMethod?.includes('Compra Definitiva')))
-    .reduce((sum, p) => sum + p.amount, 0);
+    const lifetimeCount = allSubs.filter(s => s.status === 'LIFETIME_LICENSE' || s.isLifetime).length;
+    const lifetimeRevenue = paymentsDB
+      .filter(p => p.status === 'APPROVED' && (p.amount === 799 || p.paymentMethod?.includes('Compra Definitiva')))
+      .reduce((sum, p) => sum + p.amount, 0);
 
-  const trialCount = allSubs.filter(s => s.status === 'TRIAL_14_DAYS').length;
-  const promoCount = allSubs.filter(s => s.status === 'ACTIVE' && s.paidBillingCount >= 1 && s.paidBillingCount <= 3).length;
-  const regularCount = allSubs.filter(s => s.status === 'ACTIVE' && s.paidBillingCount >= 4).length;
-  const activeCount = allSubs.filter(s => s.status === 'ACTIVE' || s.status === 'TRIAL_14_DAYS' || s.status === 'LIFETIME_LICENSE').length;
-  const pastDueCount = allSubs.filter(s => s.status === 'PAST_DUE').length;
-  const suspendedCount = allSubs.filter(s => s.status === 'SUSPENDED').length;
-  const canceledCount = allSubs.filter(s => s.status === 'CANCELED').length;
-  const pendingCount = allSubs.filter(s => s.status === 'PENDING').length;
+    const trialCount = allSubs.filter(s => s.status === 'TRIAL_14_DAYS').length;
+    const promoCount = allSubs.filter(s => s.status === 'ACTIVE' && s.paidBillingCount >= 1 && s.paidBillingCount <= 3).length;
+    const regularCount = allSubs.filter(s => s.status === 'ACTIVE' && s.paidBillingCount >= 4).length;
+    const activeCount = allSubs.filter(s => s.status === 'ACTIVE' || s.status === 'TRIAL_14_DAYS' || s.status === 'LIFETIME_LICENSE').length;
+    const pastDueCount = allSubs.filter(s => s.status === 'PAST_DUE').length;
+    const suspendedCount = allSubs.filter(s => s.status === 'SUSPENDED').length;
+    const canceledCount = allSubs.filter(s => s.status === 'CANCELED').length;
+    const pendingCount = allSubs.filter(s => s.status === 'PENDING').length;
 
-  res.json({
-    subscriptions: allSubs,
-    payments: paymentsDB,
-    metrics: {
-      totalMRR,
-      totalCount: allSubs.length,
-      activeCount,
-      lifetimeCount,
-      lifetimeRevenue,
-      trialCount,
-      promoCount,
-      regularCount,
-      pastDueCount,
-      suspendedCount,
-      canceledCount,
-      pendingCount
-    }
-  });
+    res.json({
+      subscriptions: allSubs,
+      payments: paymentsDB,
+      metrics: {
+        totalMRR,
+        totalCount: allSubs.length,
+        activeCount,
+        lifetimeCount,
+        lifetimeRevenue,
+        trialCount,
+        promoCount,
+        regularCount,
+        pastDueCount,
+        suspendedCount,
+        canceledCount,
+        pendingCount
+      }
+    });
+  } catch (err: any) {
+    console.error('[Subscriptions/All] Erro ao consultar Firestore:', err);
+    return res.status(503).json({
+      error: 'Falha ao consultar a fonte canônica de assinaturas no Firestore.',
+      details: err?.message || String(err)
+    });
+  }
 });
 
 // 5. Cancel Subscription (FASE 3.5F: AUTORIDADE SOBERANA NO FIRESTORE)

@@ -641,7 +641,13 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                   )}
 
                   <div className="bg-neutral-950/90 backdrop-blur-md border border-orange-500/50 text-orange-300 px-2.5 py-1 rounded-full text-[11px] font-black shadow-lg">
-                    {isTrial || isExpired ? 'Teste 3 Dias' : planName} • {isTrial || isExpired ? 'Gratuito' : `R$ ${planPrice.toFixed(2).replace('.', ',')}/mês`}
+                    {isTrial || isExpired ? 'Teste 3 Dias' : planName} • {
+                      isTrial || isExpired
+                        ? 'Gratuito'
+                        : shop.planId === 'plano-vitalicio'
+                        ? `R$ ${(planPrice || 799).toFixed(2).replace('.', ',')} (único)`
+                        : `R$ ${planPrice.toFixed(2).replace('.', ',')}/mês`
+                    }
                   </div>
                 </div>
 
@@ -1019,7 +1025,11 @@ export const MasterAdminBarbershops: React.FC<MasterAdminBarbershopsProps> = ({
                         : 'Até 10';
                       return (
                         <option key={p.id} value={p.id}>
-                          {p.name} — R$ {p.priceMonthly.toFixed(2).replace('.', ',')}/mês ({maxProfs} profs)
+                          {p.name} — {
+                            p.id === 'plano-vitalicio' || (p as any).billingCycle === 'ONE_TIME'
+                              ? `R$ ${((p as any).oneTimePrice || p.priceMonthly).toFixed(2).replace('.', ',')} (Pagamento Único)`
+                              : `R$ ${p.priceMonthly.toFixed(2).replace('.', ',')}/mês`
+                          } ({maxProfs} profs)
                         </option>
                       );
                     })}

@@ -1006,18 +1006,19 @@ export const INITIAL_AUDIT_LOGS: AuditLog[] = [
   }
 ];
 
-export const INITIAL_SUBSCRIPTIONS: import('../types').Subscription[] = [
+// DADOS DEMONSTRATIVOS E MOCKS DE DESENVOLVIMENTO ISOLADOS (NÃO POLUEM A PRODUÇÃO)
+export const DEMO_SUBSCRIPTIONS: import('../types').Subscription[] = [
   {
     id: 'sub-barbearia-rodrigues',
     barbershopId: 'tenant-barbearia-do-joao',
-    barbershopName: 'Barbearia Rodrigues',
+    barbershopName: 'Barbearia Rodrigues (Demo)',
     payerEmail: 'carlos.rodrigues@barbeariarodrigues.com.br',
     payerName: 'Carlos Rodrigues',
     payerPhone: '(11) 98765-4321',
-    mercadopagoSubscriptionId: 'mp-sub-2c9380848a90b1',
-    mercadopagoCustomerId: 'mp-cust-99881122',
+    mercadopagoSubscriptionId: 'mp-sub-demo-01',
+    mercadopagoCustomerId: 'mp-cust-demo-01',
     status: 'ACTIVE',
-    plan: 'Plano MY BARBER',
+    plan: 'Plano Profissional',
     currentPrice: 49.90,
     billingCycle: 'MONTHLY',
     isInTrial: false,
@@ -1027,7 +1028,7 @@ export const INITIAL_SUBSCRIPTIONS: import('../types').Subscription[] = [
     trialOrLaunchPeriod: true,
     billingCount: 2,
     nextBillingDate: '2026-09-15',
-    initPointUrl: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_id=2c9380848a90b1',
+    initPointUrl: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_id=demo-01',
     cardValidated: true,
     cardBrand: 'Mastercard',
     cardLastFourDigits: '4242',
@@ -1038,14 +1039,14 @@ export const INITIAL_SUBSCRIPTIONS: import('../types').Subscription[] = [
   {
     id: 'sub-barbearia-vintage',
     barbershopId: 'tenant-barbearia-vintage-club',
-    barbershopName: 'Barbearia Vintage Club',
+    barbershopName: 'Barbearia Vintage Club (Demo)',
     payerEmail: 'marcos.vintage@vintageclub.com.br',
     payerName: 'Marcos Vinicius',
     payerPhone: '(21) 99887-7665',
-    mercadopagoSubscriptionId: 'mp-sub-2c9380848a90b2',
-    mercadopagoCustomerId: 'mp-cust-44556677',
+    mercadopagoSubscriptionId: 'mp-sub-demo-02',
+    mercadopagoCustomerId: 'mp-cust-demo-02',
     status: 'ACTIVE',
-    plan: 'Plano MY BARBER',
+    plan: 'Plano Premium Multiunidades',
     currentPrice: 69.90,
     billingCycle: 'MONTHLY',
     isInTrial: false,
@@ -1055,7 +1056,7 @@ export const INITIAL_SUBSCRIPTIONS: import('../types').Subscription[] = [
     trialOrLaunchPeriod: false,
     billingCount: 4,
     nextBillingDate: '2026-09-20',
-    initPointUrl: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_id=2c9380848a90b2',
+    initPointUrl: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_id=demo-02',
     cardValidated: true,
     cardBrand: 'Visa',
     cardLastFourDigits: '8899',
@@ -1065,12 +1066,17 @@ export const INITIAL_SUBSCRIPTIONS: import('../types').Subscription[] = [
   }
 ];
 
-export const INITIAL_SUBSCRIPTION_PAYMENTS: import('../types').SubscriptionPaymentRecord[] = [
+// Canonicamente, a lista inicial de assinaturas ativas em produção é VAZIA ([]).
+// A fonte oficial e única da verdade é a coleção 'subscriptions' do Firestore nomeado.
+export const INITIAL_SUBSCRIPTIONS: import('../types').Subscription[] = [];
+
+// Mocks de pagamentos demonstrativos isolados
+export const DEMO_SUBSCRIPTION_PAYMENTS: import('../types').SubscriptionPaymentRecord[] = [
   {
     id: 'pay-rod-1',
     subscriptionId: 'sub-barbearia-rodrigues',
     barbershopId: 'tenant-barbearia-do-joao',
-    barbershopName: 'Barbearia Rodrigues',
+    barbershopName: 'Barbearia Rodrigues (Demo)',
     mercadopagoPaymentId: 'mp-pay-1001',
     amount: 49.90,
     status: 'APPROVED',
@@ -1084,7 +1090,7 @@ export const INITIAL_SUBSCRIPTION_PAYMENTS: import('../types').SubscriptionPayme
     id: 'pay-rod-2',
     subscriptionId: 'sub-barbearia-rodrigues',
     barbershopId: 'tenant-barbearia-do-joao',
-    barbershopName: 'Barbearia Rodrigues',
+    barbershopName: 'Barbearia Rodrigues (Demo)',
     mercadopagoPaymentId: 'mp-pay-1002',
     amount: 49.90,
     status: 'APPROVED',
@@ -1098,7 +1104,7 @@ export const INITIAL_SUBSCRIPTION_PAYMENTS: import('../types').SubscriptionPayme
     id: 'pay-vint-1',
     subscriptionId: 'sub-barbearia-vintage',
     barbershopId: 'tenant-barbearia-vintage-club',
-    barbershopName: 'Barbearia Vintage Club',
+    barbershopName: 'Barbearia Vintage Club (Demo)',
     mercadopagoPaymentId: 'mp-pay-2001',
     amount: 49.90,
     status: 'APPROVED',
@@ -1112,7 +1118,7 @@ export const INITIAL_SUBSCRIPTION_PAYMENTS: import('../types').SubscriptionPayme
     id: 'pay-vint-2',
     subscriptionId: 'sub-barbearia-vintage',
     barbershopId: 'tenant-barbearia-vintage-club',
-    barbershopName: 'Barbearia Vintage Club',
+    barbershopName: 'Barbearia Vintage Club (Demo)',
     mercadopagoPaymentId: 'mp-pay-2002',
     amount: 49.90,
     status: 'APPROVED',
@@ -1126,7 +1132,7 @@ export const INITIAL_SUBSCRIPTION_PAYMENTS: import('../types').SubscriptionPayme
     id: 'pay-vint-3',
     subscriptionId: 'sub-barbearia-vintage',
     barbershopId: 'tenant-barbearia-vintage-club',
-    barbershopName: 'Barbearia Vintage Club',
+    barbershopName: 'Barbearia Vintage Club (Demo)',
     mercadopagoPaymentId: 'mp-pay-2003',
     amount: 49.90,
     status: 'APPROVED',
@@ -1140,7 +1146,7 @@ export const INITIAL_SUBSCRIPTION_PAYMENTS: import('../types').SubscriptionPayme
     id: 'pay-vint-4',
     subscriptionId: 'sub-barbearia-vintage',
     barbershopId: 'tenant-barbearia-vintage-club',
-    barbershopName: 'Barbearia Vintage Club',
+    barbershopName: 'Barbearia Vintage Club (Demo)',
     mercadopagoPaymentId: 'mp-pay-2004',
     amount: 69.90,
     status: 'APPROVED',
@@ -1151,6 +1157,10 @@ export const INITIAL_SUBSCRIPTION_PAYMENTS: import('../types').SubscriptionPayme
     createdAt: '2026-02-20T10:00:00Z'
   }
 ];
+
+// Canonicamente, a lista inicial de pagamentos é vazia ([]).
+// A fonte oficial e soberana é a coleção 'subscription_payments' do Firestore nomeado.
+export const INITIAL_SUBSCRIPTION_PAYMENTS: import('../types').SubscriptionPaymentRecord[] = [];
 
 export const INITIAL_CUSTOM_PLANS: CustomPlan[] = [
   {
