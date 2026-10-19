@@ -1,7 +1,7 @@
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
 import { getAuth, Auth, DecodedIdToken } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
-import { resolveServerFirebaseConfig } from '../lib/environmentConfig.js';
+import { resolveServerFirebaseConfig } from './serverEnvironmentConfig.js';
 import { CanonicalRole, MyBarberCustomClaims, isTenantScopedRole, toCanonicalRole } from '../lib/authClaims.js';
 
 /**

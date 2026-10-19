@@ -24,6 +24,8 @@ export const MasterAdminSubscriptions: React.FC = () => {
   const {
     barbershops,
     subscriptions,
+    subscriptionsLoading,
+    subscriptionsError,
     subscriptionPayments,
     simulateSubscriptionAction,
     syncSubscription
@@ -237,10 +239,26 @@ export const MasterAdminSubscriptions: React.FC = () => {
             <span>MRR Total (Mercado Pago)</span>
             <DollarSign className="w-4 h-4 text-emerald-400" />
           </div>
-          <div className="text-2xl font-black text-emerald-400 font-mono">
-            R$ {totalMRR.toFixed(2).replace('.', ',')}
-          </div>
-          <span className="text-[10px] text-neutral-400 mt-1 block">Receita mensal contratada</span>
+          {subscriptionsLoading ? (
+            <div className="text-xl font-bold text-neutral-500 animate-pulse">Carregando...</div>
+          ) : subscriptionsError ? (
+            <div>
+              <div className="text-sm font-bold text-amber-400 font-mono flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Erro na Consulta</span>
+              </div>
+              <span className="text-[10px] text-amber-400/80 mt-1 block">Não foi possível confirmar</span>
+            </div>
+          ) : (
+            <>
+              <div className="text-2xl font-black text-emerald-400 font-mono">
+                R$ {totalMRR.toFixed(2).replace('.', ',')}
+              </div>
+              <span className="text-[10px] text-neutral-400 mt-1 block">
+                {subscriptions.length === 0 ? 'Zero assinaturas confirmadas' : 'Receita mensal contratada'}
+              </span>
+            </>
+          )}
         </div>
 
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4">
@@ -248,12 +266,23 @@ export const MasterAdminSubscriptions: React.FC = () => {
             <span>Assinaturas Ativas</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
           </div>
-          <div className="text-2xl font-black text-neutral-100">{activeCount}</div>
-          <span className="text-[10px] text-emerald-400 font-bold mt-1 block">
-            {activeCount > 0
-              ? `${launchOfferCount} no Lançamento • ${regularOfferCount} Regular`
-              : 'Nenhuma assinatura ativa no momento'}
-          </span>
+          {subscriptionsLoading ? (
+            <div className="text-xl font-bold text-neutral-500 animate-pulse">Carregando...</div>
+          ) : subscriptionsError ? (
+            <div>
+              <div className="text-sm font-bold text-amber-400">Indisponível</div>
+              <span className="text-[10px] text-amber-400/80 mt-1 block">Falha de conexão Firestore</span>
+            </div>
+          ) : (
+            <>
+              <div className="text-2xl font-black text-neutral-100">{activeCount}</div>
+              <span className="text-[10px] text-emerald-400 font-bold mt-1 block">
+                {activeCount > 0
+                  ? `${launchOfferCount} no Lançamento • ${regularOfferCount} Regular`
+                  : 'Nenhuma assinatura ativa no momento'}
+              </span>
+            </>
+          )}
         </div>
 
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4">
@@ -334,7 +363,20 @@ export const MasterAdminSubscriptions: React.FC = () => {
           </span>
         </div>
 
-        {filteredSubscriptions.length === 0 ? (
+        {subscriptionsLoading ? (
+          <div className="p-8 text-center text-neutral-500 text-xs flex items-center justify-center gap-2">
+            <RefreshCw className="w-4 h-4 animate-spin text-neutral-400" />
+            <span>Consultando assinaturas no Firestore...</span>
+          </div>
+        ) : subscriptionsError ? (
+          <div className="p-8 text-center bg-amber-950/20 border-t border-amber-500/30 text-amber-300 text-xs space-y-1">
+            <div className="flex items-center justify-center gap-2 font-bold text-amber-200">
+              <AlertTriangle className="w-4 h-4 text-amber-400" />
+              <span>Falha ao consultar coleção 'subscriptions' no Firestore</span>
+            </div>
+            <p className="text-[11px] text-amber-400/80">{subscriptionsError}</p>
+          </div>
+        ) : filteredSubscriptions.length === 0 ? (
           <div className="p-8 text-center text-neutral-500 text-xs">
             Nenhuma assinatura encontrada com os filtros selecionados.
           </div>

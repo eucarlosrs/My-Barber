@@ -178,7 +178,8 @@ export function subscribeCollection<T>(
   collectionName: string,
   onUpdate: (data: T[]) => void,
   fallbackData: T[],
-  onFirstLoad?: () => void
+  onFirstLoad?: () => void,
+  onError?: (error: Error | null) => void
 ) {
   let firstFired = false;
   const markLoaded = () => {
@@ -204,17 +205,23 @@ export function subscribeCollection<T>(
           }
           onUpdate(items);
         } else {
-          // Coleção canonicamente vazia no Firestore é representada por array vazio []
+          // Coleção consultada com sucesso e vazia: zero assinaturas confirmadas ([]).
           onUpdate([]);
+        }
+        if (onError) {
+          onError(null);
         }
         markLoaded();
       },
       error => {
         console.warn(`Firestore sync warning on ${collectionName}:`, error);
         if (collectionName === 'subscriptions') {
-          // Para assinaturas canônicas: NUNCA substituir silenciosamente erro por dados fictícios
+          // Para assinaturas canônicas: não mascarar falha de leitura emitindo lista vazia como sucesso.
+          // Reporta a falha explicitamente para que a UI apresente erro de carregamento.
           console.error(`[FirestoreSync] Erro na sincronização canônica de subscriptions:`, error?.message || error);
-          onUpdate([]);
+          if (onError) {
+            onError(error instanceof Error ? error : new Error(String((error as any)?.message || error)));
+          }
           markLoaded();
           return;
         }

@@ -38,6 +38,8 @@ export const MasterAdminPlansBuilder: React.FC = () => {
     togglePlanStatus,
     duplicateCustomPlan,
     subscriptions,
+    subscriptionsLoading,
+    subscriptionsError,
     barbershops
   } = useApp();
 
@@ -492,8 +494,24 @@ export const MasterAdminPlansBuilder: React.FC = () => {
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-amber-400 mt-2">{formatMoney(metrics.estimatedMrr)}</p>
-          <p className="text-xs text-slate-500 mt-1">receita recorrente mensal</p>
+          {subscriptionsLoading ? (
+            <p className="text-xl font-bold text-slate-500 mt-2 animate-pulse">Carregando...</p>
+          ) : subscriptionsError ? (
+            <div className="mt-2">
+              <p className="text-sm font-bold text-amber-400 flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" />
+                <span>Indisponível (Erro)</span>
+              </p>
+              <p className="text-[10px] text-amber-400/80">Falha ao consultar Firestore</p>
+            </div>
+          ) : (
+            <>
+              <p className="text-2xl font-bold text-amber-400 mt-2">{formatMoney(metrics.estimatedMrr)}</p>
+              <p className="text-xs text-slate-500 mt-1">
+                {metrics.totalSubscribers === 0 ? 'zero assinaturas confirmadas' : 'receita recorrente mensal'}
+              </p>
+            </>
+          )}
         </div>
 
         <div className="bg-[#1e293b]/40 border border-slate-800 p-4 rounded-xl">

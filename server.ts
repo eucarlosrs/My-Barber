@@ -72,7 +72,7 @@ import { logger } from './src/server/logger.js';
 import { securityHeadersMiddleware } from './src/server/securityHeaders.js';
 import { adjustStockAuthoritative } from './src/server/stockService.js';
 import { recordAuditLog } from './src/server/auditLogService.js';
-import { getAppEnv, resolveServerFirebaseConfig, validateFinancialEnvironment } from './src/lib/environmentConfig.js';
+import { getAppEnv, resolveServerFirebaseConfig, validateFinancialEnvironment } from './src/server/serverEnvironmentConfig.js';
 
 dotenv.config();
 

@@ -40,6 +40,8 @@ export const MasterAdminView: React.FC = () => {
   const {
     barbershops,
     subscriptions,
+    subscriptionsLoading,
+    subscriptionsError,
     users,
     allServices,
     allAppointments,
@@ -180,6 +182,17 @@ export const MasterAdminView: React.FC = () => {
           </div>
         </div>
 
+        {/* Aviso de erro na sincronização de assinaturas (se houver) */}
+        {subscriptionsError && (
+          <div className="mt-4 p-3.5 bg-amber-950/40 border border-amber-500/40 rounded-2xl flex items-center gap-3 text-amber-200">
+            <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
+            <div className="text-xs">
+              <span className="font-bold block">Falha ao consultar a coleção canônica 'subscriptions' no Firestore:</span>
+              <span className="text-[11px] text-amber-300/80">{subscriptionsError}</span>
+            </div>
+          </div>
+        )}
+
         {/* Global Key Metrics Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-6 pt-6 border-t border-neutral-800/80">
           <div className="bg-neutral-950/80 border border-neutral-800 rounded-2xl p-4">
@@ -192,7 +205,15 @@ export const MasterAdminView: React.FC = () => {
               <span className="text-xs text-neutral-500 font-normal ml-1">({activeShopsCount} ativas)</span>
             </div>
             <span className="text-[10px] text-neutral-400 mt-1 block">
-              {activeSubscriptionsCount} com assinatura contratada
+              {subscriptionsLoading ? (
+                <span className="text-neutral-500">Consultando assinaturas...</span>
+              ) : subscriptionsError ? (
+                <span className="text-amber-400 font-semibold flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3 shrink-0" /> Falha ao carregar
+                </span>
+              ) : (
+                `${activeSubscriptionsCount} com assinatura contratada`
+              )}
             </span>
           </div>
 
@@ -201,10 +222,26 @@ export const MasterAdminView: React.FC = () => {
               <span>Receita Recorrente (MRR)</span>
               <DollarSign className="w-4 h-4 text-emerald-400" />
             </div>
-            <div className="text-2xl font-black text-emerald-400 font-mono">
-              R$ {totalMRR.toFixed(2).replace('.', ',')}
-            </div>
-            <span className="text-[10px] text-neutral-400 mt-1 block">Assinaturas mensais reais</span>
+            {subscriptionsLoading ? (
+              <div className="text-xl font-bold text-neutral-500 animate-pulse">Consultando...</div>
+            ) : subscriptionsError ? (
+              <div>
+                <div className="text-sm font-bold text-amber-400 font-mono flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>Erro de Leitura</span>
+                </div>
+                <span className="text-[10px] text-amber-400/80 mt-1 block">Valor não confirmado</span>
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-black text-emerald-400 font-mono">
+                  R$ {totalMRR.toFixed(2).replace('.', ',')}
+                </div>
+                <span className="text-[10px] text-neutral-400 mt-1 block">
+                  {subscriptions.length === 0 ? 'Zero assinaturas confirmadas' : 'Assinaturas mensais reais'}
+                </span>
+              </>
+            )}
           </div>
 
           <div className="bg-neutral-950/80 border border-neutral-800 rounded-2xl p-4">

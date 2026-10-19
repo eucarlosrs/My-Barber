@@ -311,6 +311,8 @@ interface AppContextType {
 
   // Recurring Subscriptions (Mercado Pago)
   subscriptions: Subscription[];
+  subscriptionsLoading: boolean;
+  subscriptionsError: string | null;
   subscriptionPayments: SubscriptionPaymentRecord[];
   currentSubscription?: Subscription;
   isPastDue: boolean;
@@ -459,6 +461,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [galleryWorks, setGalleryWorks] = useState<GalleryWork[]>(INITIAL_GALLERY_WORKS);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>(INITIAL_SUBSCRIPTIONS);
+  const [subscriptionsLoading, setSubscriptionsLoading] = useState<boolean>(true);
+  const [subscriptionsError, setSubscriptionsError] = useState<string | null>(null);
   const [subscriptionPayments, setSubscriptionPayments] = useState<SubscriptionPaymentRecord[]>(INITIAL_SUBSCRIPTION_PAYMENTS);
   const [customPlans, setCustomPlans] = useState<CustomPlan[]>(INITIAL_CUSTOM_PLANS);
 
@@ -1224,7 +1228,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isSuperAdminUser) {
       // 1. Escuta apenas catálogo de barbearias/tenants e assinaturas para governança do SaaS
       unsubs.push(subscribeCollection<Barbershop>('barbershops', setBarbershops, INITIAL_BARBERSHOPS));
-      unsubs.push(subscribeCollection<Subscription>('subscriptions', setSubscriptions, INITIAL_SUBSCRIPTIONS));
+      setSubscriptionsLoading(true);
+      unsubs.push(
+        subscribeCollection<Subscription>('subscriptions',
+          (items) => {
+            setSubscriptions(items);
+            setSubscriptionsError(null);
+            setSubscriptionsLoading(false);
+          },
+          INITIAL_SUBSCRIPTIONS,
+          () => setSubscriptionsLoading(false),
+          (err) => {
+            if (err) {
+              setSubscriptionsError(err.message || 'Falha ao consultar a coleção subscriptions no Firestore');
+            } else {
+              setSubscriptionsError(null);
+            }
+            setSubscriptionsLoading(false);
+          }
+        )
+      );
 
       // 2. Se houver barbearia selecionada em activeTenantId, carrega dados específicos desse tenant sob demanda/janela operacional
       if (activeTenantId) {
@@ -4002,6 +4025,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         duplicateCustomPlan,
         // Recurring Subscriptions
         subscriptions,
+        subscriptionsLoading,
+        subscriptionsError,
         subscriptionPayments,
         currentSubscription,
         isPastDue,
