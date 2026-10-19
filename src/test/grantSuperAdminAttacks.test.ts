@@ -1,7 +1,56 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { handleGrantSuperAdminRequest, grantSuperAdminExplicit } from '../server/firebaseAdmin.js';
+import { handleGrantSuperAdminRequest, grantSuperAdminExplicit, setMockFirebaseAdmin } from '../server/firebaseAdmin.js';
 import { DecodedIdToken } from 'firebase-admin/auth';
+
+function createInMemoryFirestore() {
+  const collections = new Map<string, Map<string, any>>();
+  const getCol = (name: string) => {
+    if (!collections.has(name)) collections.set(name, new Map());
+    return collections.get(name)!;
+  };
+  return {
+    collection: (colName: string) => ({
+      doc: (docId: string) => ({
+        set: async (data: any, options?: any) => {
+          const col = getCol(colName);
+          const current = col.get(docId) || {};
+          col.set(docId, options?.merge ? { ...current, ...data } : { ...data });
+        },
+        get: async () => {
+          const col = getCol(colName);
+          const data = col.get(docId);
+          return { exists: !!data, data: () => data };
+        }
+      })
+    })
+  };
+}
+
+function createInMemoryAuth() {
+  const users = new Map<string, any>();
+  const claims = new Map<string, any>();
+  return {
+    getUser: async (uid: string) => {
+      const u = users.get(uid);
+      if (!u) {
+        const err: any = new Error('User not found');
+        err.code = 'auth/user-not-found';
+        throw err;
+      }
+      return { ...u, customClaims: claims.get(uid) };
+    },
+    setCustomUserClaims: async (uid: string, customClaims: any) => {
+      claims.set(uid, customClaims);
+    }
+  };
+}
+
+setMockFirebaseAdmin({
+  app: { options: { projectId: 'gen-lang-client-0472481079' } } as any,
+  auth: createInMemoryAuth() as any,
+  firestore: createInMemoryFirestore() as any
+});
 
 describe('MY BARBER — Testes de Ataque contra o Endpoint /api/auth/grant-super-admin', () => {
 

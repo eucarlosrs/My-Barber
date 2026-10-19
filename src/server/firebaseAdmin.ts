@@ -221,15 +221,11 @@ export async function setUserRole(params: SetUserRoleParams): Promise<{
     try {
       await auth.setCustomUserClaims(targetUid, customClaims);
     } catch (authErr: any) {
-      if (
-        process.env.NODE_ENV === 'test' ||
-        authErr?.code === 'auth/internal-error' ||
-        authErr?.message?.includes('Identity Toolkit API')
-      ) {
-        console.warn(`[Firebase Admin Test Simulation] Custom claims simulados com sucesso para ${targetUid}`);
-      } else {
-        throw authErr;
-      }
+      console.error(`[Firebase Admin] Falha ao gravar Custom Claims para ${targetUid}:`, authErr?.message || authErr);
+      return {
+        success: false,
+        error: authErr?.message || 'Falha ao atualizar Custom Claims no Firebase Authentication.'
+      };
     }
 
     // 2. Sincroniza metadados não-sensíveis no perfil users/{targetUid} no Firestore

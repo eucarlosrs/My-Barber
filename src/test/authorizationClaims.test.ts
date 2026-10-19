@@ -13,8 +13,64 @@ import {
 import {
   setUserRole,
   grantSuperAdminExplicit,
-  verifyFirebaseIdToken
+  verifyFirebaseIdToken,
+  setMockFirebaseAdmin
 } from '../server/firebaseAdmin.js';
+
+function createInMemoryFirestore() {
+  const collections = new Map<string, Map<string, any>>();
+  const getCol = (name: string) => {
+    if (!collections.has(name)) collections.set(name, new Map());
+    return collections.get(name)!;
+  };
+  return {
+    collection: (colName: string) => ({
+      doc: (docId: string) => ({
+        set: async (data: any, _options?: any) => {
+          const col = getCol(colName);
+          const current = col.get(docId) || {};
+          col.set(docId, { ...current, ...data });
+        },
+        get: async () => {
+          const col = getCol(colName);
+          const data = col.get(docId);
+          return { exists: !!data, data: () => data };
+        }
+      })
+    })
+  };
+}
+
+function createInMemoryAuth() {
+  const users = new Map<string, any>();
+  const claims = new Map<string, any>();
+  return {
+    getUser: async (uid: string) => {
+      const u = users.get(uid);
+      if (!u) {
+        const err: any = new Error('User not found');
+        err.code = 'auth/user-not-found';
+        throw err;
+      }
+      return { ...u, customClaims: claims.get(uid) };
+    },
+    setCustomUserClaims: async (uid: string, customClaims: any) => {
+      claims.set(uid, customClaims);
+    },
+    verifyIdToken: async (token: string, _checkRevoked?: boolean) => {
+      if (token === 'valid-token' || token.startsWith('valid-')) {
+        return { uid: 'some-uid', role: 'barber', tenantId: 'tenant-a' };
+      }
+      throw new Error('Token inválido ou expirado');
+    }
+  };
+}
+
+setMockFirebaseAdmin({
+  app: {} as any,
+  auth: createInMemoryAuth() as any,
+  firestore: createInMemoryFirestore() as any
+});
 
 describe('MY BARBER — Auditoria de Segurança IAM, RBAC e Custom Claims (20 Casos Críticos)', () => {
 

@@ -5,14 +5,72 @@ import {
   grantSuperAdminExplicit,
   revokeAndDisableAuthAccount,
   setUserRole,
-  getFirebaseAdmin
+  getFirebaseAdmin,
+  setMockFirebaseAdmin
 } from '../server/firebaseAdmin.js';
 
-describe('MY BARBER — Testes de Segurança e Hardening do Bootstrap Super Admin', () => {
+const targetProject = 'gen-lang-client-0472481079';
+const validEmail = 'carlosrs.email@gmail.com';
+const operatorIdentity = 'DevOps Auditor';
 
-  const targetProject = 'gen-lang-client-0472481079';
-  const validEmail = 'carlosrs.email@gmail.com';
-  const operatorIdentity = 'DevOps Auditor';
+function createInMemoryFirestore() {
+  const collections = new Map<string, Map<string, any>>();
+  const getCol = (name: string) => {
+    if (!collections.has(name)) collections.set(name, new Map());
+    return collections.get(name)!;
+  };
+  return {
+    collection: (colName: string) => ({
+      doc: (docId: string) => ({
+        set: async (data: any, _options?: any) => {
+          const col = getCol(colName);
+          const current = col.get(docId) || {};
+          col.set(docId, { ...current, ...data });
+        },
+        get: async () => {
+          const col = getCol(colName);
+          const data = col.get(docId);
+          return { exists: !!data, data: () => data };
+        }
+      })
+    })
+  };
+}
+
+function createInMemoryAuth() {
+  const users = new Map<string, any>();
+  const claims = new Map<string, any>();
+  return {
+    getUser: async (uid: string) => {
+      const u = users.get(uid);
+      if (u) return { ...u, customClaims: claims.get(uid) };
+      if (uid === 'user-with-other-email') {
+        return { uid, email: 'outro-email@exemplo.com', customClaims: claims.get(uid) };
+      }
+      return { uid, email: validEmail, customClaims: claims.get(uid) };
+    },
+    setCustomUserClaims: async (uid: string, customClaims: any) => {
+      claims.set(uid, customClaims);
+    },
+    updateUser: async (uid: string, data: any) => {
+      const u = users.get(uid) || { uid };
+      users.set(uid, { ...u, ...data });
+      return users.get(uid);
+    },
+    revokeRefreshTokens: async (uid: string) => {
+      const u = users.get(uid) || { uid };
+      u.tokensRevokedAt = Date.now();
+    }
+  };
+}
+
+setMockFirebaseAdmin({
+  app: { options: { projectId: targetProject } } as any,
+  auth: createInMemoryAuth() as any,
+  firestore: createInMemoryFirestore() as any
+});
+
+describe('MY BARBER — Testes de Segurança e Hardening do Bootstrap Super Admin', () => {
 
   // 1. Parser de argumentos do CLI
   it('1. parseBootstrapArgs: deve extrair corretamente todos os 4 argumentos nomeados com sintaxe de flags', () => {

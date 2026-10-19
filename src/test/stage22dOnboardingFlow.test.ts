@@ -2,7 +2,8 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import {
   provisionManagerAccount,
-  setUserRole
+  setUserRole,
+  setMockFirebaseAdmin
 } from '../server/firebaseAdmin.js';
 import {
   requireSubscriptionCreation,
@@ -10,6 +11,70 @@ import {
 } from '../server/authMiddleware.js';
 import { sanitizeUserProfileForFirestore } from '../lib/authService.js';
 import { User, Barbershop } from '../types/index.js';
+
+function createInMemoryFirestore() {
+  const collections = new Map<string, Map<string, any>>();
+  const getCol = (name: string) => {
+    if (!collections.has(name)) collections.set(name, new Map());
+    return collections.get(name)!;
+  };
+  return {
+    collection: (colName: string) => ({
+      doc: (docId: string) => ({
+        set: async (data: any, _options?: any) => {
+          const col = getCol(colName);
+          const current = col.get(docId) || {};
+          col.set(docId, { ...current, ...data });
+        },
+        get: async () => {
+          const col = getCol(colName);
+          const data = col.get(docId);
+          return { exists: !!data, data: () => data };
+        }
+      })
+    })
+  };
+}
+
+function createInMemoryAuth() {
+  const users = new Map<string, any>();
+  const claims = new Map<string, any>();
+  let nextUid = 1000;
+  return {
+    getUser: async (uid: string) => {
+      const u = users.get(uid);
+      if (!u) {
+        const err: any = new Error('User not found');
+        err.code = 'auth/user-not-found';
+        throw err;
+      }
+      return { ...u, customClaims: claims.get(uid) };
+    },
+    getUserByEmail: async (email: string) => {
+      for (const u of users.values()) {
+        if (u.email === email) return { ...u, customClaims: claims.get(u.uid) };
+      }
+      const err: any = new Error('User not found');
+      err.code = 'auth/user-not-found';
+      throw err;
+    },
+    createUser: async (data: any) => {
+      const uid = `auth-mgr-${nextUid++}`;
+      const record = { uid, email: data.email, displayName: data.displayName, disabled: false };
+      users.set(uid, record);
+      return record;
+    },
+    setCustomUserClaims: async (uid: string, customClaims: any) => {
+      claims.set(uid, customClaims);
+    }
+  };
+}
+
+setMockFirebaseAdmin({
+  app: {} as any,
+  auth: createInMemoryAuth() as any,
+  firestore: createInMemoryFirestore() as any
+});
 
 describe('ETAPA 2.2D — Testes Automatizados do Fluxo Master Admin → Barbershop → Owner → Subscription', () => {
 
