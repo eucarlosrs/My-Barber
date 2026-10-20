@@ -94,7 +94,7 @@ if (!initialFinValidation.valid && currentAppEnv === 'sandbox') {
 }
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 // Configuração restritiva de proxy confiável para ambiente Cloud Run / Google Frontend (1 salto) (FASE 4.4D)
 if (process.env.NODE_ENV === 'production') {

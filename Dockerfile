@@ -1,30 +1,29 @@
-# Stage 1: Build the Vite React application
+# Etapa 1: compilar frontend e backend
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package descriptors
-COPY package*.json ./
-
-# Install all dependencies
+COPY package.json ./
 RUN npm install
 
-# Copy source files
 COPY . .
-
-# Build production bundle into /app/dist
 RUN npm run build
 
-# Stage 2: Serve the application with Nginx (Cloud Run Port 8080)
-FROM nginx:alpine
+# Etapa 2: executar o My Barber completo
+FROM node:20-alpine
 
-# Copy built assets to Nginx html directory
-COPY --from=builder /app/dist /usr/share/nginx/html
+WORKDIR /app
 
-# Copy custom Nginx configuration with SPA fallback and port 8080
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+ENV NODE_ENV=production
+ENV PORT=8080
 
-# Expose standard Cloud Run port
+COPY package.json ./
+RUN npm install --omit=dev
+
+COPY --from=builder /app/dist ./dist
+
 EXPOSE 8080
 
-CMD ["nginx", "-g", "daemon off;"]
+USER node
+
+CMD ["node", "dist/server.cjs"]
