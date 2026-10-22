@@ -2,8 +2,48 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
-import { provisionManagerAccount, setUserRole } from '../server/firebaseAdmin.js';
+import { provisionManagerAccount, setUserRole, setMockFirebaseAdmin } from '../server/firebaseAdmin.js';
 import { Barbershop } from '../types/index.js';
+
+function createInMemoryAuth() {
+  const users = new Map<string, any>();
+  const claims = new Map<string, any>();
+  let nextUid = 1000;
+  return {
+    getUser: async (uid: string) => {
+      const u = users.get(uid);
+      if (!u) {
+        const err: any = new Error('User not found');
+        err.code = 'auth/user-not-found';
+        throw err;
+      }
+      return { ...u, customClaims: claims.get(uid) };
+    },
+    getUserByEmail: async (email: string) => {
+      for (const u of users.values()) {
+        if (u.email === email) return { ...u, customClaims: claims.get(u.uid) };
+      }
+      const err: any = new Error('User not found');
+      err.code = 'auth/user-not-found';
+      throw err;
+    },
+    createUser: async (data: any) => {
+      const uid = `canonical-mgr-${nextUid++}`;
+      const record = { uid, email: data.email, displayName: data.displayName, disabled: false };
+      users.set(uid, record);
+      return record;
+    },
+    setCustomUserClaims: async (uid: string, customClaims: any) => {
+      claims.set(uid, customClaims);
+    }
+  };
+}
+
+setMockFirebaseAdmin({
+  app: {} as any,
+  auth: createInMemoryAuth() as any,
+  firestore: { collection: () => ({ doc: () => ({ set: async () => {}, get: async () => ({ exists: false, data: () => null }) }) }) } as any
+});
 
 describe('ETAPA 2.2E — Validação das Pendências Críticas do Onboarding', () => {
   const rulesPath = path.resolve(process.cwd(), 'firestore.rules');

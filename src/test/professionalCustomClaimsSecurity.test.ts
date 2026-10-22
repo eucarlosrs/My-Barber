@@ -1,7 +1,12 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert';
 import { handleCreateProfessional } from '../server/teamController.js';
-import { setUserRole, setMockFirebaseAdmin } from '../server/firebaseAdmin.js';
+import {
+  setUserRole,
+  provisionManagerAccount,
+  provisionProfessionalAccount,
+  setMockFirebaseAdmin
+} from '../server/firebaseAdmin.js';
 
 describe('MY BARBER — Correção de Segurança no Cadastro de Profissionais e Custom Claims Fail-Closed', () => {
 
@@ -9,6 +14,8 @@ describe('MY BARBER — Correção de Segurança no Cadastro de Profissionais e 
   let claims: Map<string, any>;
   let deletedUsers: string[];
   let customClaimsErrorToThrow: any = null;
+  let getUserByEmailErrorToThrow: any = null;
+  let createUserErrorToThrow: any = null;
   let firestoreData: Map<string, Map<string, any>>;
 
   function createMockFirestore() {
@@ -61,7 +68,10 @@ describe('MY BARBER — Correção de Segurança no Cadastro de Profissionais e 
 
     return {
       createUser: async (data: any) => {
-        const uid = `auth-prof-${nextUid++}`;
+        if (createUserErrorToThrow) {
+          throw createUserErrorToThrow;
+        }
+        const uid = `canonical-prof-${nextUid++}`;
         const record = { uid, email: data.email, displayName: data.displayName, disabled: false };
         users.set(uid, record);
         return record;
@@ -76,6 +86,9 @@ describe('MY BARBER — Correção de Segurança no Cadastro de Profissionais e 
         return { ...u, customClaims: claims.get(uid) };
       },
       getUserByEmail: async (email: string) => {
+        if (getUserByEmailErrorToThrow) {
+          throw getUserByEmailErrorToThrow;
+        }
         for (const u of users.values()) {
           if (u.email === email) return { ...u, customClaims: claims.get(u.uid) };
         }
@@ -141,6 +154,8 @@ describe('MY BARBER — Correção de Segurança no Cadastro de Profissionais e 
 
   beforeEach(async () => {
     customClaimsErrorToThrow = null;
+    getUserByEmailErrorToThrow = null;
+    createUserErrorToThrow = null;
     const authMock = createMockAuth();
     const fsMock = createMockFirestore();
     await fsMock.collection('barbershops').doc('tenant-alfa').set({
@@ -282,7 +297,7 @@ describe('MY BARBER — Correção de Segurança no Cadastro de Profissionais e 
       assert.strictEqual(getStatus(), 500);
       // Deve ter tentado remover o usuário órfão recém-criado
       assert.strictEqual(deletedUsers.length, 1, 'Deve compensar o usuário novo apagando do Auth');
-      assert.ok(deletedUsers[0].startsWith('auth-prof-'));
+      assert.ok(deletedUsers[0].startsWith('canonical-prof-') || deletedUsers[0].startsWith('auth-prof-'));
     });
 
     it('2.4. NÃO apaga conta preexistente no Auth se a gravação de claims falhar', async () => {
@@ -438,6 +453,215 @@ describe('MY BARBER — Correção de Segurança no Cadastro de Profissionais e 
       assert.strictEqual(result.success, true);
       assert.strictEqual(result.claims?.role, 'barbershop_owner');
       assert.strictEqual(result.claims?.tenantId, 'tenant-novo');
+    });
+  });
+
+  // =========================================================================
+  // 5. Fail-Closed estrito em provisionManagerAccount() e provisionProfessionalAccount()
+  // =========================================================================
+  describe('5. Fail-Closed estrito em provisionManagerAccount() e provisionProfessionalAccount()', () => {
+
+    it('5.1. auth.getUserByEmail com auth/internal-error propaga erro imediatamente em provisionManagerAccount', async () => {
+      const internalErr: any = new Error('Internal Firebase Authentication error');
+      internalErr.code = 'auth/internal-error';
+      getUserByEmailErrorToThrow = internalErr;
+
+      await assert.rejects(
+        async () => {
+          await provisionManagerAccount({
+            email: 'gestor.falha@barbearia.com',
+            displayName: 'Gestor Teste'
+          });
+        },
+        (err: any) => {
+          assert.strictEqual(err.code, 'auth/internal-error');
+          return true;
+        },
+        'Deve propagar o erro imediatamente com throw err e nunca fabricar UID auth-mgr-*'
+      );
+    });
+
+    it('5.2. auth.getUserByEmail com Identity Toolkit API desabilitada propaga erro imediatamente em provisionProfessionalAccount', async () => {
+      const toolkitErr: any = new Error('Identity Toolkit API has not been used in project 58216801115 before or it is disabled.');
+      toolkitErr.code = 403;
+      getUserByEmailErrorToThrow = toolkitErr;
+
+      await assert.rejects(
+        async () => {
+          await provisionProfessionalAccount({
+            email: 'barbeiro.falha@barbearia.com',
+            displayName: 'Barbeiro Teste'
+          });
+        },
+        (err: any) => {
+          assert.ok(err.message.includes('Identity Toolkit API'));
+          return true;
+        },
+        'Deve propagar o erro imediatamente com throw err e nunca fabricar UID auth-prof-*'
+      );
+    });
+
+    it('5.3. auth.getUserByEmail com timeout de rede propaga erro imediatamente', async () => {
+      const timeoutErr: any = new Error('ETIMEDOUT: Connection to Firebase Auth timed out');
+      timeoutErr.code = 'ETIMEDOUT';
+      getUserByEmailErrorToThrow = timeoutErr;
+
+      await assert.rejects(
+        async () => {
+          await provisionProfessionalAccount({
+            email: 'barbeiro.timeout@barbearia.com',
+            displayName: 'Barbeiro Timeout'
+          });
+        },
+        /ETIMEDOUT/
+      );
+    });
+
+    it('5.4. auth.getUserByEmail com auth/user-not-found permite fluxo normal de criação', async () => {
+      getUserByEmailErrorToThrow = null;
+      createUserErrorToThrow = null;
+
+      const result = await provisionProfessionalAccount({
+        email: 'barbeiro.novo.legitimo@barbearia.com',
+        displayName: 'Barbeiro Legítimo',
+        password: 'senhaSegura123'
+      });
+
+      assert.ok(result.uid, 'Deve retornar UID válido gerado');
+      assert.strictEqual(result.isNew, true, 'isNew deve ser true');
+      assert.strictEqual(result.email, 'barbeiro.novo.legitimo@barbearia.com');
+      assert.strictEqual(result.displayName, 'Barbeiro Legítimo');
+    });
+
+    it('5.5. auth.getUserByEmail encontrando conta preexistente retorna isNew: false sem chamar createUser', async () => {
+      // Pré-cadastra usuário
+      const existingRecord = {
+        uid: 'canonical-user-existente-1',
+        email: 'gestor.existente@barbearia.com',
+        displayName: 'Gestor Existente'
+      };
+      users.set(existingRecord.uid, existingRecord);
+
+      const result = await provisionManagerAccount({
+        email: 'gestor.existente@barbearia.com',
+        displayName: 'Novo Nome Não Sobrescreve'
+      });
+
+      assert.strictEqual(result.uid, existingRecord.uid);
+      assert.strictEqual(result.isNew, false, 'isNew deve ser false para usuário existente');
+      assert.strictEqual(result.email, 'gestor.existente@barbearia.com');
+    });
+
+    it('5.6. auth.createUser com auth/internal-error propaga erro imediatamente em provisionManagerAccount', async () => {
+      const internalErr: any = new Error('Auth createUser failed with internal error');
+      internalErr.code = 'auth/internal-error';
+      createUserErrorToThrow = internalErr;
+
+      await assert.rejects(
+        async () => {
+          await provisionManagerAccount({
+            email: 'gestor.create.fail@barbearia.com',
+            displayName: 'Gestor Fail'
+          });
+        },
+        (err: any) => {
+          assert.strictEqual(err.code, 'auth/internal-error');
+          return true;
+        },
+        'Deve propagar o erro imediatamente com throw createErr'
+      );
+    });
+
+    it('5.7. auth.createUser com falha da Identity Toolkit API propaga erro imediatamente em provisionProfessionalAccount', async () => {
+      const toolkitErr: any = new Error('Identity Toolkit API error during createUser');
+      toolkitErr.code = 503;
+      createUserErrorToThrow = toolkitErr;
+
+      await assert.rejects(
+        async () => {
+          await provisionProfessionalAccount({
+            email: 'prof.create.fail@barbearia.com',
+            displayName: 'Prof Fail'
+          });
+        },
+        (err: any) => {
+          assert.ok(err.message.includes('Identity Toolkit API'));
+          return true;
+        },
+        'Deve propagar o erro imediatamente com throw createErr'
+      );
+    });
+
+    it('5.8. handleCreateProfessional retorna HTTP 500 (NUNCA 201) quando o provisionamento do Auth falhar', async () => {
+      const authErr: any = new Error('Firebase Auth unavailable');
+      authErr.code = 'auth/internal-error';
+      createUserErrorToThrow = authErr;
+
+      const { req, res, getStatus, getBody } = createMockHttp({
+        actor: { uid: 'owner-1', role: 'barbershop_owner', tenantId: 'tenant-alfa' },
+        body: {
+          name: 'Barbeiro Auth Falha',
+          email: 'barbeiro.auth.falha@barbearia.com'
+        }
+      });
+
+      await handleCreateProfessional(req, res);
+
+      assert.strictEqual(getStatus(), 500, 'Controlador deve retornar HTTP 500 e nunca HTTP 201');
+      assert.strictEqual(deletedUsers.length, 0, 'Nenhuma conta deve ser apagada pois nenhuma foi criada');
+      const usersCol = firestoreData.get('users');
+      assert.strictEqual(usersCol?.size || 0, 0, 'Nenhum documento deve ser gravado em users/{uid}');
+      const pubCol = firestoreData.get('publicProfessionalProfiles');
+      assert.strictEqual(pubCol?.size || 0, 0, 'Nenhum documento deve ser gravado em publicProfessionalProfiles/{uid}');
+    });
+
+    it('5.9. handleCreateProfessional preserva conta preexistente se gravação de Custom Claims falhar', async () => {
+      // Cadastra usuário preexistente (ex: cliente do app que vai virar barbeiro)
+      const existingUid = 'preexistente-sem-exclusao-uid';
+      users.set(existingUid, {
+        uid: existingUid,
+        email: 'cliente.antigo@barbearia.com',
+        displayName: 'Cliente Antigo'
+      });
+
+      // Simula erro na gravação de Custom Claims
+      const claimsErr: any = new Error('Erro ao gravar claims');
+      customClaimsErrorToThrow = claimsErr;
+
+      const { req, res, getStatus } = createMockHttp({
+        actor: { uid: 'owner-1', role: 'barbershop_owner', tenantId: 'tenant-alfa' },
+        body: {
+          name: 'Cliente Antigo',
+          email: 'cliente.antigo@barbearia.com'
+        }
+      });
+
+      await handleCreateProfessional(req, res);
+
+      assert.strictEqual(getStatus(), 500, 'Deve retornar HTTP 500');
+      // Preservação estrita da conta preexistente
+      assert.strictEqual(deletedUsers.length, 0, 'Conta preexistente NÃO pode sofrer deleteUser');
+      assert.ok(users.has(existingUid), 'Conta preexistente deve continuar existindo no Auth');
+    });
+
+    it('5.10. handleCreateProfessional compensa (deleteUser) exclusivamente usuários criados novos na própria requisição se claims falharem', async () => {
+      const claimsErr: any = new Error('Erro ao gravar claims para novo usuário');
+      customClaimsErrorToThrow = claimsErr;
+
+      const { req, res, getStatus } = createMockHttp({
+        actor: { uid: 'owner-1', role: 'barbershop_owner', tenantId: 'tenant-alfa' },
+        body: {
+          name: 'Novo Barbeiro Para Compensar',
+          email: 'novo.para.compensar@barbearia.com'
+        }
+      });
+
+      await handleCreateProfessional(req, res);
+
+      assert.strictEqual(getStatus(), 500, 'Deve retornar HTTP 500');
+      // Deve compensar apagando a conta recém-criada
+      assert.strictEqual(deletedUsers.length, 1, 'Deve compensar o usuário novo');
+      assert.ok(deletedUsers[0].startsWith('canonical-prof-') || deletedUsers[0].startsWith('auth-prof-'));
     });
   });
 

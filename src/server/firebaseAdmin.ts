@@ -421,14 +421,6 @@ export async function provisionManagerAccount(params: {
     };
   } catch (err: any) {
     if (err?.code !== 'auth/user-not-found') {
-      if (
-        process.env.NODE_ENV === 'test' ||
-        err?.code === 'auth/internal-error' ||
-        err?.message?.includes('Identity Toolkit API')
-      ) {
-        const simUid = `auth-mgr-${Buffer.from(cleanEmail).toString('hex').slice(0, 16)}`;
-        return { uid: simUid, email: cleanEmail, displayName: cleanDisplayName, isNew: true };
-      }
       throw err;
     }
   }
@@ -455,14 +447,6 @@ export async function provisionManagerAccount(params: {
       isNew: true
     };
   } catch (createErr: any) {
-    if (
-      process.env.NODE_ENV === 'test' ||
-      createErr?.code === 'auth/internal-error' ||
-      createErr?.message?.includes('Identity Toolkit API')
-    ) {
-      const simUid = `auth-mgr-${Buffer.from(cleanEmail).toString('hex').slice(0, 16)}`;
-      return { uid: simUid, email: cleanEmail, displayName: cleanDisplayName, isNew: true };
-    }
     throw createErr;
   }
 }
@@ -493,14 +477,6 @@ export async function provisionProfessionalAccount(params: {
     };
   } catch (err: any) {
     if (err?.code !== 'auth/user-not-found') {
-      if (
-        process.env.NODE_ENV === 'test' ||
-        err?.code === 'auth/internal-error' ||
-        err?.message?.includes('Identity Toolkit API')
-      ) {
-        const simUid = `auth-prof-${Buffer.from(cleanEmail).toString('hex').slice(0, 16)}`;
-        return { uid: simUid, email: cleanEmail, displayName: cleanDisplayName, isNew: true };
-      }
       throw err;
     }
   }
@@ -526,14 +502,6 @@ export async function provisionProfessionalAccount(params: {
       isNew: true
     };
   } catch (createErr: any) {
-    if (
-      process.env.NODE_ENV === 'test' ||
-      createErr?.code === 'auth/internal-error' ||
-      createErr?.message?.includes('Identity Toolkit API')
-    ) {
-      const simUid = `auth-prof-${Buffer.from(cleanEmail).toString('hex').slice(0, 16)}`;
-      return { uid: simUid, email: cleanEmail, displayName: cleanDisplayName, isNew: true };
-    }
     throw createErr;
   }
 }
