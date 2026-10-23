@@ -1249,7 +1249,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.get('/api/health/ready', async (req: Request, res: Response) => {
-  // Readiness probe: verifica conectividade com Firebase Admin / Firestore com timeout curto (máx 2000ms)
+  // Readiness probe: verifica conectividade com Firebase Admin / Firestore com timeout curto (máx 5000ms)
   try {
     const { firestore } = getFirebaseAdmin();
     if (!firestore || typeof firestore.collection !== 'function') {
@@ -1261,7 +1261,7 @@ app.get('/api/health/ready', async (req: Request, res: Response) => {
 
     const checkPromise = firestore.collection('plans').limit(1).get();
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('TIMEOUT')), 2000)
+      setTimeout(() => reject(new Error('TIMEOUT')), 5000)
     );
 
     await Promise.race([checkPromise, timeoutPromise]);
@@ -1270,9 +1270,45 @@ app.get('/api/health/ready', async (req: Request, res: Response) => {
       status: 'ready',
       checks: { firestore: 'ok' }
     });
-  } catch (err) {
+  } catch (err: any) {
+    const rawError = err;
+    let errorCategory = 'UNKNOWN_ERROR';
+    const errorCode = rawError?.code !== undefined ? String(rawError.code) : undefined;
+
+    if (rawError?.message === 'TIMEOUT' || rawError?.code === 'ETIMEDOUT') {
+      errorCategory = 'TIMEOUT';
+    } else if (
+      rawError?.code === 7 ||
+      rawError?.code === 'permission-denied' ||
+      (typeof rawError?.message === 'string' && (
+        rawError.message.includes('PERMISSION_DENIED') ||
+        rawError.message.includes('Missing or insufficient permissions')
+      ))
+    ) {
+      errorCategory = 'PERMISSION_DENIED';
+    } else if (
+      rawError?.code === 5 ||
+      rawError?.code === 'not-found' ||
+      (typeof rawError?.message === 'string' && rawError.message.includes('NOT_FOUND'))
+    ) {
+      errorCategory = 'NOT_FOUND';
+    } else if (
+      rawError?.code === 14 ||
+      rawError?.code === 'unavailable' ||
+      rawError?.code === 'ECONNREFUSED' ||
+      rawError?.code === 'ENOTFOUND' ||
+      (typeof rawError?.message === 'string' && (
+        rawError.message.includes('UNAVAILABLE') ||
+        rawError.message.includes('getaddrinfo')
+      ))
+    ) {
+      errorCategory = 'CONNECTION_FAILED';
+    }
+
     logger.warn('[HealthCheck] Readiness probe falhou ou excedeu timeout', {
       requestId: (req as any).id,
+      category: errorCategory,
+      code: errorCode || 'NONE',
       error: 'FIRESTORE_CHECK_FAILED'
     });
     return res.status(503).json({
